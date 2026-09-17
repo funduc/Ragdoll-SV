@@ -1,24 +1,13 @@
-export const INTRO_DURATION_MS = 5000;
-
-// Uses the existing RAF clock, never an attempt timer. Dismissal only reveals
-// Ready: the player's separate confirmation is still required to start physics.
+// Only an explicit confirmation dismisses a biography. Ready still requires
+// a separate confirmation before physics starts.
 export class Introduction {
   constructor() {
-    this.deadline = null;
+    this.active = false;
   }
-  get active() {
-    return this.deadline !== null;
-  }
-  start(now) {
-    this.deadline = now + INTRO_DURATION_MS;
-  }
-  remaining(now) {
-    return this.active ? Math.max(0, this.deadline - now) : 0;
-  }
-  expired(now) {
-    return this.active && now >= this.deadline;
+  start() {
+    this.active = true;
   }
   clear() {
-    this.deadline = null;
+    this.active = false;
   }
 }

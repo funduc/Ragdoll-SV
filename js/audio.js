@@ -178,7 +178,7 @@ export class SynthAudio {
     }
     this.voices.delete(voice);
   }
-  play(cue, value = 0) {
+  play(cue) {
     if (
       this.destroyed ||
       this.failed ||
@@ -194,9 +194,6 @@ export class SynthAudio {
       switch (cue) {
         case "click":
           this.voice("square", 520, 0, 0.045, 0.055, 760);
-          break;
-        case "countdown":
-          this.voice("triangle", value ? 640 + value * 50 : 1100, 0, 0.09, 0.1);
           break;
         case "rattle":
           this.voice("noise", 1800, 0, 0.035, 0.075);

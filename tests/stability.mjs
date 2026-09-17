@@ -73,7 +73,19 @@ check(
       }
       key("Enter");
       key("Enter", true);
+      input.clear();
+      key("Enter");
       assert.equal(confirms, 1);
+      const release = new Event("keyup", { cancelable: true });
+      Object.assign(release, { code: "Enter" });
+      window.dispatchEvent(release);
+      assert.equal(release.defaultPrevented, true);
+      key("Enter");
+      assert.equal(
+        confirms,
+        2,
+        "only release re-arms confirmation after a screen change",
+      );
     } finally {
       input.destroy();
     }

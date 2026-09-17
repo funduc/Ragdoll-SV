@@ -61,19 +61,21 @@ check(
   },
 );
 check(
-  "Introductions expire at five seconds and clear cleanly on skip or restart",
+  "Introductions have no deadline and clear only on explicit continuation or reset",
   () => {
     const intro = new Introduction();
-    intro.start(100);
-    assert.equal(intro.remaining(100), 5000);
-    assert.equal(intro.expired(5099), false);
-    assert.equal(intro.expired(5100), true);
+    assert.equal(intro.active, false);
+    intro.start();
+    assert.equal(intro.active, true);
+    assert.equal("deadline" in intro, false);
+    assert.equal("remaining" in intro, false);
+    assert.equal("expired" in intro, false);
     intro.clear();
     assert.equal(intro.active, false);
-    intro.start(20000);
-    assert.equal(intro.remaining(20000), 5000);
+    intro.start();
+    assert.equal(intro.active, true);
     intro.clear();
-    assert.equal(intro.expired(999999), false);
+    assert.equal(intro.active, false);
   },
 );
 check(

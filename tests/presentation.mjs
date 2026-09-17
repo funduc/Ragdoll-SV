@@ -89,7 +89,6 @@ await check(
     const ctx = Context.instances[0];
     for (const cue of [
       "click",
-      "countdown",
       "rattle",
       "launch",
       "impact",

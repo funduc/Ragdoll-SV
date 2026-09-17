@@ -13,6 +13,7 @@ const CONTROL_KEYS = new Set([
 export class Input {
   constructor({ isActive, onConfirm, onRestart, onSuspend }) {
     this.keys = new Set();
+    this.enterHeld = false;
     this.focused = true;
     this.isActive = isActive;
     this.onConfirm = onConfirm;
@@ -31,25 +32,36 @@ export class Input {
       // remain one-shot, so holding Enter/R cannot skip screens or keep resetting.
       if (event.repeat && (event.code === "Enter" || event.code === "KeyR"))
         return;
+      if (event.code === "Enter") {
+        if (this.enterHeld) return;
+        this.enterHeld = true;
+      }
       this.keys.add(event.code);
       if (event.code === "Enter") onConfirm();
       else if (event.code === "KeyR" && isActive()) onRestart();
     };
     this.keyup = (event) => {
+      if (event.code === "Enter") {
+        this.enterHeld = false;
+        event.preventDefault();
+      }
       this.keys.delete(event.code);
       if (isActive() && CONTROL_KEYS.has(event.code)) event.preventDefault();
     };
     this.blur = () => {
       this.focused = false;
+      this.enterHeld = false;
       this.clear();
       onSuspend(true);
     };
     this.focus = () => {
       this.focused = true;
+      this.enterHeld = false;
       this.clear();
       onSuspend(document.hidden);
     };
     this.visibility = () => {
+      this.enterHeld = false;
       this.clear();
       onSuspend(document.hidden || !this.focused);
     };
@@ -68,6 +80,7 @@ export class Input {
     };
   }
   clear() {
+    // Clearing movement on a screen change must not re-arm a held Enter key.
     this.keys.clear();
   }
   destroy() {

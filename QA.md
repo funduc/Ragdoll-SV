@@ -1,4 +1,73 @@
-# Flash presentation pass — verification
+# Manual character introductions — verification
+
+Updated 2026-09-17. Character introductions now have no deadline or automatic transition. They remain visible until the player activates **Continue to Ready** or presses Enter. The static prompt is **PRESS ENTER WHEN READY.** Ready still requires a separate confirmation to begin the jump.
+
+The former deadline, remaining-time/expiry methods, animation-loop countdown/auto-dismiss branches, countdown DOM updater, presentation countdown bookkeeping, and introduction countdown sound were removed. The existing CSS class is retained solely to preserve the prompt's styling. No stylesheet was changed.
+
+Enter now has a release latch separate from movement keys. Clearing controls during the introduction-to-Ready transition cannot re-arm it. Repeated keydowns, including duplicate events without a repeat flag, cannot also activate Begin jump. Keyup releases the latch and prevents native follow-on activation; blur/focus/visibility handling prevents a stuck latch after losing focus. No timer-based input debounce or new listener was added.
+
+## Verification performed
+
+The managed preview still reported an unavailable `sites-previewd` mailbox. These are automated DOM/Canvas checks using the real game modules, not a live-browser playthrough or real-device tap test.
+
+| Requested check                              | Result actually observed                                                                                                                                   |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jake remains visible for at least 15 seconds | The same biography card remained visible during **15.02 seconds of real elapsed time** in the DOM harness, with frames running throughout.                 |
+| Brandon remains until manually continued     | Passed all tested qualifying and championship appearances after 15 seconds of regular simulated frames plus an 8-second stalled frame.                     |
+| Owen remains until manually continued        | Passed the same 23-second check in qualifying and championship.                                                                                            |
+| Click advances exactly one screen            | Continue to Ready removed the card, displayed Begin jump, and left physics stopped. An additional second of frames did not start the attempt.              |
+| Enter advances exactly one screen            | Enter on the focused introduction button displayed Ready only.                                                                                             |
+| Holding Enter cannot begin the jump          | Three seconds of repeated keydowns and an extra non-repeat keydown without release left Ready intact. Keyup followed by a fresh confirmation allowed play. |
+| Restart does not restore the timer           | Three complete desktop tournaments with restart between them passed. Every introduction after restart received the same 23-second persistence check.       |
+| No timer-related console errors              | Zero captured game console errors, warnings, window errors, or game timeout/interval calls.                                                                |
+
+The desktop run inspected **21 introductions**, covering Jake, Brandon, and Owen in **both rounds**, plus prelaunch retries and fault recovery. It completed three tournaments / 15 tournament attempts and two extra fault/recovery attempts. The narrow/touch-mode harness completed another tournament, restart, and recovery checks, inspecting 11 introductions. It activated the native Continue button via simulated clicks; the pointer control implementation and button focus behavior are unchanged.
+
+All biography, statistic, strength, weakness, passive, and commentary markup was checked to remain unchanged while each card waited. All three named PNG portrait requests remain disabled. No additional timer, interval, or listener survives the change.
+
+`npm test` passed **33 groups**, plus 48 successful root/project-prefix HTTP requests and the expected deliberate 404 check. The unchanged physics/scoring regression checks passed. Desktop tournament outcomes were Brandon, Brandon, and a shared victory; tournament order and round accounting passed. Input event timings differ from the earlier presentation test because these tests now wait on every introduction.
+
+Commands performed:
+
+```sh
+npm test
+node --experimental-vm-modules tests/dom-flow.mjs
+MOBILE=1 node --experimental-vm-modules tests/dom-flow.mjs
+```
+
+The host's npm configuration warning and Node experimental-VM warning are separate from the game's captured console, which was clean.
+
+## Exact source changes
+
+| File                  | Functions changed                                                                                                                                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `js/introductions.js` | `Introduction.constructor`, `start`, `clear`: manual active flag. Removed `INTRO_DURATION_MS`, the `active` getter, `remaining`, and `expired`.                                                                   |
+| `js/game.js`          | `Game.renderState`: starts an introduction without a timestamp. `Game.frame`: removes all introduction countdown and automatic dismissal logic.                                                                   |
+| `js/ui.js`            | `UI.showIntroduction`: static prompt and Continue to Ready label. Removed `UI.updateIntroduction`.                                                                                                                |
+| `js/input.js`         | `Input.constructor` and its `keydown`, `keyup`, `blur`, `focus`, `visibility` handlers: Enter release latch and focus recovery. `clear` received an explanatory comment; it still only clears movement/key state. |
+| `js/presentation.js`  | `Presentation.constructor` and `replaceWorld`: removed `lastCountdown`. Removed `Presentation.countdown`.                                                                                                         |
+| `js/audio.js`         | `SynthAudio.play`: removed the obsolete introduction countdown cue and its unused value parameter. Other cues are unchanged.                                                                                      |
+
+Verification/documentation files changed:
+
+- `tests/personalization.mjs`: replaced the expiry test with the manual visibility lifecycle test.
+- `tests/stability.mjs`: extended the input test with release gating across `clear()`.
+- `tests/dom-flow.mjs`: updated `key` to accept a target; added `waitOnJake`; replaced expiry checks in `finishIntroduction` with persistence and one-screen continuation checks; updated the tournament loop and report.
+- `tests/presentation.mjs`: removed the obsolete countdown cue from the audio test list.
+- `README.md`, `QA.md`: current behavior and verification record.
+- `deliverables/ragdoll-olympics-vertical-slice.zip`: refreshed project archive.
+
+Compared against the pre-change snapshot: physics, scoring, tournament, character data, passives, commentary, renderer, touch controls, both stylesheets, and index markup are unchanged. No other screen timing was modified.
+
+## Remaining limitation
+
+Live-browser rendering, native keyboard default behavior, and real-device tapping could not be checked because preview access is unavailable. The automated checks above passed; they must not be described as a browser playthrough.
+
+---
+
+The following is the historical report from the preceding presentation pass. Its timed-introduction/countdown references describe that earlier version and are superseded by the manual behavior above.
+
+# Previous Flash presentation verification (historical)
 
 Updated 2026-09-17. The tournament, scoring, keyboard input, physics, character data, passives, introductions, and commentary-selection modules are byte-for-byte unchanged from the pre-polish snapshot. Presentation is isolated in new modules and `flash.css`; the existing game loop forwards events and merges independent touch holds. No framework, build step, external artwork, or music was added.
 

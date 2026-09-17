@@ -97,7 +97,7 @@ export class UI {
         ? `<span class="censored-keepsake"><span class="censored-icon" role="img" aria-label="Black-bar-censored novelty item">CENSORED</span><span>${escape(c.keepsake.label)}</span></span>`
         : "";
     this.overlay.innerHTML = `<section class="menu-panel intro-card" style="--person:${c.primaryColor}" aria-label="Character introduction">
-      <p class="eyebrow">MEET THE COMPETITOR <span class="intro-countdown">READY IN <b id="intro-seconds">5</b>s</span></p>
+      <p class="eyebrow">MEET THE COMPETITOR <span class="intro-countdown">PRESS ENTER WHEN READY.</span></p>
       <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</p></div></div>
       <p class="intro-bio">${escape(c.biography)}</p>
       ${c.associatedPhrase ? `<p class="tiny intro-phrase">“${escape(c.associatedPhrase)}”</p>` : ""}
@@ -112,14 +112,10 @@ export class UI {
         .join("")}</dl>
       <p class="intro-passive"><b>${escape(c.passive.name)}</b> · ${escape(c.passive.description)}</p>
       <p class="intro-john"><b>JOHN SANTOR:</b> ${escape(john || "The Vault is ready.")}</p>
-      ${button("Skip to Ready")}
+      ${button("Continue to Ready")}
     </section>`;
     this.say(john);
     this.overlay.querySelector("button")?.focus({ preventScroll: true });
-  }
-  updateIntroduction(remaining) {
-    const counter = document.getElementById("intro-seconds");
-    if (counter) counter.textContent = String(Math.ceil(remaining / 1000));
   }
   render(t) {
     this.root.dataset.state = t.state;

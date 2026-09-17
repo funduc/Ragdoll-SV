@@ -3,6 +3,7 @@
 // Optional test dependencies: npm install --prefix .qa --no-save jsdom@26.1.0 @napi-rs/canvas@0.1.100
 // Run: node --experimental-vm-modules tests/dom-flow.mjs
 import assert from "node:assert/strict";
+import { setTimeout as wait } from "node:timers/promises";
 import { audioDouble } from "./fake-audio.mjs";
 import { CHARACTERS } from "../js/characters.js";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
@@ -270,7 +271,7 @@ function frame(gap = 1000 / 60) {
     "gameplay must not create timeout/interval timers",
   );
 }
-function key(code, type = "keydown", repeat = false) {
+function key(code, type = "keydown", repeat = false, target = w) {
   const event = new w.KeyboardEvent(type, {
     code,
     key: code,
@@ -278,7 +279,7 @@ function key(code, type = "keydown", repeat = false) {
     cancelable: true,
     repeat,
   });
-  w.dispatchEvent(event);
+  target.dispatchEvent(event);
   return event;
 }
 function tap(code) {
@@ -382,7 +383,24 @@ if (!process.env.AUDIO_UNAVAILABLE) {
 // without inserting a missing image URL or even attempting a resource request.
 assert.equal(document.querySelectorAll(".portrait img").length, 0);
 assert.ok(document.querySelector(".portrait").textContent.includes("JE"));
-function finishIntroduction(mode = "skip") {
+let realIntroductionWaitMs = 0;
+async function waitOnJake() {
+  const started = performance.now();
+  let previous = started;
+  const card = document.querySelector(".intro-card");
+  assert.ok(card.textContent.includes(CHARACTERS[0].fullName));
+  while (performance.now() - started < 15000) {
+    await wait(50);
+    const now = performance.now();
+    frame(now - previous);
+    previous = now;
+    assert.equal(document.querySelector(".intro-card"), card);
+    assert.equal(game.dataset.introduction, "true");
+    assert.equal(state(), "ready");
+  }
+  realIntroductionWaitMs = performance.now() - started;
+}
+function finishIntroduction(mode = "enter") {
   assert.equal(state(), "ready");
   assert.equal(game.dataset.introduction, "true");
   const card = document.querySelector(".intro-card");
@@ -418,27 +436,63 @@ function finishIntroduction(mode = "skip") {
       0,
     );
   }
-  introVisits.push({ character: c.id, mode });
+  const content = card.innerHTML;
+  const caption = document.getElementById("commentary").textContent;
+  const continueButton = card.querySelector('[data-action="confirm"]');
+  assert.ok(continueButton.textContent.includes("Continue to Ready"));
+  assert.equal(
+    card.querySelector(".intro-countdown").textContent,
+    "PRESS ENTER WHEN READY.",
+  );
+  assert.equal(document.getElementById("intro-seconds"), null);
   const physicsTime = engine().timing.timestamp;
-  if (mode === "timeout") {
-    frame(4999);
-    assert.equal(game.dataset.introduction, "true");
-    frame(1);
-  } else if (mode === "stall") frame(8000);
-  else {
-    if (mode === "click") click();
-    else confirm();
-    key("Enter", "keydown", true);
+  // Normal frames cross the former five-second deadline for every appearance.
+  for (let i = 0; i < 150; i++) {
+    frame(100);
+    assert.equal(document.querySelector(".intro-card"), card);
+  }
+  frame(8000); // Background/stalled frames must not dismiss a biography either.
+  assert.equal(
+    card.innerHTML,
+    content,
+    "all biography content remains unchanged",
+  );
+  assert.equal(document.getElementById("commentary").textContent, caption);
+  assert.equal(game.dataset.introduction, "true");
+  introVisits.push({
+    character: c.id,
+    round: document.getElementById("round-label").textContent,
+    mode,
+    simulatedReadingMs: 23000,
+  });
+  if (mode === "click" || mobile) {
+    continueButton.click();
+  } else {
+    assert.ok(key("Enter", "keydown", false, continueButton).defaultPrevented);
+    const readyButton = document.querySelector('[data-action="confirm"]');
+    assert.ok(readyButton.textContent.includes("Begin jump"));
+    for (let i = 0; i < 30; i++) {
+      frame(100);
+      key("Enter", "keydown", true, readyButton);
+      assert.equal(state(), "ready", "held Enter cannot start physics");
+    }
+    key("Enter", "keydown", false, readyButton);
     assert.equal(
       state(),
       "ready",
-      "holding Skip cannot also begin the attempt",
+      "duplicate keydown without release cannot start physics",
     );
-    key("Enter", "keyup");
+    assert.ok(key("Enter", "keyup", false, readyButton).defaultPrevented);
   }
   assert.equal(game.dataset.introduction, "false");
   assert.equal(document.querySelector(".intro-card"), null);
-  assert.equal(state(), "ready", "intro expiry only reveals the hand-off");
+  assert.equal(
+    state(),
+    "ready",
+    "manual continuation reveals exactly one screen",
+  );
+  for (let i = 0; i < 10; i++) frame(100);
+  assert.equal(state(), "ready", "Ready still needs a separate confirmation");
   assert.equal(
     engine().timing.timestamp,
     physicsTime,
@@ -463,15 +517,8 @@ for (let run = 0; run < runCount; run++) {
   for (let jump = 0; jump < 5; jump++) {
     const expectedActive = jump < 3 ? "active-attempt" : "championship-attempt";
     assert.equal(state(), "ready");
-    finishIntroduction(
-      run === 0 && jump === 0
-        ? "timeout"
-        : run === 0 && jump === 2
-          ? "stall"
-          : run === 0 && jump === 1
-            ? "click"
-            : "skip",
-    );
+    if (run === 0 && jump === 0 && !mobile) await waitOnJake();
+    finishIntroduction(jump % 2 ? "click" : "enter");
     const who = currentName();
     assert.ok(who);
     if (jump === 0) assert.equal(who, "Jake Eckler");
@@ -884,6 +931,7 @@ console.log(
       additionalFaultRecoveryAttempts: 2,
       engineInstances: engines.length,
       introductions: introVisits,
+      realIntroductionWaitMs,
       passiveMessages: Object.fromEntries(
         Object.entries(passiveMessages).map(([id, messages]) => [
           id,
@@ -905,7 +953,8 @@ console.log(
         "prelaunch restart",
         "airborne restart lock",
         "absent PNG portraits never requested",
-        "all character introductions; skip and five-second expiry",
+        "all introductions persist for 23 simulated seconds; manual continuation only",
+        "Enter release required before Begin jump",
         "introduction stall and retry cleanup",
         "all passive status messages visible",
         "black-bar-only censored Temu icon",

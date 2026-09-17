@@ -25,7 +25,7 @@ Put the project files at the root of your repository. In GitHub Pages, publish t
 | Space / Up | Hold to accelerate during the run-up                              |
 | Left / A   | Rotate backward in the air                                        |
 | Right / D  | Rotate forward in the air                                         |
-| Enter      | Skip an introduction or confirm the current menu                  |
+| Enter      | Continue an introduction or confirm the current menu              |
 | R          | Reset **before takeoff**, replaying the introduction and hand-off |
 
 Air controls stop at the first landing. R is ignored after takeoff and on results screens. Switching tabs or losing focus pauses the simulation and clears held input. Press the controls again when returning. Menus never start an attempt automatically.
@@ -38,13 +38,13 @@ On a touch screen, hold **DRIVE**, **LEFT**, or **RIGHT** in the control bar bel
 
 Launch/landing dust, hard-impact sparks, and winner confetti share a cap of **96 particles**. Major crashes shake only the Canvas by at most **4 pixels for 0.22 seconds**. Effects use a separate random generator and never write to Matter bodies. Reduced-motion preferences disable shake, confetti, and CSS animations and reduce the remaining bursts.
 
-Original Web Audio synthesis supplies clicks, introduction countdown, rattle, launch, impact, crowd, elimination, and victory cues. One audio context is created after the first user gesture; cues have a 24-voice limit and no JavaScript timers. The persistent **SOUND ON / MUTED** button works throughout the tournament. Mute preference survives a page reload when local storage is available. Mute, pause, reset, and disposal stop active voices. If audio is unavailable, the game continues silently and the button reads **SOUND N/A**.
+Original Web Audio synthesis supplies clicks, rattle, launch, impact, crowd, elimination, and victory cues. One audio context is created after the first user gesture; cues have a 24-voice limit and no JavaScript timers. The persistent **SOUND ON / MUTED** button works throughout the tournament. Mute preference survives a page reload when local storage is available. Mute, pause, reset, and disposal stop active voices. If audio is unavailable, the game continues silently and the button reads **SOUND N/A**.
 
 ## Tournament
 
 Jake “Hardened Vet” Eckler, Brandon “Wordsmith” Hale, and Owen “Sparky” Wrate each get one qualifying jump, in that order. The lowest total is eliminated. Qualifying ties use distance, then the displayed roster order. The qualifying runner-up jumps first in the championship; the best qualifier jumps last.
 
-Before every attempt, a character introduction shows for five seconds or until skipped with Enter/the button. It returns to Ready; a separate confirmation still starts the attempt. The three highlighted joke statistics appear on the introduction, with the remaining statistics on Ready. Prelaunch retries replay the introduction.
+Before every attempt, the full character introduction stays visible until the player clicks/taps **Continue to Ready** or presses Enter. Its static prompt reads **PRESS ENTER WHEN READY.** There is no introduction timer or automatic transition. Continuing reveals Ready; a separate confirmation still starts the attempt. Enter must be released before it can confirm again, so holding it cannot also begin the jump. The three highlighted joke statistics appear on the introduction, with the remaining statistics on Ready. Prelaunch retries replay the introduction.
 
 Both finalists receive one new jump. Only championship points determine the winner. Equal championship totals are a shared victory. Restart returns to the title with all scores cleared, without refreshing.
 
@@ -80,7 +80,7 @@ The result screen shows all four components and their sum. A crash retains dista
 - `index.html`, `styles.css`, `flash.css`: game cabinet, menu containers, original arcade skin, responsive layout, and reduced-motion rules.
 - `js/characters.js`: separate personality, statistics, portrait availability, commentary, and tuning data.
 - `js/passives.js`: small character-specific forces and cosmetic status.
-- `js/introductions.js`: five-second deadline using the existing animation-loop clock; no timers.
+- `js/introductions.js`: manual introduction visibility; no clock, deadline, or timer.
 - `js/commentary.js`: caption pools, selection, escalation, and a bounded attempt-local queue.
 - `js/physics.js`: world lifecycle, terrain, two wheels/axles, jointed rider, breakable attachments, collision and settlement detection.
 - `js/renderer.js`: Canvas drawing and camera; resizing changes view transforms only.
@@ -101,7 +101,7 @@ The result screen shows all four components and their sum. A crash retains dista
 
 ## Engineering and tests
 
-Matter advances at 120 fixed steps per simulation second, independently of drawing. At most 12 steps run per frame. Gaps above 250 ms are discarded; movement-key repeats restore held input after the gap. Focus and visibility both have to permit play before a paused attempt resumes. Attempts and introductions own no timers. Introductions use a wall-clock deadline checked by the existing RAF loop, without advancing physics or auto-starting an attempt. Replacing an attempt unregisters its physics collision callback, empties its composite, and clears its engine and collision pairs. A single page-level input owner and animation loop survive tournament restarts.
+Matter advances at 120 fixed steps per simulation second, independently of drawing. At most 12 steps run per frame. Gaps above 250 ms are discarded; movement-key repeats restore held input after the gap. Focus and visibility both have to permit play before a paused attempt resumes. Attempts and introductions own no timers. Introductions remain open until explicit confirmation, without advancing physics or auto-starting an attempt. Replacing an attempt unregisters its physics collision callback, empties its composite, and clears its engine and collision pairs. A single page-level input owner and animation loop survive tournament restarts.
 
 Non-finite physics data ends the attempt with a safety-stop result using the last valid measurements. Score components are bounded and checked before being recorded. A failed portrait uses its initials for the rest of the page session instead of retrying on every menu.
 
@@ -118,7 +118,7 @@ npm install --prefix .qa --no-save jsdom@26.1.0 @napi-rs/canvas@0.1.100
 npm run test:dom
 ```
 
-It runs the real source modules through three tournaments, restarting between them, using keyboard and button events. It also checks all three introductions, skip/expiry, passive HUD messages, censored markup, missing-portrait request prevention, literary crash results, and a numeric-fault attempt followed by a healthy attempt. Layout, focus/visibility events, and frame timing are simulated; this is not a live-browser test. See `QA.md` for exact results and the outstanding live-preview limitation.
+It runs the real source modules through three tournaments, restarting between them, using keyboard and button events. It also checks all three introductions remaining open beyond 15 seconds, manual continuation, Enter-release gating, passive HUD messages, censored markup, missing-portrait request prevention, literary crash results, and a numeric-fault attempt followed by a healthy attempt. Layout, focus/visibility events, and frame timing are simulated; this is not a live-browser test. See `QA.md` for exact results and the outstanding live-preview limitation.
 
 Additional optional checks (POSIX shell):
 

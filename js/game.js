@@ -92,7 +92,7 @@ class Game {
     this.presentation.state(this.tournament);
     if (this.tournament.state === State.READY) {
       this.ui.resetAttempt();
-      this.introduction.start(performance.now());
+      this.introduction.start();
       this.ui.showIntroduction(this.tournament);
     }
   }
@@ -114,13 +114,6 @@ class Game {
   }
   frame(time) {
     if (this.destroyed) return;
-    if (this.introduction.expired(time)) {
-      this.presentation.countdown(0);
-      this.dismissIntroduction();
-    } else if (this.introduction.active) {
-      this.ui.updateIntroduction(this.introduction.remaining(time));
-      this.presentation.countdown(this.introduction.remaining(time));
-    }
     const gap = this.lastTime === null ? 0 : Math.max(0, time - this.lastTime);
     this.lastTime = time;
     // Long stalls are discarded; no catch-up storm, teleport, or instant timeout.

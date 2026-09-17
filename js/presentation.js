@@ -13,7 +13,6 @@ export class Presentation {
         false,
     );
     this.lastState = null;
-    this.lastCountdown = null;
   }
   replaceWorld(world) {
     this.world = world;
@@ -21,7 +20,6 @@ export class Presentation {
     this.landed = false;
     this.crashed = false;
     this.nextImpact = 0;
-    this.lastCountdown = null;
     this.effects.clear();
     this.audio.resetAttempt();
   }
@@ -44,13 +42,6 @@ export class Presentation {
       this.audio.play("victory");
     }
     if (t.state === State.TITLE) this.effects.clear();
-  }
-  countdown(remaining) {
-    const seconds = Math.ceil(remaining / 1000);
-    if (seconds !== this.lastCountdown) {
-      this.audio.play("countdown", seconds);
-      this.lastCountdown = seconds;
-    }
   }
   observe(world) {
     if (world !== this.world) this.replaceWorld(world);
