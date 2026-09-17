@@ -1,0 +1,11 @@
+{
+  "name": "ragdoll-olympics-santor-vault",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node tests/serve.mjs",
+    "test": "node tests/physics-and-tournament.mjs && node tests/stability.mjs && node tests/personalization.mjs && node tests/presentation.mjs && node tests/static-files.mjs",
+    "test:dom": "node --experimental-vm-modules tests/dom-flow.mjs"
+  }
+}

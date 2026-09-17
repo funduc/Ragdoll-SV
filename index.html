@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#11171c" />
+    <meta
+      name="description"
+      content="Three competitors. Five jumps. One shopping cart. A local pass-and-play physics tournament in The Santor Vault."
+    />
+    <title>Ragdoll Olympics · The Santor Vault</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%2311171c'/%3E%3Cpath d='M5 8h4l3 13h13l3-10H10' fill='none' stroke='%23ff852b' stroke-width='3'/%3E%3Ccircle cx='14' cy='26' r='2' fill='%2375dfff'/%3E%3Ccircle cx='24' cy='26' r='2' fill='%2375dfff'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./flash.css" />
+    <script src="./vendor/matter-0.20.0.min.js" defer></script>
+    <script type="module" src="./js/game.js"></script>
+  </head>
+  <body>
+    <main class="cabinet" id="game" data-state="title">
+      <header class="masthead">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">RO<span>★</span></span>
+          <div>
+            <strong>RAGDOLL OLYMPICS</strong><span>THE SANTOR VAULT</span>
+          </div>
+        </div>
+        <div class="session-tag">
+          <i></i> LOCAL PASS & PLAY <b>3 PLAYERS</b>
+          <button
+            id="mute-button"
+            class="mute-button"
+            type="button"
+            aria-pressed="false"
+            aria-label="Mute sound"
+          >
+            SOUND ON
+          </button>
+        </div>
+      </header>
+      <section class="arena" aria-label="Shopping-Cart Long Jump">
+        <div class="arena-top">
+          <span><b>01</b> SHOPPING-CART LONG JUMP</span
+          ><span id="round-label">TOURNAMENT STANDBY</span>
+        </div>
+        <div class="stage" id="stage">
+          <canvas
+            id="game-canvas"
+            tabindex="-1"
+            aria-label="Shopping-cart jump arena. Hold Space or Up to accelerate; Left and Right or A and D rotate in the air. On touch screens, use the buttons below the arena."
+          ></canvas>
+          <div class="hud" id="hud" hidden>
+            <div>
+              <span id="hud-name">COMPETITOR</span
+              ><strong id="hud-phase">RUN-UP</strong>
+              <small id="passive-status" class="passive-status"></small>
+            </div>
+            <div>
+              <span>DISTANCE</span
+              ><strong id="hud-distance">0.0 <small>m</small></strong>
+            </div>
+            <div>
+              <span>AIR ROTATION</span><strong id="hud-rotation">0°</strong>
+            </div>
+            <div>
+              <span>REMAINING</span
+              ><strong id="hud-time">20.0 <small>s</small></strong>
+            </div>
+          </div>
+          <div class="play-hint" id="play-hint" hidden></div>
+          <div class="pause-banner" id="pause-banner" hidden>
+            PAUSED · Return to the game to continue.
+          </div>
+          <div class="overlay" id="overlay">
+            <section class="menu-panel">
+              <p class="eyebrow">THE SANTOR VAULT</p>
+              <h1>LOADING THE VAULT</h1>
+              <p>Preparing the shopping cart…</p>
+            </section>
+          </div>
+        </div>
+        <div
+          id="touch-controls"
+          class="touch-controls"
+          role="group"
+          aria-label="Hold controls for the current jump"
+        >
+          <button
+            type="button"
+            data-control="left"
+            aria-label="Hold to rotate left"
+            aria-pressed="false"
+            disabled
+          >
+            <span aria-hidden="true">↶</span> LEFT
+          </button>
+          <button
+            type="button"
+            data-control="accelerate"
+            aria-label="Hold to accelerate"
+            aria-pressed="false"
+            disabled
+          >
+            <span aria-hidden="true">▲</span> HOLD TO DRIVE
+          </button>
+          <button
+            type="button"
+            data-control="right"
+            aria-label="Hold to rotate right"
+            aria-pressed="false"
+            disabled
+          >
+            <span aria-hidden="true">↷</span> RIGHT
+          </button>
+        </div>
+        <div class="commentary broadcast">
+          <span class="mic" aria-hidden="true">JS</span>
+          <div class="broadcast-copy">
+            <b>JOHN SANTOR <span> / VAULT TV</span></b>
+            <p id="commentary" aria-live="polite">
+              Three competitors. One very questionable vehicle.
+            </p>
+          </div>
+          <span class="broadcast-live" aria-hidden="true">ON AIR</span>
+        </div>
+        <div class="sponsor-strip" aria-label="Fictional stadium sponsors">
+          <span>AXLE OOPS! <small>WHEEL SOLUTIONS</small></span
+          ><span>GRAVITY & SONS <small>NO RETURNS</small></span
+          ><span>CONCRETE+ <small>SOFTNESS SOLD SEPARATELY</small></span>
+        </div>
+      </section>
+      <section class="standings" aria-labelledby="standings-title">
+        <div class="section-label">
+          <h2 id="standings-title">THE COMPETITORS</h2>
+          <span>QUALIFYING → TOP TWO → CHAMPIONSHIP</span>
+        </div>
+        <div class="competitor-grid" id="standings"></div>
+      </section>
+      <footer>
+        <span><kbd>SPACE</kbd> / <kbd>↑</kbd> ACCELERATE</span
+        ><span
+          ><kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd> AIR
+          CONTROL</span
+        ><span><kbd>ENTER</kbd> CONFIRM</span
+        ><span><kbd>R</kbd> RESET BEFORE TAKEOFF</span>
+      </footer>
+      <noscript
+        ><p class="error">
+          JavaScript is required to play. Enable it, then reload this page.
+        </p></noscript
+      >
+    </main>
+  </body>
+</html>
