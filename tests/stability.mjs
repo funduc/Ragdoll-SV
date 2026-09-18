@@ -1,3 +1,4 @@
+import { timedInputs } from "./skill-helpers.mjs";
 // Dependency-free regression checks for the stabilization pass.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -39,12 +40,13 @@ function key(code, repeat = false) {
   window.dispatchEvent(event);
 }
 function drive(world, controls, stop = () => world.finished) {
-  for (let i = 0; i < 2500 && !stop(); i++) world.step(controls);
+  for (let i = 0; i < 2500 && !stop(); i++)
+    world.step(timedInputs(world, controls.rotate));
   assert.ok(stop(), "bounded simulation must finish");
 }
 
 check(
-  "Held driving/rotation keys recover on repeat after a cleared frame gap",
+  "Held keys cannot repeat pushes or leak across a cleared frame gap",
   () => {
     let confirms = 0;
     const input = new Input({
@@ -65,10 +67,14 @@ check(
         key(code);
         input.clear();
         key(code, true);
-        assert.ok(
-          input.keys.has(code),
-          `${code} stayed inactive after its repeat event`,
-        );
+        assert.equal(input.keys.has(code), false);
+        assert.equal(input.controls.pushes, 0);
+        const up = new Event("keyup");
+        Object.assign(up, { code });
+        window.dispatchEvent(up);
+        key(code);
+        assert.ok(input.keys.has(code) || input.controls.pushes === 1);
+        window.dispatchEvent(up);
         input.clear();
       }
       key("Enter");
@@ -119,21 +125,39 @@ check("Visibility changes cannot resume an unfocused or hidden game", () => {
 });
 
 check(
-  "First-contact rotation includes the completed 270-degree quarter turn",
+  "First-contact rotation includes the rotation completed on the contact step",
   () => {
-    // Preserve the known boundary fixture independently of character balancing.
-    const p = new PhysicsWorld({
-      ...CHARACTERS[0],
-      passive: null,
-      rotationControl: 0.95,
-    });
-    let air = 0;
+    const p = new PhysicsWorld(CHARACTERS[0]);
+    const original = p.handleCollisions.bind(p);
+    let before = null;
+    p.handleCollisions = (pairs) => {
+      if (
+        p.launched &&
+        !p.landed &&
+        pairs.some(
+          (pair) =>
+            pair.bodyA.parent === p.ground || pair.bodyB.parent === p.ground,
+        )
+      ) {
+        // Isolate a completion in the exact integration step that contacts ground.
+        before = p.tricks.forward;
+        p.tricks.signedRotation = Math.PI * 2 - 0.0001;
+        p.tricks.direction = 1;
+        p.tricks.runStart = 0;
+        p.tricks.extreme = p.tricks.signedRotation;
+        p.tricks.runTurns = 0;
+        p.tricks.lastAngle = p.cart.angle - 0.001;
+      }
+      original(pairs);
+    };
     try {
       for (let i = 0; i < 2400 && !p.landed && !p.finished; i++)
-        p.step({ accelerate: true, rotate: p.launched && air++ < 82 ? 1 : 0 });
-      assert.ok(p.landed);
-      assert.ok(Math.abs(p.landingAngle - p.launchAngle) >= Math.PI * 1.5);
-      assert.ok(scoreAttempt(p.metrics(), CHARACTERS[0]).quarterTurns >= 3);
+        p.step(timedInputs(p, 1));
+      assert.ok(p.landed && before !== null);
+      assert.equal(p.tricks.forward, before + 1);
+      assert.ok(
+        scoreAttempt(p.metrics(), CHARACTERS[0]).tricks.completedRotations >= 1,
+      );
     } finally {
       p.dispose();
     }
@@ -175,7 +199,7 @@ check("Non-finite physics stops before poisoning distance and rotation", () => {
   try {
     drive(p, { accelerate: true, rotate: 0 }, () => p.launched);
     p.cart.position.x = NaN;
-    p.step({ accelerate: true, rotate: 0 });
+    p.step(timedInputs(p));
     assert.ok(p.finished);
     assert.equal(p.invalid, true);
     assert.ok(Number.isFinite(scoreAttempt(p.metrics(), CHARACTERS[0]).total));

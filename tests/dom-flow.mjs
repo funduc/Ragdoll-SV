@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 import { setTimeout as wait } from "node:timers/promises";
 import { audioDouble } from "./fake-audio.mjs";
 import { CHARACTERS } from "../js/characters.js";
+import { timedInputs } from "./skill-helpers.mjs";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { SourceTextModule, runInContext } from "node:vm";
 import { resolve, dirname } from "node:path";
@@ -36,7 +38,7 @@ w.console.error = (...args) => errors.push(args.map(String).join(" "));
 w.console.warn = (...args) => warnings.push(args.map(String).join(" "));
 w.addEventListener("error", (e) => errors.push(e.message));
 // Parse the actual sheets as a syntax check; JSDOM does not lay them out.
-for (const name of ["styles.css", "flash.css"]) {
+for (const name of ["styles.css", "flash.css", "skills.css", "tricks.css"]) {
   const style = document.createElement("style");
   style.textContent = await readFile(resolve(root, name), "utf8");
   document.head.appendChild(style);
@@ -185,7 +187,9 @@ w.Matter.Engine.update = (engine, ...args) => {
 const cache = new Map();
 async function moduleAt(path) {
   if (cache.has(path)) return cache.get(path);
-  const mod = new SourceTextModule(await readFile(path, "utf8"), {
+  // Cache synchronously before sibling imports request the same module. This
+  // mirrors browser module identity and keeps instrumentation on the live class.
+  const mod = new SourceTextModule(readFileSync(path, "utf8"), {
     context,
     identifier: path,
   });
@@ -197,6 +201,28 @@ await main.link((specifier, referencer) =>
   moduleAt(resolve(dirname(referencer.identifier), specifier)),
 );
 await main.evaluate();
+// Read the live world only to select deliberate timings; all gameplay actions
+// still enter through the real persistent keyboard/pointer handlers.
+let activeWorld;
+const physicsClass = cache.get(resolve(root, "js/physics.js")).namespace
+  .PhysicsWorld;
+const originalVehicle = physicsClass.prototype.createVehicle;
+physicsClass.prototype.createVehicle = function (...args) {
+  activeWorld = this;
+  return originalVehicle.apply(this, args);
+};
+const originalStep = physicsClass.prototype.step;
+const trickPopups = new Set();
+let steeringWithPopup = 0;
+physicsClass.prototype.step = function (...args) {
+  activeWorld = this;
+  if (
+    document.querySelector("[data-trick-popup]").children.length &&
+    args[0]?.rotate
+  )
+    steeringWithPopup++;
+  return originalStep.apply(this, args);
+};
 assert.equal(AudioDouble.instances.length, 0, "audio must wait for a gesture");
 const presentationStats = {
   peakParticles: 0,
@@ -263,6 +289,24 @@ function frame(gap = 1000 / 60) {
     passiveMessages[current.id].add(
       document.getElementById("passive-status").textContent,
     );
+  const trickHud = document.getElementById("trick-hud");
+  assert.equal(
+    w.getComputedStyle(trickHud).pointerEvents,
+    "none",
+    "trick display cannot capture pointer input",
+  );
+  assert.equal(
+    trickHud.querySelectorAll("button, a, input, [tabindex]").length,
+    0,
+    "popups cannot take keyboard focus",
+  );
+  assert.equal(
+    document.querySelector(".stage").contains(trickHud),
+    false,
+    "popups stay outside the action area",
+  );
+  for (const popup of trickHud.querySelectorAll(".trick-pop"))
+    trickPopups.add(popup.textContent);
   assert.equal(errors.length, 0, errors.join("\n"));
   assert.equal(warnings.length, 0, warnings.join("\n"));
   assert.equal(
@@ -307,14 +351,16 @@ function pointer(action, type = "pointerdown", id = 1, target = null) {
 function driveKey(code, type = "keydown") {
   if (!mobile) return key(code, type);
   const action = ["Space", "ArrowUp"].includes(code)
-    ? "accelerate"
-    : ["KeyA", "ArrowLeft"].includes(code)
-      ? "left"
-      : "right";
+    ? "push"
+    : ["ArrowDown", "KeyS"].includes(code)
+      ? "brace"
+      : ["KeyA", "ArrowLeft"].includes(code)
+        ? "left"
+        : "right";
   return pointer(
     action,
     type === "keydown" ? "pointerdown" : "pointerup",
-    action === "accelerate" ? 10 : 11,
+    action === "push" ? 10 : action === "brace" ? 12 : 11,
   );
 }
 function click() {
@@ -322,12 +368,24 @@ function click() {
   assert.ok(button);
   button.click();
 }
-function until(predicate, max = 1500) {
+function until(predicate, max = 1500, beforeFrame = () => {}) {
   for (let i = 0; i < max; i++) {
     if (predicate()) return;
+    beforeFrame();
     frame();
   }
   assert.fail(`Timed out at ${state()} / ${phase()}`);
+}
+function driveTap(code) {
+  const event = driveKey(code);
+  driveKey(code, "keyup");
+  return event;
+}
+function timedFrame(pushKey = "Space", braceKey = "ArrowDown") {
+  if (!activeWorld || activeWorld.finished) return;
+  const controls = timedInputs(activeWorld, 0, true);
+  if (controls.pushes) assert.ok(driveTap(pushKey).defaultPrevented);
+  if (controls.brace) assert.ok(driveTap(braceKey).defaultPrevented);
 }
 function currentName() {
   return document.querySelector(".handoff h2")?.textContent;
@@ -508,6 +566,42 @@ for (let run = 0; run < runCount; run++) {
   key("Enter", "keydown", true);
   assert.equal(state(), "instructions", "held Enter must not skip screens");
   key("Enter", "keyup");
+  if (run === 0) {
+    // Complete the three optional drills using real keyboard/pointer events.
+    // The separate menu confirmation must remain available throughout.
+    for (const [stage, target, code, grade] of [
+      [0, 48, "Space", "Perfect"],
+      [1, 55, "ArrowUp", "Perfect"],
+      [2, 77, "KeyS", "Perfect Brace"],
+    ]) {
+      until(
+        () =>
+          Number.parseFloat(
+            document.querySelector("#tutorial-meter .skill-marker").style.left,
+          ) >= target,
+        180,
+      );
+      driveTap(code);
+      frame();
+      assert.equal(
+        document.querySelector("#tutorial-meter [data-skill-grade]")
+          .textContent,
+        grade,
+      );
+      assert.equal(state(), "instructions");
+      const next = document.querySelector('[data-practice="next"]');
+      assert.equal(next.hidden, false);
+      if (stage === 1 && !mobile) {
+        key("Enter", "keydown", false, next);
+        key("Enter", "keyup", false, next);
+      } else next.click();
+    }
+    assert.equal(
+      document.querySelector("#tutorial-meter [data-skill-label]").textContent,
+      "PRACTICE COMPLETE",
+    );
+    assert.equal(state(), "instructions");
+  }
   confirm();
   assert.equal(state(), "qualifying-intro");
   confirm();
@@ -543,38 +637,55 @@ for (let run = 0; run < runCount; run++) {
     assert.equal(state(), expectedActive);
     frame();
     if (run === 0 && jump === 0) {
-      const accel = document.querySelector('[data-control="accelerate"]');
+      const accel = document.querySelector('[data-control="push"]');
       const right = document.querySelector('[data-control="right"]');
       assert.equal(
         document.querySelector(".stage").contains(accel),
         false,
         "touch controls are outside the action area",
       );
-      pointer("accelerate", "pointerdown", 20);
+      pointer("push", "pointerdown", 20);
       pointer("right", "pointerdown", 21);
       assert.equal(accel.getAttribute("aria-pressed"), "true");
       assert.equal(right.getAttribute("aria-pressed"), "true");
-      pointer("accelerate", "pointercancel", 20);
+      pointer("push", "pointercancel", 20);
       assert.equal(accel.getAttribute("aria-pressed"), "false");
       assert.equal(right.getAttribute("aria-pressed"), "true");
       pointer("right", "lostpointercapture", 21);
       assert.equal(right.getAttribute("aria-pressed"), "false");
-      pointer("accelerate", "pointerdown", 22);
+      pointer("push", "pointerdown", 22);
       w.dispatchEvent(new w.Event("blur"));
       assert.equal(accel.getAttribute("aria-pressed"), "false");
       assert.equal(accel.disabled, true);
       w.dispatchEvent(new w.Event("focus"));
       assert.equal(accel.disabled, false);
       key("Space");
-      pointer("accelerate", "pointerdown", 23);
-      pointer("accelerate", "pointerup", 23);
+      pointer("push", "pointerdown", 23);
+      pointer("push", "pointerup", 23);
       const before = cart().position.x;
       for (let i = 0; i < 8; i++) frame();
       assert.ok(
         cart().position.x > before + 3,
-        "releasing touch must not release the keyboard",
+        "queued presses survive release and are applied once",
       );
       key("Space", "keyup");
+      tap("KeyR");
+      finishIntroduction();
+      confirm();
+      frame();
+      pointer("push", "pointerdown", 24);
+      frame();
+      const heldPushes = { ...activeWorld.skills.pushes };
+      for (let i = 0; i < 15; i++) {
+        pointer("push", "pointerdown", 24);
+        frame();
+      }
+      assert.deepEqual(
+        { ...activeWorld.skills.pushes },
+        heldPushes,
+        "one held touch produces one push",
+      );
+      pointer("push", "pointerup", 24);
       tap("KeyR");
       finishIntroduction();
       confirm();
@@ -593,14 +704,22 @@ for (let run = 0; run < runCount; run++) {
       key("Space");
       frame(8000);
       assert.equal(engine().timing.timestamp, before, "large gap is discarded");
-      const beforeRepeat = cart().position.x;
+      const beforeRepeat = { ...activeWorld.skills.pushes };
       key("Space", "keydown", true);
       for (let i = 0; i < 6; i++) frame();
-      assert.ok(
-        cart().position.x > beforeRepeat + 3,
-        "held acceleration must recover after a stalled frame",
+      assert.deepEqual(
+        { ...activeWorld.skills.pushes },
+        beforeRepeat,
+        "repeat cannot restore a stale push after a stall",
       );
       key("Space", "keyup");
+      tap("Space");
+      frame();
+      assert.equal(
+        Object.values(activeWorld.skills.pushes).reduce((a, b) => a + b, 0),
+        1,
+        "a fresh press works after release",
+      );
       w.dispatchEvent(new w.Event("blur"));
       const paused = engine().timing.timestamp;
       for (let i = 0; i < 90; i++) frame();
@@ -659,17 +778,21 @@ for (let run = 0; run < runCount; run++) {
     const idle = (run === 1 && jump === 0) || run === 2;
     if (!idle) {
       const accelerator = jump % 2 ? "ArrowUp" : "Space";
-      assert.ok(
-        driveKey(accelerator).defaultPrevented,
-        "gameplay key prevents scrolling",
+      until(
+        () => phase() === "AIRBORNE" || state() === "attempt-results",
+        1500,
+        () => timedFrame(accelerator),
       );
-      until(() => phase() === "AIRBORNE" || state() === "attempt-results");
       assert.equal(phase(), "AIRBORNE");
+      assert.equal(activeWorld.skills.takeoff, "Perfect");
+      assert.match(
+        document.querySelector("#skill-hud [data-skill-message]").textContent,
+        /Perfect takeoff/,
+      );
       tap("KeyR");
       assert.equal(state(), expectedActive, "airborne R cannot erase a score");
       confirm();
       assert.equal(state(), expectedActive, "Enter cannot skip a live jump");
-      driveKey(accelerator, "keyup");
       if (run === 0 && jump === 0 && !mobile) {
         const before = { ...cart().position },
           bodyId = cart().id;
@@ -717,7 +840,11 @@ for (let run = 0; run < runCount; run++) {
         for (let i = 0; i < 25; i++) frame();
         await screenshot("airborne");
       }
-      until(() => state() === "attempt-results");
+      until(
+        () => state() === "attempt-results",
+        1500,
+        () => timedFrame(accelerator, jump % 2 ? "KeyS" : "ArrowDown"),
+      );
       if (rotation) driveKey(rotation, "keyup");
     } else until(() => state() === "attempt-results");
     assert.equal(state(), "attempt-results");
@@ -730,6 +857,45 @@ for (let run = 0; run < runCount; run++) {
       (e) => Number(e.textContent),
     );
     const total = Number(document.getElementById("attempt-total").textContent);
+    const trickRows = [...document.querySelectorAll(".trick-table tbody tr")];
+    for (const row of trickRows) {
+      const cells = [...row.querySelectorAll("td")].map((e) => e.textContent);
+      assert.equal(
+        Number(cells[4]),
+        Math.round(
+          Number(cells[1]) *
+            Number(cells[2].slice(1)) *
+            Number(cells[3].slice(1)),
+        ),
+      );
+    }
+    const subtotal = Number(
+      document.querySelector("[data-trick-subtotal]").textContent,
+    );
+    assert.equal(
+      subtotal,
+      [...document.querySelectorAll("[data-trick-points]")].reduce(
+        (sum, e) => sum + Number(e.textContent),
+        0,
+      ),
+    );
+    const style = Number(
+      document.querySelector("[data-trick-total]").textContent,
+    );
+    const calculated = Math.round(
+      subtotal *
+        Number(document.querySelector("[data-trick-character]").textContent) *
+        Number(document.querySelector("[data-trick-landing]").textContent),
+    );
+    assert.equal(style, Math.min(5000, calculated));
+    assert.equal(
+      style,
+      values[2],
+      "trick details match the existing style component",
+    );
+    assert.ok(
+      document.querySelector(".skill-result").textContent.includes("TAKEOFF"),
+    );
     assert.equal(
       total,
       values.reduce((a, b) => a + b, 0),
@@ -870,9 +1036,11 @@ for (let i = 0; i < 3; i++) confirm();
 finishIntroduction();
 confirm();
 frame();
-key("Space");
-until(() => phase() === "AIRBORNE");
-key("Space", "keyup");
+until(
+  () => phase() === "AIRBORNE",
+  1500,
+  () => timedFrame(),
+);
 cart().position.x = NaN;
 frame();
 assert.equal(state(), "attempt-results");
@@ -888,9 +1056,11 @@ finishIntroduction();
 assert.equal(currentName(), "Brandon Hale");
 confirm();
 frame();
-key("ArrowUp");
-until(() => state() === "attempt-results");
-key("ArrowUp", "keyup");
+until(
+  () => state() === "attempt-results",
+  1500,
+  () => timedFrame("ArrowUp", "KeyS"),
+);
 assert.ok(Number(document.getElementById("attempt-total").textContent) > 0);
 assert.equal(errors.length, 0);
 assert.ok(
@@ -905,6 +1075,13 @@ assert.ok(
   [...passiveMessages.brandon].some((text) => text.includes("Unlucky wobble")),
 );
 assert.ok(passiveMessages.owen.has("Wrate Issue Detected"));
+assert.ok([...trickPopups].some((name) => name.includes("Front Flip")));
+assert.ok([...trickPopups].some((name) => name.includes("Back Flip")));
+assert.ok([...trickPopups].some((name) => name.includes("Clean Flight")));
+assert.ok(
+  steeringWithPopup > 0,
+  "rotation controls continue working while popups are visible",
+);
 assert.equal(callbacks.size, 1);
 w.dispatchEvent(new w.PageTransitionEvent("pagehide", { persisted: false }));
 assert.equal(callbacks.size, 0);
@@ -942,13 +1119,18 @@ console.log(
       consoleWarnings: warnings,
       gameplayTimerCalls: timerCalls,
       presentation: presentationStats,
+      trickPopups: [...trickPopups],
+      steeringWithPopup,
       audioContexts: AudioDouble.instances.length,
       audioUnavailable: Boolean(process.env.AUDIO_UNAVAILABLE),
       mobileSimulated: mobile,
       checks: [
         "menu confirmation",
         "held Enter",
-        "both acceleration keys",
+        "three interactive tutorial drills; scores unaffected",
+        "Space/Up and pointer pushes with Perfect takeoffs",
+        "Down/S and pointer brace inputs",
+        "held touch produces one push; keyboard repeat rejected",
         "A/D and arrow rotation",
         "prelaunch restart",
         "airborne restart lock",
@@ -969,7 +1151,7 @@ console.log(
         "single listener set",
         "single RAF loop",
         "world disposal",
-        "held controls after a frame gap",
+        "fresh release/press required after a frame gap",
         "combined focus and visibility",
         "failed portrait not retried",
         "exact finalist order and winner",

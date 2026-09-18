@@ -1,5 +1,9 @@
 import { normalAngle } from "./scoring.js";
 import { applyPassive } from "./passives.js";
+import { AttemptSkills } from "./skills.js";
+import { SKILL_CONFIG } from "./skill-config.js";
+import { TrickTracker, trickSample } from "./tricks.js";
+import { trickRotationScale } from "./trick-config.js";
 export const COURSE = Object.freeze({
   groundY: 520,
   rampStart: 730,
@@ -20,6 +24,7 @@ export class PhysicsWorld {
         "Matter.js did not load. Check vendor/matter-0.20.0.min.js.",
       );
     this.character = character;
+    this.course = COURSE;
     this.engine = this.M.Engine.create({
       positionIterations: 8,
       velocityIterations: 8,
@@ -47,6 +52,8 @@ export class PhysicsWorld {
     this.riderSettleTime = 0;
     this.reason = "";
     this.events = [];
+    this.skills = new AttemptSkills();
+    this.tricks = new TrickTracker(character);
     this.createCourse();
     this.createVehicle();
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
@@ -265,14 +272,13 @@ export class PhysicsWorld {
       if (this.launched && !this.landed && terrain === this.ground) {
         // collisionStart runs after integration: this step's rotation happened
         // in the air and must count even though it ends in ground contact.
-        this.airRotation = Math.max(
-          this.airRotation,
-          Math.abs(this.cart.angle - this.launchAngle),
-        );
+        this.tricks.land(trickSample(this));
+        this.airRotation = Math.abs(this.tricks.signedRotation);
         this.landed = true;
         this.landingTime = this.elapsed;
         this.landingAngle = this.cart.angle;
         this.landingSpeed = Math.abs(this.preSpeeds.get(this.cart.id).y);
+        this.skills.onLanding(this);
         this.distancePixels = Math.max(
           0,
           this.cart.position.x - COURSE.rampEnd,
@@ -286,12 +292,13 @@ export class PhysicsWorld {
       }
       if ((body === this.head || body === this.torso) && this.elapsed > 0.4) {
         this.crash(
-          Math.hypot(speed.x, speed.y) > 3.2 * this.character.landingStability,
+          Math.hypot(speed.x, speed.y) >
+            3.2 * this.character.landingStability * this.skills.impactTolerance,
         );
       }
     }
   }
-  step(controls = { accelerate: false, rotate: 0 }) {
+  step(controls = { pushes: 0, brace: false, rotate: 0 }) {
     if (this.finished || this.disposed) return;
     const safeMetrics = this.metrics();
     if (!this.hasFiniteBodies()) {
@@ -303,21 +310,22 @@ export class PhysicsWorld {
     this.preSpeeds = new Map(
       this.dynamic.map((body) => [body.id, { ...Body.getVelocity(body) }]),
     );
-    if (
-      !this.launched &&
-      !this.crashed &&
-      controls.accelerate &&
-      this.cart.velocity.x < 21
-    ) {
-      Body.applyForce(this.cart, this.cart.position, {
-        x: this.cart.mass * this.character.baseAcceleration,
-        y: 0,
-      });
-    }
+    this.skills.push(
+      this,
+      Math.min(
+        SKILL_CONFIG.maximumQueuedPushes,
+        Math.max(0, Math.floor(controls?.pushes || 0)),
+      ),
+    );
+    if (controls?.brace) this.skills.requestBrace(this);
+    this.skills.followThrough(this);
     const rotate = Number.isFinite(controls?.rotate)
       ? Math.max(-1, Math.min(1, controls.rotate))
       : 0;
-    const airControl = applyPassive(this, rotate);
+    const airControl =
+      applyPassive(this, rotate) *
+      this.skills.controlScale(this) *
+      trickRotationScale(this, rotate);
     if (this.launched && !this.landed) {
       this.cart.torque +=
         airControl *
@@ -346,13 +354,13 @@ export class PhysicsWorld {
       this.launched = true;
       this.launchAngle = this.cart.angle;
       this.launchTime = this.elapsed;
+      this.skills.onLaunch(this);
+      this.tricks.start(trickSample(this));
       this.events.push("launch");
     }
     if (this.launched && !this.landed) {
-      this.airRotation = Math.max(
-        this.airRotation,
-        Math.abs(this.cart.angle - this.launchAngle),
-      );
+      this.tricks.sample(trickSample(this));
+      this.airRotation = Math.abs(this.tricks.signedRotation);
       this.distancePixels = Math.max(0, this.cart.position.x - COURSE.rampEnd);
     }
     if (this.landed || this.crashed) {
@@ -418,6 +426,7 @@ export class PhysicsWorld {
     if (this.finished) return;
     this.finished = true;
     this.reason = reason;
+    this.tricks.finalize();
     if (!this.launched) this.distancePixels = 0;
   }
   metrics() {
@@ -431,6 +440,8 @@ export class PhysicsWorld {
       landingAngle: this.landingAngle,
       landingSpeed: this.landingSpeed,
       reason: this.reason,
+      ...this.skills.metrics(),
+      trickSummary: this.tricks.snapshot(),
     };
   }
   drainEvents() {

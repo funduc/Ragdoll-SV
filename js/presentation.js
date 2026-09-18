@@ -20,6 +20,7 @@ export class Presentation {
     this.landed = false;
     this.crashed = false;
     this.nextImpact = 0;
+    this.skillSerial = 0;
     this.effects.clear();
     this.audio.resetAttempt();
   }
@@ -48,6 +49,25 @@ export class Presentation {
     if (world.invalid) {
       this.effects.clear();
       return;
+    }
+    const feedback = world.skills.feedback;
+    if (feedback && feedback.serial !== this.skillSerial) {
+      this.skillSerial = feedback.serial;
+      const good = ["Perfect", "Perfect Brace"].includes(feedback.grade);
+      this.audio.play(
+        good
+          ? "skill-perfect"
+          : ["Good", "Good Brace", "Braced"].includes(feedback.grade)
+            ? "skill-good"
+            : "skill-miss",
+      );
+      if (feedback.kind === "takeoff" && good)
+        this.effects.burst(
+          "spark",
+          world.cart.position.x,
+          world.cart.position.y,
+          12,
+        );
     }
     if (world.launched && !this.launched) {
       this.effects.burst(

@@ -1,10 +1,11 @@
+import { timedInputs } from "./skill-helpers.mjs";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 import { CHARACTERS } from "../js/characters.js";
 import { PhysicsWorld } from "../js/physics.js";
 import { applyPassive } from "../js/passives.js";
-import { scoreAttempt } from "../js/scoring.js";
+import { normalAngle, scoreAttempt } from "../js/scoring.js";
 import { Introduction } from "../js/introductions.js";
 import { Commentator, GENERAL_CAPTIONS } from "../js/commentary.js";
 runInThisContext(
@@ -24,7 +25,24 @@ function drive(character, rotate = 0) {
   const world = new PhysicsWorld(character);
   const statuses = new Set();
   for (let i = 0; i < 2500 && !world.finished; i++) {
-    world.step({ accelerate: true, rotate });
+    world.step(
+      timedInputs(
+        world,
+        rotate === "flip"
+          ? world.cart.angle - world.launchAngle < Math.PI * 2
+            ? 1
+            : Math.max(
+                -1,
+                Math.min(
+                  1,
+                  -normalAngle(world.cart.angle) * 2 -
+                    world.cart.angularVelocity * 28,
+                ),
+              )
+          : rotate,
+        true,
+      ),
+    );
     statuses.add(world.passiveStatus);
   }
   assert.ok(world.finished && world.launched && world.landed && !world.invalid);
@@ -131,7 +149,7 @@ check(
     assert.ok(assisted.tilt < unassisted.tilt * 0.65);
     assert.equal(assisted.score.landingQuality, "Clean");
     assert.ok(assisted.statuses.some((s) => s.includes("Level assist")));
-    const spin = drive(jake, 1);
+    const spin = drive(jake, "flip");
     assert.ok(spin.score.airDegrees >= 360 && spin.score.landingPoints === 150);
     const faster = drive(
       {
@@ -142,7 +160,7 @@ check(
       1,
     );
     assert.ok(
-      spin.score.airDegrees < faster.score.airDegrees,
+      drive(jake, 1).score.airDegrees < faster.score.airDegrees,
       "Jake rotates more slowly",
     );
     evidence.jake = {
@@ -179,8 +197,8 @@ check(
     let maxDifference = 0;
     try {
       for (let i = 0; i < 2500 && (!w.finished || !neutral.finished); i++) {
-        w.step({ accelerate: true, rotate: 0 });
-        neutral.step({ accelerate: true, rotate: 0 });
+        w.step(timedInputs(w));
+        neutral.step(timedInputs(neutral));
         if (w.launched && neutral.launched && !w.landed && !neutral.landed)
           maxDifference = Math.max(
             maxDifference,
@@ -201,13 +219,11 @@ check(
     const controlled = new PhysicsWorld(c);
     try {
       for (let i = 0; i < 1500 && !controlled.launched; i++)
-        controlled.step({ accelerate: true, rotate: 0 });
+        controlled.step(timedInputs(controlled));
       assert.ok(controlled.launched);
-      for (let i = 0; i < 24; i++)
-        controlled.step({ accelerate: true, rotate: 1 });
+      for (let i = 0; i < 24; i++) controlled.step(timedInputs(controlled, 1));
       const before = controlled.cart.angularVelocity;
-      for (let i = 0; i < 24; i++)
-        controlled.step({ accelerate: true, rotate: -1 });
+      for (let i = 0; i < 24; i++) controlled.step(timedInputs(controlled, -1));
       assert.ok(
         controlled.cart.angularVelocity < before,
         "counter-steering overcomes the mild wobble",
@@ -228,6 +244,11 @@ check("Brandon's style bonus uses the existing scoring components", () => {
     landingAngle: 0,
     landingSpeed: 5,
     reason: "same jump",
+    trickSummary: {
+      awards: [{ id: "front", combo: 1 }],
+      forward: 1,
+      backward: 0,
+    },
   };
   const scores = CHARACTERS.map((c) => scoreAttempt(metrics, c));
   assert.equal(scores[1].stylePoints, 324);
@@ -249,7 +270,7 @@ check(
   () => {
     const speeds = CHARACTERS.map((c) => {
       const world = new PhysicsWorld(c);
-      for (let i = 0; i < 96; i++) world.step({ accelerate: true, rotate: 0 });
+      for (let i = 0; i < 96; i++) world.step(timedInputs(world));
       const speed = world.cart.velocity.x;
       world.dispose();
       return speed;
@@ -259,7 +280,7 @@ check(
       neutral = new PhysicsWorld({ ...CHARACTERS[2], passive: null });
     try {
       assert.ok(Math.abs(w.cart.inertia / neutral.cart.inertia - 0.94) < 1e-10);
-      for (let i = 0; i < 170; i++) w.step({ accelerate: true, rotate: 0 });
+      for (let i = 0; i < 170; i++) w.step(timedInputs(w));
       assert.equal(w.passiveStatus, "Wrate Issue Detected");
       assert.equal(w.attached, true);
       assert.equal(Matter.Composite.allBodies(w.engine.world).length, 17);

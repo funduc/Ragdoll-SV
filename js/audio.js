@@ -195,6 +195,16 @@ export class SynthAudio {
         case "click":
           this.voice("square", 520, 0, 0.045, 0.055, 760);
           break;
+        case "skill-perfect":
+          this.voice("triangle", 880, 0, 0.12, 0.12, 1320);
+          this.voice("sine", 1320, 0.07, 0.12, 0.09, 1760);
+          break;
+        case "skill-good":
+          this.voice("triangle", 620, 0, 0.09, 0.1, 880);
+          break;
+        case "skill-miss":
+          this.voice("triangle", 220, 0, 0.11, 0.09, 120);
+          break;
         case "rattle":
           this.voice("noise", 1800, 0, 0.035, 0.075);
           break;

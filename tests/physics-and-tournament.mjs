@@ -1,9 +1,11 @@
+import { timedInputs } from "./skill-helpers.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 import { CHARACTERS } from "../js/characters.js";
 import { PhysicsWorld } from "../js/physics.js";
 import {
+  normalAngle,
   scoreAttempt,
   rankQualifiers,
   championshipWinners,
@@ -26,7 +28,13 @@ function jump(character, controls) {
   const world = new PhysicsWorld(character);
   let steps = 0;
   while (!world.finished && steps++ < 2500)
-    world.step(typeof controls === "function" ? controls(world) : controls);
+    world.step(
+      typeof controls === "function"
+        ? controls(world)
+        : controls.accelerate
+          ? timedInputs(world, controls.rotate, true)
+          : { pushes: 0, rotate: controls.rotate },
+    );
   assert.ok(world.finished, "attempt must end");
   return world;
 }
@@ -36,7 +44,7 @@ test("Every character launches, lands, settles, and earns a finite score", () =>
     const w = jump(c, { accelerate: true, rotate: 0 });
     const s = scoreAttempt(w.metrics(), c);
     assert.ok(w.launched && w.landed);
-    assert.ok(s.distanceMetres > 20 && s.distanceMetres < 40);
+    assert.ok(s.distanceMetres > 20 && s.distanceMetres < 80);
     assert.ok(s.attachedPoints === 100);
     assert.ok(Number.isFinite(s.total));
     assert.equal(
@@ -48,7 +56,22 @@ test("Every character launches, lands, settles, and earns a finite score", () =>
   }
 });
 test("A full forward flip is controllable and earns style with a clean landing", () => {
-  const w = jump(CHARACTERS[0], { accelerate: true, rotate: 1 });
+  const w = jump(CHARACTERS[0], (world) =>
+    timedInputs(
+      world,
+      world.cart.angle - world.launchAngle < Math.PI * 2
+        ? 1
+        : Math.max(
+            -1,
+            Math.min(
+              1,
+              -normalAngle(world.cart.angle) * 2 -
+                world.cart.angularVelocity * 28,
+            ),
+          ),
+      true,
+    ),
+  );
   const s = scoreAttempt(w.metrics(), CHARACTERS[0]);
   assert.ok(s.airDegrees >= 360);
   assert.ok(s.stylePoints >= 240);
@@ -56,8 +79,8 @@ test("A full forward flip is controllable and earns style with a clean landing",
   w.dispose();
 });
 test("Crashes detach the rider but retain distance and style", () => {
-  const w = jump(CHARACTERS[2], { accelerate: true, rotate: -1 });
-  const s = scoreAttempt(w.metrics(), CHARACTERS[2]);
+  const w = jump(CHARACTERS[1], { accelerate: true, rotate: 1 });
+  const s = scoreAttempt(w.metrics(), CHARACTERS[1]);
   assert.ok(s.crashed);
   assert.equal(s.attachedPoints, 0);
   assert.ok(s.distancePoints > 0 && s.stylePoints > 0);
@@ -78,9 +101,9 @@ test("Minor arm jitter cannot hold a settled crash open until the time limit", (
 });
 test("Distance freezes at first contact, never at the end of the roll", () => {
   const w = new PhysicsWorld(CHARACTERS[0]);
-  while (!w.landed) w.step({ accelerate: true, rotate: 0 });
+  while (!w.landed) w.step(timedInputs(w));
   const distance = w.distancePixels;
-  while (!w.finished) w.step({ accelerate: true, rotate: 0 });
+  while (!w.finished) w.step(timedInputs(w));
   assert.equal(w.distancePixels, distance);
   assert.ok(w.cart.position.x > 1080 + distance);
   w.dispose();
@@ -88,7 +111,7 @@ test("Distance freezes at first contact, never at the end of the roll", () => {
 test("Restart is legal on the runway and locked after takeoff", () => {
   const w = new PhysicsWorld(CHARACTERS[0]);
   assert.ok(w.canRestart);
-  while (!w.launched) w.step({ accelerate: true, rotate: 0 });
+  while (!w.launched) w.step(timedInputs(w));
   assert.equal(w.canRestart, false);
   w.dispose();
   assert.equal(w.canRestart, false);
@@ -98,7 +121,7 @@ test("Repeated world disposal removes bodies, joints, pairs, and callbacks", () 
     const w = new PhysicsWorld(CHARACTERS[i % 3]);
     assert.equal(Matter.Composite.allBodies(w.engine.world).length, 17);
     assert.equal(Matter.Composite.allConstraints(w.engine.world).length, 15);
-    for (let j = 0; j < 30; j++) w.step({ accelerate: true, rotate: 0 });
+    for (let j = 0; j < 30; j++) w.step(timedInputs(w));
     w.dispose();
     w.dispose();
     assert.equal(Matter.Composite.allBodies(w.engine.world).length, 0);
@@ -166,7 +189,7 @@ test("Impossible transitions are rejected and active Enter cannot skip a jump", 
   t.confirm();
   assert.equal(t.state, State.ACTIVE);
 });
-test("Attempt timeout and style cap are enforced", () => {
+test("Attempt timeout is enforced; unrecognized angle alone earns no style", () => {
   const w = new PhysicsWorld(CHARACTERS[0]);
   w.launched = true;
   w.elapsed = 19.999;
@@ -187,7 +210,7 @@ test("Attempt timeout and style cap are enforced", () => {
     },
     CHARACTERS[0],
   );
-  assert.equal(s.stylePoints, 720);
+  assert.equal(s.stylePoints, 0);
   assert.equal(s.attachedPoints, 0);
 });
 console.log(`\n${checks} test groups passed.`);

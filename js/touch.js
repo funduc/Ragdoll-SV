@@ -1,10 +1,13 @@
-// Touch has its own holds; releasing a finger never releases a keyboard key.
+import { SKILL_CONFIG } from "./skill-config.js";
+// Push/brace fire on pointerdown once. Rotation holds never alter keyboard state.
 export class TouchControls {
   constructor(bar, isActive, env = globalThis) {
     this.bar = bar;
     this.isActive = isActive;
     this.env = env;
     this.holds = new Map();
+    this.pushes = 0;
+    this.brace = false;
     this.buttons = [...bar.querySelectorAll("[data-control]")];
     this.down = (event) => {
       const button = event.target.closest("[data-control]");
@@ -13,10 +16,17 @@ export class TouchControls {
         !bar.contains(button) ||
         button.disabled ||
         !isActive() ||
-        event.button > 0
+        event.button > 0 ||
+        this.holds.has(event.pointerId)
       )
         return;
       event.preventDefault();
+      if (button.dataset.control === "push")
+        this.pushes = Math.min(
+          SKILL_CONFIG.maximumQueuedPushes,
+          this.pushes + 1,
+        );
+      if (button.dataset.control === "brace") this.brace = true;
       this.holds.set(event.pointerId, {
         button,
         action: button.dataset.control,
@@ -48,7 +58,8 @@ export class TouchControls {
       [...this.holds.values()].map((hold) => hold.action),
     );
     return {
-      accelerate: this.isActive() && actions.has("accelerate"),
+      pushes: this.isActive() ? this.pushes : 0,
+      brace: this.isActive() && this.brace,
       rotate: this.isActive()
         ? Number(actions.has("right")) - Number(actions.has("left"))
         : 0,
@@ -56,8 +67,14 @@ export class TouchControls {
   }
   merge(keyboard) {
     const touch = this.controls;
+    this.pushes = 0;
+    this.brace = false;
     return {
-      accelerate: keyboard.accelerate || touch.accelerate,
+      pushes: Math.min(
+        SKILL_CONFIG.maximumQueuedPushes,
+        keyboard.pushes + touch.pushes,
+      ),
+      brace: keyboard.brace || touch.brace,
       rotate: Math.max(-1, Math.min(1, keyboard.rotate + touch.rotate)),
     };
   }
@@ -71,6 +88,8 @@ export class TouchControls {
   clear() {
     const held = [...this.holds];
     this.holds.clear();
+    this.pushes = 0;
+    this.brace = false;
     for (const [id, { button }] of held) {
       try {
         button.releasePointerCapture(id);

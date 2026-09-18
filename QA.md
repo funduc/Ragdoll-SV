@@ -1,171 +1,111 @@
-# Manual character introductions — verification
+# Trick recognition and combination verification
 
-Updated 2026-09-17. Character introductions now have no deadline or automatic transition. They remain visible until the player activates **Continue to Ready** or presses Enter. The static prompt is **PRESS ENTER WHEN READY.** Ready still requires a separate confirmation to begin the jump.
+Updated 2026-09-18. This report covers the trick-system pass and supersedes the earlier skill-loop totals. The physics result values changed where the new style system or Owen's requested high-speed rotation interaction applies.
 
-The former deadline, remaining-time/expiry methods, animation-loop countdown/auto-dismiss branches, countdown DOM updater, presentation countdown bookkeeping, and introduction countdown sound were removed. The existing CSS class is retained solely to preserve the prompt's styling. No stylesheet was changed.
+## Implementation and preserved behavior
 
-Enter now has a release latch separate from movement keys. Clearing controls during the introduction-to-Ready transition cannot re-arm it. Repeated keydowns, including duplicate events without a repeat flag, cannot also activate Begin jump. Keyup releases the latch and prevents native follow-on activation; blur/focus/visibility handling prevents a stuck latch after losing focus. No timer-based input debounce or new listener was added.
+New attempt-local `TrickTracker` recognition runs on the same 120 Hz physics clock. Rotation is unwrapped by signed shortest-angle deltas, completed 360° milestones are credited within directional runs, and credited milestones survive small reverse movements without paying twice. A reversal above 0.18 radians starts a fresh run from the actual turning point. Continuous 720° travel completes two rotations and one separate Double Flip pair bonus, never three rotations.
 
-## Verification performed
+No Hands observes both existing hand-to-cart constraint anchors. It requires sustained residual stretch and an attached recovery in the air. Last-Second Appeal checks a sustained extreme tilt, controlled recovery, and actual first-contact timing. Clean Flight checks airtime, distance, controlled fraction, and total angular travel. No joint was loosened or added.
 
-The managed preview still reported an unavailable `sites-previewd` mailbox. These are automated DOM/Canvas checks using the real game modules, not a live-browser playthrough or real-device tap test.
+Unique tricks build a combo. Repeat credit is attempt-wide and decreases to 20%, then 5%, then zero. Instability can break the current combo without deleting banked points or refreshing repeat credit. Recognition stops at the first ground contact, including the contact step itself; final records freeze once at attempt end. Final style receives the character multiplier and a landing multiplier. Distance, landing points, attachment points, and the four-component total remain intact.
 
-| Requested check                              | Result actually observed                                                                                                                                   |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Jake remains visible for at least 15 seconds | The same biography card remained visible during **15.02 seconds of real elapsed time** in the DOM harness, with frames running throughout.                 |
-| Brandon remains until manually continued     | Passed all tested qualifying and championship appearances after 15 seconds of regular simulated frames plus an 8-second stalled frame.                     |
-| Owen remains until manually continued        | Passed the same 23-second check in qualifying and championship.                                                                                            |
-| Click advances exactly one screen            | Continue to Ready removed the card, displayed Begin jump, and left physics stopped. An additional second of frames did not start the attempt.              |
-| Enter advances exactly one screen            | Enter on the focused introduction button displayed Ready only.                                                                                             |
-| Holding Enter cannot begin the jump          | Three seconds of repeated keydowns and an extra non-repeat keydown without release left Ready intact. Keyup followed by a fresh confirmation allowed play. |
-| Restart does not restore the timer           | Three complete desktop tournaments with restart between them passed. Every introduction after restart received the same 23-second persistence check.       |
-| No timer-related console errors              | Zero captured game console errors, warnings, window errors, or game timeout/interval calls.                                                                |
+Popups live in a fixed-height strip below the Canvas/timing meter and above the touch bar. They have no interactive elements, use `pointer-events: none`, never take focus, and expire on simulation time. Up to four short names can be visible. The results table shows each occurrence's base points, repeat factor, combo factor, and rounded subtotal, then the exact final style equation.
 
-The desktop run inspected **21 introductions**, covering Jake, Brandon, and Owen in **both rounds**, plus prelaunch retries and fault recovery. It completed three tournaments / 15 tournament attempts and two extra fault/recovery attempts. The narrow/touch-mode harness completed another tournament, restart, and recovery checks, inspecting 11 introductions. It activated the native Continue button via simulated clicks; the pointer control implementation and button focus behavior are unchanged.
+Compared with the pre-change snapshot, these files are byte-for-byte unchanged: `js/game.js`, `js/input.js`, `js/touch.js`, `js/skills.js`, `js/skill-config.js`, `js/skill-ui.js`, `js/tutorial.js`, `js/tournament.js`, `js/characters.js`, `js/passives.js`, `js/commentary.js`, `js/introductions.js`, `js/renderer.js`, `js/presentation.js`, `js/audio.js`, `styles.css`, `flash.css`, and `skills.css`. The push, takeoff and brace implementation; tournament state machine; biographies; commentary; manual introductions; geometry; joint settings; gravity; solver; end conditions; audio; and existing styles remain unchanged. Physics receives only recognition hooks and the configured Owen rotation scale.
 
-All biography, statistic, strength, weakness, passive, and commentary markup was checked to remain unchanged while each card waited. All three named PNG portrait requests remain disabled. No additional timer, interval, or listener survives the change.
+## Requested verification
 
-`npm test` passed **33 groups**, plus 48 successful root/project-prefix HTTP requests and the expected deliberate 404 check. The unchanged physics/scoring regression checks passed. Desktop tournament outcomes were Brandon, Brandon, and a shared victory; tournament order and round accounting passed. Input event timings differ from the earlier presentation test because these tests now wait on every introduction.
+| Check                                        | Actually performed                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One forward rotation registers exactly once  | A deterministic 359.4° partial rotation earned nothing; completing 360° produced one Front Flip, with no duplicates while holding the angle. A real controlled flight for every character also earned exactly one Front Flip.                                                                                                                        |
+| One backward rotation registers exactly once | A wrapped-angle 360° backward stream produced exactly one Back Flip. Real backward flights registered Back Flip in the full game integration.                                                                                                                                                                                                        |
+| Oscillating near zero earns nothing          | Repeated ±0.03 rad, ±0.22 rad, and incomplete 171° reversals produced zero rotations and zero trick points. Fast near-level oscillations also failed Clean Flight's control/travel criteria.                                                                                                                                                         |
+| Two wrapped rotations do not become three    | Forward and backward 720° wrapped streams both produced exactly two completed rotations, two respective flip occurrences, and one separate Double Flip bonus. Re-crossing a credited boundary 30 times produced no new flip.                                                                                                                         |
+| Popups do not interfere with controls        | DOM integration verified no focusable/interactive popup elements, computed `pointer-events: none`, and placement outside the Canvas action area. Nonzero rotation inputs continued through the actual physics handler while popups were visible. Desktop and touch tournament/restart flows passed. This is simulated input, not a browser hit-test. |
+| Results totals match the breakdown           | Every displayed occurrence equaled `round(base × repeat × combo)`. Their sum matched the displayed trick subtotal; character and landing factors reproduced displayed style; all four displayed components summed to the attempt total. Finite/capped scoring tests also passed.                                                                     |
+| Existing tournament flow works               | Three complete desktop-mode DOM tournaments, restarting between them, plus a complete pointer-driven narrow-mode tournament and restart. Exact orders, elimination, independent round scores, winners/ties, input registration, and world cleanup passed.                                                                                            |
 
-Commands performed:
+## Deterministic and physical tests
+
+`tests/tricks.mjs` contains **16 groups** covering forward/backward turns, wrapped 720° travel, incomplete reversals, threshold jitter, non-overlapping doubles, sharply diminishing repeats, No Hands strain/recovery/attachment requirements, Last-Second Appeal timing, Clean Flight requirements, character combo differences, landing style factors, finalization/reset, malformed samples, real controlled flips, an actual Double Flip, and numeric caps.
+
+Observed controlled-flight results:
+
+| Character | Recognized tricks                          | Style points |
+| --------- | ------------------------------------------ | ------------ |
+| Jake      | Front Flip + No Hands + Last-Second Appeal | 709          |
+| Brandon   | Front Flip + No Hands                      | 596          |
+| Owen      | Front Flip + No Hands                      | 463          |
+
+The same isolated Front Flip earned **240 style points on a Clean landing** and **68 on a Crash**. Repeated Front Flip events used factors `1, 0.20, 0.05, 0, 0, 0`; breaking a combo did not restore their credit. In a mild-instability fixture, Jake kept his combo while Brandon broke it. With the same two unique tricks, Jake's combo reached ×1.25 and Brandon's ×1.40, in addition to Brandon's existing ×1.35 character style multiplier.
+
+A real Owen backward flight with a Perfect takeoff at cart-centre x=1040 completed **720.654°**, registered **two Back Flip occurrences and one Double Flip bonus**, and earned **495 style points**. This verifies actual attainability; human consistency still needs live play.
+
+The previous 43 physics/tournament, stability, personalization, presentation and skill-loop groups also passed, with legacy maximum-angle scoring fixtures updated to the new completed-trick rule. The strict detached-crash fixture now uses Brandon, because Owen's added rotation torque changes that particular crash's attachment outcome. The detachment assertion was retained.
+
+## Complete flow and outcomes
+
+The desktop flow was Title → Instructions/tutorial → Qualifying introduction → Jake biography → Ready → attempt/results → Brandon biography/Ready/attempt/results → Owen biography/Ready/attempt/results → Elimination → Championship introduction → both finalists' biography/Ready/attempt/results → Final results → Restart → Title. This completed three times without refreshing.
+
+| Run | Qualifying: Jake / Brandon / Owen | Eliminated | Championship order and points | Winner         |
+| --- | --------------------------------- | ---------- | ----------------------------- | -------------- |
+| 1   | 808 / 530 / 1094                  | Brandon    | Jake 806; Owen 1337           | Owen           |
+| 2   | 0 / 521 / 735                     | Jake       | Brandon 604; Owen 1337        | Owen           |
+| 3   | 0 / 0 / 0                         | Owen       | Brandon 0; Jake 0             | Brandon + Jake |
+
+The first run included normal, braced, rotated, clean and crashed attempts. The second included an idle qualifier. The third deliberately timed out every attempt and produced a shared final victory. After restarting again, an injected NaN cart position stopped safely with finite points, and the next competitor completed a healthy attempt. These recovery checks are not an additional tournament.
+
+The desktop harness observed **1084 fixed physics steps with active steering while popups were visible**. It displayed Front Flip, Back Flip, repeated flips, Double Flip and Clean Flight. No Hands and Last-Second Appeal were additionally verified in the real physics checks above.
+
+The mobile-mode harness used a simulated 360 × 740 viewport and 330 × 420 Canvas, button confirmations, fresh pointer-down pushes/braces, and held pointer rotation. It observed **542 steering steps with visible popups**, completed five tournament attempts, restarted, and passed fault recovery. Its qualifying totals were 808 / 530 / 1094; its final was Jake 808; Owen 1337.
+
+A further complete mobile-mode run with `AUDIO_UNAVAILABLE=1` passed its five attempts, restart, and fault recovery. It used zero audio contexts, observed 459 steering steps with visible popups, and captured zero game errors/warnings/timers. This confirms the trick system does not depend on sound.
+
+Every replaced engine had no surviving bodies, constraints, collision callbacks, pairs, or detector bodies. There was one animation loop and one listener set per owner. No trick code creates listeners, intervals, or timeouts. Held Enter, repeated Space/Up events, touch cancellation/release, prelaunch R, flight restart lock, blur/visibility pause, discarded large frame gaps, canvas resize, missing PNG prevention, and all three manual biographies passed. Jake's first card remained visible for **15.03 real seconds**, and all character appearances stayed open across 23 simulated seconds until manually continued.
+
+Captured game output: **zero errors, zero warnings, zero window errors, and zero game timeout/interval calls** in all final full-flow runs. The host npm configuration warning and Node experimental-VM warning are separate from the game output.
+
+## Files and functions changed
+
+| File                               | Change                                                                                                                                                                                                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New `js/trick-config.js`           | Frozen `TRICK_CONFIG`, `trickProfile`, `trickRotationScale`: all trick thresholds/points, repeat/combo/landing factors, character interactions, caps, and popup lifetime/count.                                                                 |
+| New `js/tricks.js`                 | `TrickTracker` lifecycle, continuous rotation and milestone recognition, strain/recovery and control-history checks, combos, notices, immutable final snapshot; `trickSample` reads actual physics; `scoreTricks` computes bounded subtotals.   |
+| New `js/trick-ui.js`               | `TrickDisplay` renders noninteractive, simulation-timed popups; `trickBreakdown` renders the per-occurrence table and score equation.                                                                                                           |
+| New `tricks.css`                   | Fixed-height popup area, arcade text, compact result table, narrow layout, and reduced-motion support. Existing stylesheets are unchanged.                                                                                                      |
+| `js/physics.js`                    | Constructor owns tracker; `step` samples airtime and applies only Owen's configured high-speed rotation bonus; `handleCollisions` captures the first-contact step; `finish` freezes tricks; `metrics` includes the snapshot.                    |
+| `js/scoring.js`                    | `scoreAttempt` replaces maximum-angle quarter-turn style with recognized-trick style. Distance/landing/attachment formulas and ranking functions are unchanged. The compatibility `quarterTurns` field is derived only from complete rotations. |
+| `js/ui.js`                         | Constructor/reset/observe/render wire passive trick feedback and results; instruction style rules are generated from configuration. Input listeners are reused.                                                                                 |
+| `index.html`                       | Relative trick stylesheet and passive trick HUD below the timing meter.                                                                                                                                                                         |
+| New `tests/tricks.mjs`             | Sixteen deterministic/physical trick and scoring groups.                                                                                                                                                                                        |
+| `tests/physics-and-tournament.mjs` | Updates old maximum-angle expectations and preserves a strict detached-crash fixture with Brandon.                                                                                                                                              |
+| `tests/stability.mjs`              | Proves a completed turn on the actual first-contact integration step is included once.                                                                                                                                                          |
+| `tests/personalization.mjs`        | Uses one recognized flip in the same-jump character style comparison.                                                                                                                                                                           |
+| `tests/dom-flow.mjs`               | Verifies popup/input separation, popup names, displayed trick arithmetic, and existing complete flows. `moduleAt` now caches each loaded module synchronously to prevent duplicate module identities in the test harness.                       |
+| `tests/static-files.mjs`           | Includes all new relative assets under root and project-prefix URLs.                                                                                                                                                                            |
+| `package.json`                     | Runs the dependency-free trick tests in the existing test command. No new build system or runtime dependencies.                                                                                                                                 |
+| `README.md`, `QA.md`, project ZIP  | Trick rules/tuning, exact implementation/test record, and refreshed project.                                                                                                                                                                    |
+
+## Verification harness repair
+
+A silent-mode regression run exposed a race in the optional test harness: concurrent imports could construct two SourceTextModule instances for the same file, so instrumentation could attach to an unused PhysicsWorld class. The game uses the browser's native module loader and does not contain that custom loader. `tests/dom-flow.mjs: moduleAt` now caches synchronously before another import can request the same file. The affected desktop, touch, and silent-touch flows were rerun using that corrected loader.
+
+## Configuration
+
+The full thresholds and point values are documented in `README.md` and `js/trick-config.js`. Key settings: 360° rotations, 10.3° reversal hysteresis, 100%/20%/5%/0% repeat credit, +0.25 combo per new unique trick (Brandon +0.40), combo cap ×2.50, and landing factors Clean ×1.60 / Scrappy ×1.25 / Rough ×1.00 / Crash or no landing ×0.45. Jake has 400 ms combo-instability grace; the default is 180 ms and Owen has 120 ms. Owen's extra spin-building torque scales from zero to +32% over horizontal speeds 14–24 Matter units. Acceleration, takeoff, brace, counter-steering, and angular-speed cap code is otherwise retained.
+
+## Commands and limits of verification
 
 ```sh
 npm test
 node --experimental-vm-modules tests/dom-flow.mjs
 MOBILE=1 node --experimental-vm-modules tests/dom-flow.mjs
+MOBILE=1 AUDIO_UNAVAILABLE=1 node --experimental-vm-modules tests/dom-flow.mjs
 ```
 
-The host's npm configuration warning and Node experimental-VM warning are separate from the game's captured console, which was clean.
+**59 groups passed** (12 physics/tournament, 8 stability, 8 personalization, 5 presentation, 10 skill-loop, 16 tricks). The dependency-free static server served **66 successful root/project-prefix requests**, including the new stylesheet and modules, with correct JavaScript MIME types. The deliberate missing-file 404 check passed. GitHub Pages was not deployed.
 
-## Exact source changes
+The full-flow checks use the real source and Matter.js inside **JSDOM with native Canvas and simulated input/layout/frame timing**. They are not live-browser playthroughs. Live preview was unavailable in the preceding work, and no live browser, browser developer console, real-device hit testing, or human timing assessment was performed here. Existing native Canvas rendering ran as part of the integration; no new browser rendering/performance claim is made.
 
-| File                  | Functions changed                                                                                                                                                                                                 |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `js/introductions.js` | `Introduction.constructor`, `start`, `clear`: manual active flag. Removed `INTRO_DURATION_MS`, the `active` getter, `remaining`, and `expired`.                                                                   |
-| `js/game.js`          | `Game.renderState`: starts an introduction without a timestamp. `Game.frame`: removes all introduction countdown and automatic dismissal logic.                                                                   |
-| `js/ui.js`            | `UI.showIntroduction`: static prompt and Continue to Ready label. Removed `UI.updateIntroduction`.                                                                                                                |
-| `js/input.js`         | `Input.constructor` and its `keydown`, `keyup`, `blur`, `focus`, `visibility` handlers: Enter release latch and focus recovery. `clear` received an explanatory comment; it still only clears movement/key state. |
-| `js/presentation.js`  | `Presentation.constructor` and `replaceWorld`: removed `lastCountdown`. Removed `Presentation.countdown`.                                                                                                         |
-| `js/audio.js`         | `SynthAudio.play`: removed the obsolete introduction countdown cue and its unused value parameter. Other cues are unchanged.                                                                                      |
-
-Verification/documentation files changed:
-
-- `tests/personalization.mjs`: replaced the expiry test with the manual visibility lifecycle test.
-- `tests/stability.mjs`: extended the input test with release gating across `clear()`.
-- `tests/dom-flow.mjs`: updated `key` to accept a target; added `waitOnJake`; replaced expiry checks in `finishIntroduction` with persistence and one-screen continuation checks; updated the tournament loop and report.
-- `tests/presentation.mjs`: removed the obsolete countdown cue from the audio test list.
-- `README.md`, `QA.md`: current behavior and verification record.
-- `deliverables/ragdoll-olympics-vertical-slice.zip`: refreshed project archive.
-
-Compared against the pre-change snapshot: physics, scoring, tournament, character data, passives, commentary, renderer, touch controls, both stylesheets, and index markup are unchanged. No other screen timing was modified.
-
-## Remaining limitation
-
-Live-browser rendering, native keyboard default behavior, and real-device tapping could not be checked because preview access is unavailable. The automated checks above passed; they must not be described as a browser playthrough.
-
----
-
-The following is the historical report from the preceding presentation pass. Its timed-introduction/countdown references describe that earlier version and are superseded by the manual behavior above.
-
-# Previous Flash presentation verification (historical)
-
-Updated 2026-09-17. The tournament, scoring, keyboard input, physics, character data, passives, introductions, and commentary-selection modules are byte-for-byte unchanged from the pre-polish snapshot. Presentation is isolated in new modules and `flash.css`; the existing game loop forwards events and merges independent touch holds. No framework, build step, external artwork, or music was added.
-
-**Live-browser verification remains blocked.** The preview command reported `sites-previewd mailbox is unavailable at /tmp/sites-previewd/requests`. The tests below use the real source, Matter.js, JSDOM, and native Canvas. They simulate layout and events. They are not manual browser playthroughs, real-device tests, browser DevTools checks, or an audition of the synthesized audio.
-
-## Implemented presentation
-
-- Original metallic gradients, thick outlines, beveled controls, safe compressed-looking font fallbacks, flame/lightning motifs, score starbursts, short wipes, concrete/neon scenery, and fictional sponsors.
-- A broadcast lower-third for John; championship ribbons and decorative signal instability escalate without moving the caption text. Transitions never delay state changes or control availability.
-- Launch/landing dust, hard-cart-impact sparks, a small winner burst, score pop/settle, and brief Canvas-only crash shake. Maximum 96 particles, 48 confetti pieces per victory, 4px horizontal shake for 0.22 seconds. Effects use their own random generator and cannot change physics.
-- One lazy Web Audio context, eight original synthesized cues, 24-voice cap, persistent mute, graceful unavailable-audio behavior, and cleanup on mute/pause/reset/unload. Audio schedules on the audio clock, without JavaScript timers.
-- Three 66px-minimum hold buttons below the Canvas for coarse/non-hover pointers. Keyboard input remains available. A closer narrow-screen camera changes only view transforms. Menus remain scrollable in the shorter mobile stage.
-- Reduced-motion CSS disables visual transitions; the effects module suppresses confetti and shake and limits other bursts to four particles each.
-
-## Exact desktop flow tested
-
-The desktop gate passed three tournaments before touch was introduced. After adding touch, the same three-tournament regression passed again. The final desktop run followed:
-
-Title → Instructions → Qualifying introduction → character card → Ready/confirmation → Jake attempt/results → Brandon card/Ready/attempt/results → Owen card/Ready/attempt/results → Elimination → Championship introduction → both finalists' card/Ready/attempt/results → Final results → Restart → Title. No reload occurred between tournaments.
-
-| Run | Qualifying: Jake / Brandon / Owen | Eliminated                         | Championship order and points | Winner         |
-| --- | --------------------------------- | ---------------------------------- | ----------------------------- | -------------- |
-| 1   | 548 / 702 / 645                   | Jake                               | Owen 491; Brandon 704         | Brandon        |
-| 2   | 0 / 704 / 645                     | Jake                               | Owen 491; Brandon 702         | Brandon        |
-| 3   | 0 / 0 / 0                         | Owen, by existing roster tie-break | Brandon 0; Jake 0             | Shared victory |
-
-All scores, result descriptions, finalists, and winners exactly matched the pre-polish integration results.
-
-Run 1 used Space/Up, A/D and arrow rotation, and checked clean/crash results. It also exercised prelaunch retries, held Enter, skipped and expired introductions, an 8-second frame gap, blur/focus and hidden/visible combinations, and resizing at pixel ratios 1 and 2. Run 2 included an idle qualifying timeout. Run 3 deliberately left every attempt idle to verify bounded termination and shared victory.
-
-After the third restart, the harness injected a NaN cart position during Jake's flight, verified a finite safety-stop score, then completed Brandon's next healthy attempt. These are two additional attempts, not another complete tournament.
-
-The final desktop run covered 15 tournament attempts, two fault/recovery attempts, 21 introduction cards, and 25 engine instances including prelaunch retries. It captured **zero game console errors, console warnings, or window errors**, and **zero game timeout/interval calls**. Every replaced world had zero surviving bodies, constraints, collision listeners, pairs, or detector bodies. There was one RAF loop and one listener registration per owner; the additional captured key listener only unlocks audio and never handles gameplay. Unload removed the input, touch, UI, and audio listeners, canceled RAF, closed audio, and disconnected resize observation.
-
-## Narrow and touch checks
-
-`MOBILE=1 node --experimental-vm-modules tests/dom-flow.mjs` passed a complete five-jump tournament with a simulated 360 × 740 viewport and 330 × 420 Canvas. Menu confirmations used button clicks and the five jumps used pointer holds for driving/rotation. Results were 548 / 702 / 645 in qualifying and Owen 491 / Brandon 704 in the final. Restart and two extra numeric-fault/recovery attempts passed.
-
-Checked simultaneous drive/right holds, pointer cancellation, lost capture, release outside the button, blur clearing/disabling holds, focus restoring controls, and disabling/clearing touch at results. Releasing touch while Space remained held did not release keyboard acceleration. The buttons are DOM siblings of the stage, not overlays on the action. Both CSS files parsed in the final DOM run. This verifies structure and simulated behavior, not actual CSS breakpoints, hit testing, menu overflow, or scrolling on a phone.
-
-Native Canvas launch images at desktop and narrow sizes were rendered and visually inspected. Cart, ramp, and ground remained visible. A hard-impact image was also rendered and inspected. The maximum-particle renderer executed successfully at both sizes. These images contain Canvas content only, not the browser-rendered HTML interface.
-
-## Audio and effects checks
-
-- Before any gesture: zero audio contexts. After gesture, mute/unmute, attempts, and restarts: exactly one context. All eight cue categories created scheduled voices in the audio double.
-- Enter on the mute button changed sound without confirming the tournament menu. Muting during gameplay did not end the attempt. Muting disconnected all active voice nodes; unmuting reused the context. Mute persisted through tournament restart and used the expected local-storage value.
-- Unavailable AudioContext, denied construction, rejected resume, and restricted local storage were exercised without uncaught exceptions. A separate full touch tournament with `AUDIO_UNAVAILABLE=1` passed silently with SOUND N/A and zero contexts.
-- Final desktop observation: 21 dust bursts, 6 spark bursts, 3 winner bursts (two emitters each), and 10 brief shake triggers across tournaments/recovery attempts. Peak live particles were 48; peak audio voices were 12. Independent saturation checks reached the configured 96-particle and 24-voice limits without exceeding them.
-- Real launch/landing/crash simulations with presentation enabled produced exactly the same scores as equivalent simulations without it. Every observed body's position, angle, velocity, and angular velocity remained unchanged by the observer.
-- Particle expiry, reset, finite positions, reduced motion, maximum shake amplitude/duration, and audio node disposal passed.
-- Missing portrait PNGs remain absent and disabled in character data. Every frame/menu used labeled initials without inserting a missing PNG request. All three introductions, passive status messages, supplied crash quotes, literary Brandon results, and the black-bar-only Temu icon passed again.
-
-### Native rendering cost
-
-`node tests/render-budget.mjs` measured 240 frames per case after 30 warm-up frames, with particles held at their maximum count during the stress cases:
-
-| Canvas     | Particles | Mean draw time | 95th percentile |
-| ---------- | --------- | -------------- | --------------- |
-| 1246 × 560 | 0         | 0.47 ms        | 0.67 ms         |
-| 1246 × 560 | 96        | 0.67 ms        | 0.95 ms         |
-| 330 × 420  | 0         | 0.40 ms        | 0.57 ms         |
-| 330 × 420  | 96        | 0.61 ms        | 0.91 ms         |
-
-These are native Canvas drawing costs on this host, not browser FPS, full game-loop costs, or mobile hardware performance. No instability or physics divergence was reproduced in the checks performed; no effect needed removal.
-
-## Other checks and commands
-
-- `npm test`: **33 groups passed** — 12 physics/tournament, 8 stabilization, 8 personalization, and 5 presentation/audio groups.
-- Static server: **48 successful root/project-prefix requests** plus the deliberate missing-file 404 check. New CSS/modules and vendored Matter loaded under `/` and `/ragdoll-olympics/`; JavaScript MIME types were correct. This is a local subpath test, not a GitHub Pages deployment.
-- `node --experimental-vm-modules tests/dom-flow.mjs`: three desktop tournaments and restarts.
-- `MOBILE=1 node --experimental-vm-modules tests/dom-flow.mjs`: narrow pointer-driven tournament and restart.
-- `MOBILE=1 AUDIO_UNAVAILABLE=1 node --experimental-vm-modules tests/dom-flow.mjs`: complete silent fallback tournament and restart.
-- `node tests/render-budget.mjs`: actual impact render, narrow render, and maximum-particle measurements.
-
-The host printed its existing npm proxy-configuration warning and Node's experimental-VM warning. Neither came from the game. No new game error was reproduced in the executed checks.
-
-## Changed files
-
-| Files                                                                                 | Change                                                                                                                  |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| New `flash.css`                                                                       | Arcade skin, transitions, score treatment, broadcast/championship presentation, responsive touch layout, reduced motion |
-| New `js/audio.js`, `js/effects.js`, `js/presentation.js`, `js/stadium.js`             | Isolated synthesized audio, bounded effects, event observer, and scenery                                                |
-| New `js/touch.js`                                                                     | Pointer holds and keyboard merge, capture/cancel/reset cleanup                                                          |
-| `index.html`                                                                          | New stylesheet, persistent mute, broadcast markup, sponsor strip, external touch bar                                    |
-| `js/game.js`                                                                          | Forward state/physics events to presentation; merge/clear touch alongside existing input lifecycle                      |
-| `js/renderer.js`                                                                      | Procedural stadium, effects drawing, Canvas-only shake, narrow view transform                                           |
-| `js/ui.js`                                                                            | Championship decoration and touch-aware instructions/hints; menu/result logic preserved                                 |
-| New `tests/fake-audio.mjs`, `tests/presentation.mjs`, `tests/render-budget.mjs`       | Dependency-free audio/effect checks and optional native render measurements                                             |
-| `tests/dom-flow.mjs`, `tests/stability.mjs`, `tests/static-files.mjs`, `package.json` | Integration coverage, gradient-capable Canvas double, relative asset coverage, test command                             |
-| `README.md`, `QA.md`, project ZIP                                                     | Current controls, implementation notes, and verification record                                                         |
-
-`styles.css`, `js/tournament.js`, `js/scoring.js`, `js/input.js`, `js/physics.js`, `js/characters.js`, `js/passives.js`, `js/introductions.js`, `js/commentary.js`, Matter.js, and portrait assets remain unchanged.
-
-## Outstanding verification
-
-- Live desktop tournament, real browser developer console, actual mobile layout/scrolling and multi-touch hardware behavior.
-- Audible cue quality, real autoplay restrictions, operating-system audio interruptions, and device performance during impacts.
-- Full HTML/CSS visual inspection, including score animation and lower-third transitions. Native Canvas inspection does not cover those elements.
-- GitHub Pages deployment has not been performed. Real portraits still need to be supplied and explicitly enabled.
-
-The unavailable preview prevented these checks. The project remains runnable as a static site; the automated results above should not be described as live-browser verification.
+Remaining limitations: live desktop/phone layout and popup readability need hands-on verification; Double Flip difficulty and the very small constraint-strain thresholds should be evaluated with real play across browsers. No unresolved logic failure was reproduced in the tests performed.

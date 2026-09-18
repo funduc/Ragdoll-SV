@@ -1,3 +1,4 @@
+import { timedInputs } from "./skill-helpers.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
@@ -200,7 +201,7 @@ await check(
         p.replaceWorld(world);
       }
       for (let i = 0; i < 2500 && !world.finished; i++) {
-        world.step({ accelerate: true, rotate: world.launched ? 1 : 0 });
+        world.step(timedInputs(world, world.launched ? 1 : 0));
         if (p) {
           const snapshot = world.dynamic.map((b) => [
             b.position.x,

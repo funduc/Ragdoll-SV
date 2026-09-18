@@ -1,4 +1,6 @@
 export const PIXELS_PER_METRE = 40;
+import { braceTolerance } from "./skill-config.js";
+import { scoreTricks } from "./tricks.js";
 export const normalAngle = (angle) =>
   Math.atan2(Math.sin(angle), Math.cos(angle));
 
@@ -10,8 +12,22 @@ const nonNegativeFinite = (value) =>
 export function scoreAttempt(metrics, character) {
   const distancePixels = nonNegativeFinite(metrics.distancePixels);
   const airRotation = nonNegativeFinite(metrics.airRotation);
-  const styleMultiplier = nonNegativeFinite(character.styleMultiplier);
   const stability = nonNegativeFinite(character.landingStability);
+  const takeoffGrade = ["Perfect", "Good", "Early", "Late"].includes(
+    metrics.takeoffGrade,
+  )
+    ? metrics.takeoffGrade
+    : "Late";
+  const braceGrade = [
+    "Perfect Brace",
+    "Good Brace",
+    "Early",
+    "Late",
+    "Unbraced",
+  ].includes(metrics.braceGrade)
+    ? metrics.braceGrade
+    : "Unbraced";
+  const tolerance = braceTolerance(braceGrade);
   const validLanding =
     metrics.landed &&
     Number.isFinite(metrics.landingAngle) &&
@@ -25,11 +41,6 @@ export function scoreAttempt(metrics, character) {
     Math.floor((distancePixels / PIXELS_PER_METRE) * 10) / 10,
   );
   const distancePoints = Math.round(distanceMetres * 10);
-  const quarterTurns = Math.min(
-    12,
-    Math.floor((airRotation + 0.00001) / (Math.PI / 2)),
-  );
-  const stylePoints = Math.round(quarterTurns * 60 * styleMultiplier);
   let landingQuality = "No landing",
     landingPoints = 0;
   if (validLanding) {
@@ -37,7 +48,7 @@ export function scoreAttempt(metrics, character) {
     if (metrics.crashed) landingQuality = "Crash";
     else if (
       angle <= 0.42 * stability &&
-      metrics.landingSpeed < 12 * stability
+      metrics.landingSpeed < 12 * stability * tolerance
     ) {
       landingQuality = "Clean";
       landingPoints = 150;
@@ -48,13 +59,35 @@ export function scoreAttempt(metrics, character) {
   }
   const attachedPoints =
     metrics.launched && validLanding && metrics.attached ? 100 : 0;
+  const tricks = scoreTricks(
+    metrics.trickSummary,
+    character,
+    metrics.crashed ? "Crash" : landingQuality,
+  );
+  const stylePoints = tricks.points;
   return Object.freeze({
     distanceMetres,
     distancePoints,
-    quarterTurns,
+    quarterTurns: tricks.completedRotations * 4,
+    tricks,
     stylePoints,
     landingQuality,
     landingPoints,
+    takeoffGrade,
+    braceGrade,
+    impactTolerance: tolerance,
+    braceLeadMs: Number.isFinite(metrics.braceLeadMs)
+      ? Math.round(nonNegativeFinite(metrics.braceLeadMs))
+      : null,
+    takeoffBonus: nonNegativeFinite(metrics.takeoffBonus),
+    pushCounts: Object.freeze(
+      Object.fromEntries(
+        ["Perfect", "Good", "Miss"].map((grade) => [
+          grade,
+          Math.floor(nonNegativeFinite(metrics.pushCounts?.[grade])),
+        ]),
+      ),
+    ),
     attachedPoints,
     total: distancePoints + stylePoints + landingPoints + attachedPoints,
     airDegrees: Math.round((airRotation * 180) / Math.PI),

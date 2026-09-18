@@ -1,0 +1,117 @@
+/* Additive trick feedback only; no changes to the cabinet or input targets. */
+.trick-hud {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  min-height: 56px;
+  overflow: hidden;
+  padding: 5px 16px;
+  background: #121e27;
+  border-bottom: 2px solid #080d12;
+  pointer-events: none;
+  user-select: none;
+  font:
+    700 10px "Courier New",
+    monospace;
+}
+.trick-combo {
+  color: var(--blue);
+  flex-shrink: 0;
+}
+.trick-popup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--green);
+  font:
+    900 15px Impact,
+    "Arial Narrow",
+    sans-serif;
+  text-transform: uppercase;
+  font-style: italic;
+  line-height: 1.2;
+  min-width: 0;
+}
+.trick-pop {
+  text-shadow: 2px 2px #000;
+  animation: trick-pop-in 0.16s ease-out;
+}
+@keyframes trick-pop-in {
+  from {
+    transform: translateY(4px) scale(0.96);
+    opacity: 0.3;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.trick-breakdown {
+  margin: 12px 0;
+  border-block: 1px solid #4c626e;
+  padding: 9px 0;
+}
+.trick-breakdown .tiny {
+  margin: 5px 0;
+}
+.trick-table {
+  width: 100%;
+  border-collapse: collapse;
+  font:
+    10px "Courier New",
+    monospace;
+}
+.trick-table th,
+.trick-table td {
+  padding: 5px 4px;
+  text-align: right;
+  border-bottom: 1px solid #31414b;
+}
+.trick-table th:first-child,
+.trick-table td:first-child {
+  text-align: left;
+  color: var(--green);
+}
+.trick-equation {
+  font:
+    11px "Courier New",
+    monospace;
+  margin: 9px 0;
+  color: #d3e8ef;
+}
+.trick-equation b {
+  color: var(--orange);
+}
+@media (max-width: 520px) {
+  .trick-hud {
+    height: 82px;
+    min-height: 82px;
+    padding: 5px 8px;
+    gap: 8px;
+    font-size: 8px;
+  }
+  .trick-popup {
+    font-size: 12px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+  .trick-pop {
+    white-space: nowrap;
+  }
+  .trick-table {
+    font-size: 9px;
+  }
+  .trick-table th,
+  .trick-table td {
+    padding: 5px 2px;
+  }
+  .trick-equation {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trick-pop {
+    animation: none;
+  }
+}

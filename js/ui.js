@@ -3,6 +3,10 @@ import { State } from "./tournament.js";
 import { ATTEMPT_LIMIT } from "./physics.js";
 import { rankQualifiers } from "./scoring.js";
 import { Commentator } from "./commentary.js";
+import { SkillMeter, worldSkillView } from "./skill-ui.js";
+import { tutorialMarkup } from "./tutorial.js";
+import { TrickDisplay, trickBreakdown } from "./trick-ui.js";
+import { TRICK_CONFIG } from "./trick-config.js";
 const unavailablePortraits = new Set();
 const escape = (value) =>
   String(value).replace(
@@ -20,13 +24,17 @@ const roster = (characters) =>
   `<div class="roster-strip">${characters.map((c) => `<div class="roster-person" style="--person:${c.primaryColor}">${portrait(c)}<div><strong>${escape(c.name)}</strong><small>“${escape(c.nickname)}”</small></div></div>`).join("")}</div>`;
 
 export class UI {
-  constructor(onConfirm) {
+  constructor(onConfirm, onPractice = () => {}) {
     this.root = document.getElementById("game");
     this.overlay = document.getElementById("overlay");
     this.hud = document.getElementById("hud");
     this.standings = document.getElementById("standings");
     this.commentary = document.getElementById("commentary");
     this.hint = document.getElementById("play-hint");
+    this.skillHud = document.getElementById("skill-hud");
+    this.skillMeter = new SkillMeter(this.skillHud);
+    this.trickHud = document.getElementById("trick-hud");
+    this.trickDisplay = new TrickDisplay(this.trickHud);
     this.touchMedia = globalThis.matchMedia?.(
       "(pointer: coarse), (hover: none)",
     );
@@ -36,6 +44,8 @@ export class UI {
     this.resetAttempt();
     this.onClick = (event) => {
       if (event.target.closest('[data-action="confirm"]')) onConfirm();
+      const practice = event.target.closest("[data-practice]");
+      if (practice) onPractice(practice.dataset.practice);
     };
     this.overlay.addEventListener("click", this.onClick);
     // Capture once; an absent replacement portrait leaves labeled initials underneath.
@@ -64,8 +74,10 @@ export class UI {
   resetAttempt() {
     this.commentator.resetAttempt();
     this.announced = new Set();
+    this.trickDisplay?.reset();
   }
   observeAttempt(world, tournament) {
+    this.trickDisplay.observe(world);
     const queue = (type) =>
       this.commentator.enqueue(
         type,
@@ -115,7 +127,9 @@ export class UI {
       ${button("Continue to Ready")}
     </section>`;
     this.say(john);
-    this.overlay.querySelector("button")?.focus({ preventScroll: true });
+    this.overlay
+      .querySelector('[data-action="confirm"]')
+      ?.focus({ preventScroll: true });
   }
   render(t) {
     this.root.dataset.state = t.state;
@@ -125,6 +139,8 @@ export class UI {
     this.overlay.hidden = t.active;
     this.hud.hidden = !t.active;
     this.hint.hidden = !t.active;
+    this.skillHud.hidden = !t.active;
+    this.trickHud.hidden = !t.active;
     this.overlay.classList.toggle("title-overlay", t.state === State.TITLE);
     this.roundLabel.textContent = [State.TITLE, State.INSTRUCTIONS].includes(
       t.state,
@@ -149,14 +165,14 @@ export class UI {
         );
         break;
       case State.INSTRUCTIONS:
-        html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Hold <kbd>SPACE</kbd> or <kbd>↑</kbd> to accelerate up the ramp. Launch is automatic.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down.</p><p class="touch-note">Touch: hold DRIVE below the arena to accelerate; hold LEFT or RIGHT to rotate in the air.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> 60 × character multiplier per 90° of maximum air rotation; up to 12 quarter turns. Wiggling adds no extra points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny">One qualifying jump each; the lowest score is out. Qualifying ties use distance, then roster order. The top two get one fresh championship jump; tied championship scores share the win. Qualifying scores do not carry over.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${button("Meet the competitors")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Tap <kbd>SPACE</kbd> or <kbd>↑</kbd> at the green centre of the rhythm meter. Release each time; holding gives one push. Spam adds wobble.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down. Tap <kbd>↓</kbd> / <kbd>S</kbd> once just before contact to brace. Too early reduces air control; too late gives no benefit.</p><p>At TAKEOFF, wait for the cart marker in the green boost zone and tap once. Early spends the bonus; Late pitches forward. Touch: tap PUSH / BRACE; hold LEFT / RIGHT.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> Complete flips and controlled-flight tricks build unique-trick combos. Repeats pay ${TRICK_CONFIG.repeatFactors.map((f) => `${Math.round(f * 100)}%`).join(", ")}. Clean landings multiply trick style ×${TRICK_CONFIG.landingFactors.Clean.toFixed(2)}; crashes retain ×${TRICK_CONFIG.landingFactors.Crash.toFixed(2)}. Partial spins earn no trick points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny">One qualifying jump each; the lowest score is out. Qualifying ties use distance, then roster order. The top two get one fresh championship jump; tied championship scores share the win. Qualifying scores do not carry over.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${tutorialMarkup()}${button("Meet the competitors")}</section>`;
         break;
       case State.QUALIFYING_INTRO:
         html = `<section class="menu-panel"><p class="eyebrow">ROUND 01 / THREE IN, TWO THROUGH</p><h2>QUALIFYING</h2><p>One jump each. Pass the controls in this order.</p>${roster(CHARACTERS)}<p class="tiny">Lowest total is eliminated. Tied totals use distance, then the order above.</p>${button("Go to first hand-off")}</section>`;
         this.caption("introduction");
         break;
       case State.READY:
-        html = `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</span><div class="handoff" style="--person:${t.current.primaryColor}">${portrait(t.current)}<div><h2>${escape(t.current.name)}</h2><span class="nickname">“${escape(t.current.nickname)}”</span></div></div><p>Ready, ${t.current.name.split(" ")[0]}? Confirm, then hold <kbd>SPACE</kbd> or <kbd>↑</kbd> for the ramp.</p><p class="tiny touch-note">Touch: hold DRIVE below the arena, then LEFT or RIGHT while airborne.</p><p class="subline">${t.next ? `ON DECK: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "UP NEXT: QUALIFYING RESULTS & ELIMINATION" : "UP NEXT: THE FINAL RESULTS"}</p><p class="tiny"><b>${escape(t.current.passive.name)}</b> · Style ×${t.current.styleMultiplier.toFixed(2)} · Air control ×${t.current.rotationControl.toFixed(2)} · Stability ×${t.current.landingStability.toFixed(2)}</p><p class="tiny">${t.current.statistics
+        html = `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</span><div class="handoff" style="--person:${t.current.primaryColor}">${portrait(t.current)}<div><h2>${escape(t.current.name)}</h2><span class="nickname">“${escape(t.current.nickname)}”</span></div></div><p>Ready, ${t.current.name.split(" ")[0]}? Confirm, then tap <kbd>SPACE</kbd> or <kbd>↑</kbd> on the green rhythm zone. One timed push at takeoff, then <kbd>↓</kbd> / <kbd>S</kbd> to brace before landing.</p><p class="tiny touch-note">Touch: tap PUSH on the beat; hold LEFT / RIGHT to rotate; tap BRACE once near landing.</p><p class="subline">${t.next ? `ON DECK: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "UP NEXT: QUALIFYING RESULTS & ELIMINATION" : "UP NEXT: THE FINAL RESULTS"}</p><p class="tiny"><b>${escape(t.current.passive.name)}</b> · Style ×${t.current.styleMultiplier.toFixed(2)} · Air control ×${t.current.rotationControl.toFixed(2)} · Stability ×${t.current.landingStability.toFixed(2)}</p><p class="tiny">${t.current.statistics
           .slice(3)
           .map(([label, value]) => `${escape(label)}: ${escape(value)}`)
           .join(" · ")}</p>${button("Begin jump")}</section>`;
@@ -185,7 +201,7 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}<div class="score-grid"><div class="score-item"><span>DISTANCE</span><strong>${s.distancePoints}</strong><small>${s.distanceMetres.toFixed(1)} m × 10</small></div><div class="score-item"><span>LANDING</span><strong>${s.landingPoints}</strong><small>${s.landingQuality}${s.landingQuality === "No landing" ? "" : ` · ${s.landingAngle}° tilt`}</small></div><div class="score-item"><span>AIR STYLE</span><strong>${s.stylePoints}</strong><small>${s.airDegrees}° · ${s.quarterTurns} × 60 × ${t.current.styleMultiplier}</small></div><div class="score-item"><span>STAY ATTACHED</span><strong>${s.attachedPoints}</strong><small>${s.attachedPoints ? "Harness held through landing" : s.attached ? "No completed landing" : "Harness broke"}</small></div></div><div class="score-total"><span>TOTAL POINTS</span><strong id="attempt-total">${s.total}</strong></div><p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}<div class="score-grid"><div class="score-item"><span>DISTANCE</span><strong>${s.distancePoints}</strong><small>${s.distanceMetres.toFixed(1)} m × 10</small></div><div class="score-item"><span>LANDING</span><strong>${s.landingPoints}</strong><small>${s.landingQuality}${s.landingQuality === "No landing" ? "" : ` · ${s.landingAngle}° tilt`}</small></div><div class="score-item"><span>AIR STYLE</span><strong>${s.stylePoints}</strong><small>${s.tricks.completedRotations} full rotations · ${s.tricks.unique} unique tricks</small></div><div class="score-item"><span>STAY ATTACHED</span><strong>${s.attachedPoints}</strong><small>${s.attachedPoints ? "Harness held through landing" : s.attached ? "No completed landing" : "Harness broke"}</small></div></div><div class="skill-result"><span>TAKEOFF: <b id="result-takeoff">${escape(s.takeoffGrade)}</b> · boost +${s.takeoffBonus}</span><span>LANDING INPUT: <b id="result-brace">${escape(s.braceGrade)}</b> · impact tolerance ×${s.impactTolerance.toFixed(2)}</span><span>PUSHES: ${s.pushCounts.Perfect} Perfect / ${s.pushCounts.Good} Good / ${s.pushCounts.Miss} Miss</span></div>${trickBreakdown(s)}<div class="score-total"><span>TOTAL POINTS</span><strong id="attempt-total">${s.total}</strong></div><p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
         break;
       }
       case State.ELIMINATION:
@@ -204,7 +220,9 @@ export class UI {
       }
     }
     this.overlay.innerHTML = html;
-    this.overlay.querySelector("button")?.focus({ preventScroll: true });
+    this.overlay
+      .querySelector('[data-action="confirm"]')
+      ?.focus({ preventScroll: true });
   }
   table(characters, scores, eliminatedId = null) {
     const ordered = eliminatedId
@@ -232,6 +250,7 @@ export class UI {
     }).join("");
   }
   update(world) {
+    this.skillMeter.update(worldSkillView(world));
     if (this.passiveStatus.textContent !== world.passiveStatus)
       this.passiveStatus.textContent = world.passiveStatus;
     this.passiveStatus.dataset.warning = String(world.passiveWarning);
@@ -249,11 +268,11 @@ export class UI {
         : "RIDER DETACHED · Distance and style still count"
       : world.launched
         ? this.touchMedia?.matches
-          ? "HOLD LEFT / RIGHT BELOW · AIM FOR WHEELS DOWN"
-          : "← / A LEAN BACK    ·    → / D LEAN FORWARD"
+          ? "LEFT / RIGHT TO ROTATE · TAP BRACE NEAR LANDING"
+          : "← / A BACK · → / D FORWARD · ↓ / S BRACE"
         : this.touchMedia?.matches
-          ? `HOLD DRIVE BELOW · ${Math.round(world.cart.speed * 1.5)} km/h`
-          : `HOLD SPACE / ↑ TO ACCELERATE    ·    R TO RESET    ·    ${Math.round(world.cart.speed * 1.5)} km/h`;
+          ? `TAP PUSH ON THE BEAT · ${Math.round(world.cart.speed * 1.5)} km/h`
+          : `TAP SPACE / ↑ ON THE BEAT    ·    R TO RESET    ·    ${Math.round(world.cart.speed * 1.5)} km/h`;
   }
   setPaused(value) {
     this.pauseBanner.hidden = !value;

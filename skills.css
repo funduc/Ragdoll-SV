@@ -1,0 +1,149 @@
+/* New mechanics only. The existing cabinet, cards, scoring grid and skin stay intact. */
+.skill-meter {
+  padding: 9px 16px;
+  background: linear-gradient(#24343d, #101c25);
+  border-block: 2px solid #060d13;
+}
+.skill-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font:
+    bold 10px "Courier New",
+    monospace;
+  color: #b8d3de;
+  margin-bottom: 6px;
+}
+.skill-heading strong {
+  color: var(--green);
+  text-transform: uppercase;
+}
+.skill-meter[data-grade="Miss"] .skill-heading strong,
+.skill-meter[data-grade="Early"] .skill-heading strong,
+.skill-meter[data-grade="Late"] .skill-heading strong {
+  color: var(--orange);
+}
+.skill-track {
+  height: 14px;
+  position: relative;
+  background: #543b2c;
+  border: 2px solid #03090e;
+  box-shadow: inset 0 1px #a19a8277;
+}
+.skill-track span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.skill-good {
+  background: #b38a35;
+}
+.skill-perfect {
+  background: var(--green);
+  box-shadow: inset 0 1px #f5ffbe;
+}
+.skill-marker {
+  position: absolute;
+  width: 4px;
+  background: #fff;
+  top: -5px;
+  bottom: -5px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 1px #000;
+}
+.skill-legend {
+  display: flex;
+  justify-content: space-between;
+  font:
+    8px "Courier New",
+    monospace;
+  color: #bdcbd1;
+  margin-top: 4px;
+}
+.skill-legend b {
+  color: var(--green);
+}
+.skill-message {
+  font:
+    10px "Courier New",
+    monospace;
+  color: #dce7eb;
+  margin: 6px 0 0;
+  min-height: 12px;
+}
+.skill-tutorial {
+  border: 1px solid #536570;
+  padding: 10px;
+  margin-top: 14px;
+  background: #12202a;
+}
+.skill-tutorial > p {
+  margin-bottom: 8px;
+}
+.skill-tutorial .actions {
+  margin-top: 9px;
+  gap: 10px;
+}
+.skill-tutorial .btn {
+  min-height: 44px;
+  padding: 8px 13px;
+  font-size: 10px;
+}
+.skill-tutorial .skill-message {
+  font-size: 11px;
+  margin-bottom: 0;
+}
+.skill-result {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font:
+    11px "Courier New",
+    monospace;
+  border-top: 1px solid #53616a;
+  padding-top: 10px;
+  color: #c2cfd6;
+}
+.skill-result b {
+  color: var(--blue);
+}
+@media (pointer: coarse), (hover: none) {
+  .touch-controls {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .touch-controls button[data-control="push"] {
+    background: linear-gradient(#ffb260, #fd8d33 48%, #ce5916 49%, #f18a29);
+    border-color: #ffdca4 #a95320 #6f351b #ffc183;
+    color: #121e25;
+    text-shadow: 0 1px #ffd7a5;
+  }
+  .touch-controls button[data-control="brace"] {
+    border-color: #d0fa93 #54762c #284415 #96c561;
+    background: linear-gradient(#b7e573, #527d36);
+    color: #09170b;
+    text-shadow: 0 1px #cfefaa;
+  }
+}
+@media (max-width: 520px) {
+  .skill-meter {
+    padding: 8px;
+  }
+  .skill-heading {
+    font-size: 9px;
+    gap: 8px;
+  }
+  .skill-message {
+    font-size: 9px;
+    min-height: 24px;
+  }
+  .skill-legend {
+    font-size: 7px;
+  }
+  .touch-controls {
+    gap: 5px;
+    padding: 8px 5px;
+  }
+  .touch-controls button {
+    font-size: 10px;
+  }
+}

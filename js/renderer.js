@@ -1,5 +1,6 @@
 import { COURSE } from "./physics.js";
 import { Stadium } from "./stadium.js";
+import { SKILL_CONFIG } from "./skill-config.js";
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -139,6 +140,32 @@ export class Renderer {
     c.strokeStyle = "#a3bcc8";
     c.lineWidth = 7;
     c.stroke();
+    c.fillStyle = "#ff852b";
+    // Painted ramp strip uses the same cart-centre x windows as skill grading.
+    const boost = SKILL_CONFIG.takeoff;
+    const rampY = (x) =>
+      COURSE.groundY -
+      ((x - COURSE.rampStart) * (COURSE.groundY - COURSE.rampTop)) /
+        (COURSE.rampEnd - COURSE.rampStart);
+    for (const [start, end, color] of [
+      [boost.goodStart, Math.min(boost.goodEnd, COURSE.rampEnd), "#e5b74d"],
+      [boost.perfectStart, boost.perfectEnd, "#b4ef4b"],
+    ]) {
+      c.beginPath();
+      c.moveTo(start, rampY(start) - 3);
+      c.lineTo(end, rampY(end) - 3);
+      c.lineWidth = 12;
+      c.strokeStyle = color;
+      c.stroke();
+    }
+    this.label(
+      "BOOST ZONE",
+      (boost.perfectStart + boost.perfectEnd) / 2,
+      rampY(boost.perfectEnd) - 24,
+      11,
+      "#b4ef4b",
+      "center",
+    );
     c.fillStyle = "#ff852b";
     c.fillRect(COURSE.rampEnd - 3, COURSE.rampTop - 16, 6, 22);
     this.label(

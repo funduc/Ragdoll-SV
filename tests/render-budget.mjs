@@ -1,3 +1,4 @@
+import { timedInputs } from "./skill-helpers.mjs";
 // Optional native-Canvas rendering benchmark. This does not measure browser FPS.
 import assert from "node:assert/strict";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
@@ -43,7 +44,7 @@ let launch = false,
   impact = false,
   impactDelay = 0;
 for (let i = 0; i < 2500 && !world.finished; i++) {
-  world.step({ accelerate: true, rotate: world.launched ? 1 : 0 });
+  world.step(timedInputs(world, world.launched ? 1 : 0));
   presentation.observe(world);
   presentation.frame(world, true, false, 1 / 120, 1000 / 120);
   if (world.launched && !launch) {
@@ -58,6 +59,7 @@ for (let i = 0; i < 2500 && !world.finished; i++) {
     renderer.resize();
   }
   if (
+    world.landed &&
     presentation.effects.particles.some((p) => p.kind === "spark") &&
     !impact &&
     ++impactDelay === 8

@@ -8,12 +8,18 @@ import { UI } from "./ui.js";
 import { Introduction } from "./introductions.js";
 import { Presentation } from "./presentation.js";
 import { TouchControls } from "./touch.js";
+import { Tutorial } from "./tutorial.js";
+import { SkillMeter } from "./skill-ui.js";
 
 class Game {
   constructor() {
     this.tournament = new Tournament();
     this.introduction = new Introduction();
-    this.ui = new UI(() => this.confirm());
+    this.tutorial = new Tutorial();
+    this.ui = new UI(
+      () => this.confirm(),
+      (action) => this.practiceAction(action),
+    );
     this.renderer = new Renderer(document.getElementById("game-canvas"));
     this.world = new PhysicsWorld(CHARACTERS[0]);
     this.presentation = new Presentation(
@@ -27,11 +33,15 @@ class Game {
     this.destroyed = false;
     this.touch = new TouchControls(
       document.getElementById("touch-controls"),
-      () => this.tournament.active && !this.suspended,
+      () => this.acceptsSkillInput && !this.suspended,
     );
     this.input = new Input({
-      isActive: () => this.tournament.active,
-      onConfirm: () => this.confirm(),
+      isActive: () => this.acceptsSkillInput,
+      onConfirm: (event) => {
+        const button = event?.target?.closest?.("[data-practice]");
+        if (button) this.practiceAction(button.dataset.practice);
+        else this.confirm();
+      },
       onRestart: () => this.restartAttempt(),
       onSuspend: (paused) => {
         this.suspended = paused;
@@ -56,6 +66,37 @@ class Game {
     this.accumulator = 0;
     this.lastTime = null;
     this.renderer.resetCamera();
+  }
+  get acceptsSkillInput() {
+    return (
+      this.tournament.active || this.tournament.state === State.INSTRUCTIONS
+    );
+  }
+  practiceAction(action) {
+    if (this.tournament.state !== State.INSTRUCTIONS) return;
+    if (action === "next") this.tutorial.next();
+    else this.tutorial.act();
+    this.clearControls();
+    this.updatePractice();
+    this.presentation.audio.play("click");
+  }
+  updatePractice() {
+    this.practiceMeter?.update(this.tutorial.view());
+    const action = document.querySelector('[data-practice="action"]');
+    const next = document.querySelector('[data-practice="next"]');
+    if (action)
+      action.textContent = this.tutorial.complete
+        ? "Practice again"
+        : this.tutorial.result
+          ? "Try again"
+          : this.tutorial.stage === 2
+            ? "Tap BRACE"
+            : "Tap PUSH";
+    if (next) {
+      next.hidden = !this.tutorial.result || this.tutorial.complete;
+      next.textContent =
+        this.tutorial.stage === 2 ? "Finish practice" : "Next drill";
+    }
   }
   confirm() {
     if (this.tournament.active || this.destroyed) return;
@@ -90,6 +131,14 @@ class Game {
     this.introduction.clear();
     this.ui.render(this.tournament);
     this.presentation.state(this.tournament);
+    this.practiceMeter = null;
+    if (this.tournament.state === State.INSTRUCTIONS) {
+      this.tutorial.reset();
+      this.practiceMeter = new SkillMeter(
+        document.getElementById("tutorial-meter"),
+      );
+      this.updatePractice();
+    }
     if (this.tournament.state === State.READY) {
       this.ui.resetAttempt();
       this.introduction.start();
@@ -124,7 +173,7 @@ class Game {
       this.accumulator += Math.min(gap, 100);
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
-        this.world.step(this.touch.merge(this.input.controls));
+        this.world.step(this.touch.merge(this.input.consume()));
         this.presentation.observe(this.world);
         this.accumulator -= STEP_MS;
         steps++;
@@ -142,6 +191,15 @@ class Game {
         }
       }
       if (this.tournament.active) this.ui.update(this.world);
+    } else if (
+      this.tournament.state === State.INSTRUCTIONS &&
+      !this.suspended
+    ) {
+      this.tutorial.tick(
+        Math.min(gap / 1000, 0.1),
+        this.touch.merge(this.input.consume()),
+      );
+      this.updatePractice();
     }
     const drawTime = Math.min(gap / 1000, 1 / 15) || 1 / 60;
     this.presentation.frame(
