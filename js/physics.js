@@ -17,7 +17,7 @@ export const ATTEMPT_LIMIT = 20;
 const RUNUP_LIMIT = 12;
 
 export class PhysicsWorld {
-  constructor(character) {
+  constructor(character, arena = { id: "santor-vault", gravity: 1.05 }) {
     this.M = globalThis.Matter;
     if (!this.M)
       throw new Error(
@@ -31,7 +31,12 @@ export class PhysicsWorld {
       constraintIterations: 6,
       enableSleeping: false,
     });
-    this.engine.gravity.y = 1.05;
+    // The campaign's arena data selects gravity; the existing course geometry
+    // stays fixed for this vertical slice. Party uses the exact original default.
+    this.engine.gravity.y =
+      arena.id === "santor-vault" && Number.isFinite(arena.gravity)
+        ? Math.max(0.5, Math.min(1.5, arena.gravity))
+        : 1.05;
     this.elapsed = 0;
     this.launched = false;
     this.landed = false;

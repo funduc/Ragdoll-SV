@@ -1,0 +1,172 @@
+/* Vault Run reuses the cabinet, panels, portraits, score grid, and buttons. */
+.mode-choices .btn {
+  min-height: 48px;
+}
+.campaign-characters {
+  display: grid;
+  gap: 12px;
+}
+.campaign-characters article {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--person);
+  padding: 12px;
+  background: #10191f;
+}
+.campaign-characters .handoff {
+  margin: 0 0 12px;
+}
+.campaign-characters h3 {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+.campaign-characters .handoff p {
+  margin: 0;
+}
+.campaign-map {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.campaign-level {
+  border: 2px solid #50616d;
+  border-left: 5px solid var(--blue);
+  background: linear-gradient(135deg, #26343f, #111c23);
+  padding: 16px;
+}
+.campaign-level.locked {
+  border-left-color: #75828b;
+}
+.campaign-level-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.campaign-level h3 {
+  font-size: 23px;
+  margin: 0 0 8px;
+}
+.campaign-level h3 span {
+  color: var(--blue);
+}
+.campaign-level p {
+  font-size: 12px;
+  margin-bottom: 7px;
+}
+.campaign-medal {
+  flex-shrink: 0;
+  display: inline-block;
+  padding: 5px 8px;
+  border: 2px solid currentColor;
+  background: #11181f;
+  color: var(--muted);
+  font:
+    bold 10px "Courier New",
+    monospace;
+  text-transform: uppercase;
+}
+.campaign-medal[data-medal="1"] {
+  color: #e3a16d;
+}
+.campaign-medal[data-medal="2"] {
+  color: #d5e2ea;
+}
+.campaign-medal[data-medal="3"] {
+  color: #f8d45e;
+}
+.campaign-goals {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+  display: grid;
+  gap: 8px;
+}
+.campaign-goals li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.campaign-goals li > span:nth-child(2) {
+  flex: 1;
+}
+.campaign-goals li[data-met="true"] > b {
+  color: var(--green);
+}
+.campaign-goals .campaign-medal {
+  min-width: 65px;
+  text-align: center;
+}
+.campaign-award {
+  border-block: 1px solid var(--line);
+  padding: 14px 0;
+}
+.campaign-award > .campaign-medal {
+  font-size: 20px;
+}
+.campaign-award p {
+  margin: 8px 0 0;
+}
+.campaign-save {
+  margin-top: 15px;
+}
+.campaign-coach {
+  border-top: 1px solid #526575;
+  border-left: 4px solid var(--green);
+  padding: 10px 16px;
+  height: 62px;
+  background: #15232e;
+  color: #e0ebef;
+  font:
+    12px/1.5 "Courier New",
+    monospace;
+  pointer-events: none;
+}
+.campaign-level .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  filter: grayscale(1);
+}
+@media (max-width: 800px) {
+  .campaign-coach {
+    height: 104px;
+  }
+}
+@media (max-width: 520px) {
+  .mode-choices {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .mode-choices .btn {
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .campaign-level {
+    padding: 12px;
+  }
+  .campaign-level-heading {
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .campaign-level h3 {
+    font-size: 21px;
+  }
+  .campaign-map-panel .actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .campaign-goals li {
+    gap: 7px;
+    font-size: 11px;
+  }
+  .campaign-coach {
+    font-size: 11px;
+    height: 104px;
+  }
+  [data-mode="vault-run"] .intro-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

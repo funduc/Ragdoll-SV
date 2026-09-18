@@ -38,7 +38,13 @@ w.console.error = (...args) => errors.push(args.map(String).join(" "));
 w.console.warn = (...args) => warnings.push(args.map(String).join(" "));
 w.addEventListener("error", (e) => errors.push(e.message));
 // Parse the actual sheets as a syntax check; JSDOM does not lay them out.
-for (const name of ["styles.css", "flash.css", "skills.css", "tricks.css"]) {
+for (const name of [
+  "styles.css",
+  "flash.css",
+  "skills.css",
+  "tricks.css",
+  "campaign.css",
+]) {
   const style = document.createElement("style");
   style.textContent = await readFile(resolve(root, name), "utf8");
   document.head.appendChild(style);
@@ -560,7 +566,8 @@ function finishIntroduction(mode = "enter") {
 const resultRuns = [];
 for (let run = 0; run < runCount; run++) {
   assert.equal(state(), "title");
-  key("Enter");
+  document.querySelector('[data-mode="party"]').focus();
+  key("Enter", "keydown", false, document.activeElement);
   assert.equal(state(), "instructions");
   assert.equal(document.querySelectorAll(".portrait img").length, 0);
   key("Enter", "keydown", true);
@@ -1032,7 +1039,8 @@ for (const [type, count] of Object.entries(registrations))
 frame();
 await screenshot("runway");
 // An injected corrupt body must end in a finite result and allow a fresh hand-off.
-for (let i = 0; i < 3; i++) confirm();
+document.querySelector('[data-mode="party"]').click();
+for (let i = 0; i < 2; i++) confirm();
 finishIntroduction();
 confirm();
 frame();

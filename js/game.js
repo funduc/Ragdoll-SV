@@ -10,15 +10,19 @@ import { Presentation } from "./presentation.js";
 import { TouchControls } from "./touch.js";
 import { Tutorial } from "./tutorial.js";
 import { SkillMeter } from "./skill-ui.js";
+import { Campaign, CampaignState } from "./campaign.js";
 
 class Game {
   constructor() {
     this.tournament = new Tournament();
+    this.campaign = new Campaign();
+    this.mode = "party";
     this.introduction = new Introduction();
     this.tutorial = new Tutorial();
     this.ui = new UI(
       () => this.confirm(),
       (action) => this.practiceAction(action),
+      (button) => this.menuAction(button),
     );
     this.renderer = new Renderer(document.getElementById("game-canvas"));
     this.world = new PhysicsWorld(CHARACTERS[0]);
@@ -38,6 +42,13 @@ class Game {
     this.input = new Input({
       isActive: () => this.acceptsSkillInput,
       onConfirm: (event) => {
+        const menu = event?.target?.closest?.(
+          "button[data-mode], button[data-campaign]",
+        );
+        if (menu) {
+          this.menuAction(menu);
+          return;
+        }
         const button = event?.target?.closest?.("[data-practice]");
         if (button) this.practiceAction(button.dataset.practice);
         else this.confirm();
@@ -49,7 +60,7 @@ class Game {
         this.touch.sync();
         this.lastTime = null;
         this.accumulator = 0;
-        this.ui.setPaused(paused && this.tournament.active);
+        this.ui.setPaused(paused && this.session.active);
         this.presentation.audio.setPaused(paused);
       },
     });
@@ -58,10 +69,16 @@ class Game {
     this.frame = this.frame.bind(this);
     this.raf = requestAnimationFrame(this.frame);
   }
+  get session() {
+    return this.mode === "vault" ? this.campaign : this.tournament;
+  }
   replaceWorld(character) {
     this.touch?.clear();
     this.world?.dispose();
-    this.world = new PhysicsWorld(character);
+    this.world = new PhysicsWorld(
+      character,
+      this.mode === "vault" ? this.campaign.level?.arena : undefined,
+    );
     this.presentation.replaceWorld(this.world);
     this.accumulator = 0;
     this.lastTime = null;
@@ -69,11 +86,13 @@ class Game {
   }
   get acceptsSkillInput() {
     return (
-      this.tournament.active || this.tournament.state === State.INSTRUCTIONS
+      this.session.active ||
+      (this.mode === "party" && this.tournament.state === State.INSTRUCTIONS)
     );
   }
   practiceAction(action) {
-    if (this.tournament.state !== State.INSTRUCTIONS) return;
+    if (this.mode !== "party" || this.tournament.state !== State.INSTRUCTIONS)
+      return;
     if (action === "next") this.tutorial.next();
     else this.tutorial.act();
     this.clearControls();
@@ -99,7 +118,19 @@ class Game {
     }
   }
   confirm() {
-    if (this.tournament.active || this.destroyed) return;
+    if (this.session.active || this.destroyed) return;
+    if (this.mode === "vault") {
+      const previous = this.campaign.state;
+      this.campaign.confirm();
+      this.finishCampaignTransition(previous);
+      return;
+    }
+    if (this.tournament.state === State.TITLE) {
+      const focused = document.activeElement?.closest?.("button[data-mode]");
+      const choice = focused || document.querySelector('[data-mode="vault"]');
+      if (choice) this.menuAction(choice);
+      return;
+    }
     this.presentation.audio.play("click");
     if (this.introduction.active) {
       this.dismissIntroduction();
@@ -129,9 +160,13 @@ class Game {
   renderState() {
     this.touch.sync();
     this.introduction.clear();
-    this.ui.render(this.tournament);
-    this.presentation.state(this.tournament);
+    this.ui.render(this.session);
+    this.presentation.state(this.session);
     this.practiceMeter = null;
+    if (this.mode === "vault") {
+      if (this.campaign.state === State.READY) this.ui.resetAttempt();
+      return;
+    }
     if (this.tournament.state === State.INSTRUCTIONS) {
       this.tutorial.reset();
       this.practiceMeter = new SkillMeter(
@@ -151,10 +186,89 @@ class Game {
     this.ui.render(this.tournament);
   }
   restartAttempt() {
-    if (!this.tournament.active || !this.world.canRestart) return;
-    this.tournament.resetAttempt();
+    if (!this.session.active || !this.world.canRestart) return;
+    this.session.resetAttempt();
     this.clearControls();
-    this.replaceWorld(this.tournament.current);
+    this.replaceWorld(this.session.current);
+    this.renderState();
+  }
+  menuAction(button) {
+    if (
+      this.destroyed ||
+      this.session.active ||
+      button.disabled ||
+      !button.isConnected
+    )
+      return;
+    const mode = button.dataset.mode;
+    if (mode) {
+      if (this.mode !== "party" || this.tournament.state !== State.TITLE)
+        return;
+      this.clearControls();
+      this.presentation.audio.play("click");
+      if (mode === "vault") {
+        // Retain the save owner even if localStorage is unavailable this session.
+        this.campaign = new Campaign(this.campaign.save);
+        this.mode = "vault";
+      } else if (mode === "party") this.tournament.confirm();
+      else return;
+      this.renderState();
+      return;
+    }
+    if (this.mode !== "vault") return;
+    const previous = this.campaign.state;
+    switch (button.dataset.campaign) {
+      case "select":
+        this.campaign.select(button.dataset.value);
+        break;
+      case "confirm":
+        this.confirm();
+        return;
+      case "characters":
+        this.campaign.changeCharacter();
+        break;
+      case "level":
+        this.campaign.startLevel(button.dataset.value);
+        break;
+      case "map":
+        this.campaign.backToMap();
+        break;
+      case "reset":
+        this.campaign.requestReset();
+        break;
+      case "reset-confirm":
+        this.campaign.confirmReset();
+        break;
+      case "menu":
+        if (![CampaignState.SELECT, CampaignState.MAP].includes(previous))
+          return;
+        this.mode = "party";
+        this.clearControls();
+        this.replaceWorld(CHARACTERS[0]);
+        this.renderState();
+        return;
+      default:
+        return;
+    }
+    this.finishCampaignTransition(previous);
+  }
+  finishCampaignTransition(previous) {
+    if (previous === this.campaign.state) return;
+    this.presentation.audio.play("click");
+    this.clearControls();
+    if (
+      [State.READY, CampaignState.MAP, CampaignState.SELECT].includes(
+        this.campaign.state,
+      )
+    )
+      this.replaceWorld(this.campaign.current || CHARACTERS[0]);
+    if (this.campaign.active) {
+      this.lastTime = null;
+      this.accumulator = 0;
+      this.suspended = false;
+      this.ui.setPaused(false);
+      document.getElementById("game-canvas").focus({ preventScroll: true });
+    }
     this.renderState();
   }
   clearControls() {
@@ -169,29 +283,34 @@ class Game {
     if (gap > 250) {
       this.accumulator = 0;
       this.clearControls();
-    } else if (this.tournament.active && !this.suspended) {
+    } else if (this.session.active && !this.suspended) {
       this.accumulator += Math.min(gap, 100);
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
         this.world.step(this.touch.merge(this.input.consume()));
+        if (this.mode === "vault") this.campaign.observe(this.world);
         this.presentation.observe(this.world);
         this.accumulator -= STEP_MS;
         steps++;
-        this.ui.observeAttempt(this.world, this.tournament);
+        this.ui.observeAttempt(this.world, this.session);
         if (this.world.finished) {
-          this.tournament.record(
-            scoreAttempt(this.world.metrics(), this.tournament.current),
+          const score = scoreAttempt(
+            this.world.metrics(),
+            this.session.current,
           );
+          if (this.mode === "vault") this.campaign.record(score, this.world);
+          else this.tournament.record(score);
           this.clearControls();
           this.touch.sync();
           this.accumulator = 0;
-          this.ui.render(this.tournament);
-          this.presentation.state(this.tournament);
+          this.ui.render(this.session);
+          this.presentation.state(this.session);
           break;
         }
       }
-      if (this.tournament.active) this.ui.update(this.world);
+      if (this.session.active) this.ui.update(this.world);
     } else if (
+      this.mode === "party" &&
       this.tournament.state === State.INSTRUCTIONS &&
       !this.suspended
     ) {
@@ -204,7 +323,7 @@ class Game {
     const drawTime = Math.min(gap / 1000, 1 / 15) || 1 / 60;
     this.presentation.frame(
       this.world,
-      this.tournament.active,
+      this.session.active,
       this.suspended,
       drawTime,
       gap,

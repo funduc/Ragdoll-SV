@@ -1,6 +1,6 @@
 # Ragdoll Olympics: The Santor Vault
 
-A playable local, three-player Shopping-Cart Long Jump tournament. Vanilla HTML, CSS, JavaScript modules, Canvas, and **Matter.js 0.20.0**. No game backend, accounts, build step, or runtime network dependencies.
+A playable Shopping-Cart Long Jump game with **VAULT RUN**, a saved single-player campaign, and the original **PARTY TOURNAMENT** for three local players. Vanilla HTML, CSS, JavaScript modules, Canvas, and **Matter.js 0.20.0**. No game backend, accounts, build step, or runtime network dependencies.
 
 ## Play locally
 
@@ -113,11 +113,31 @@ Launch/landing dust, hard-impact sparks, and winner confetti share a cap of **96
 
 Original Web Audio synthesis supplies clicks, rattle, launch, impact, crowd, elimination, victory, and distinct skill-grade cues. One audio context is created after the first user gesture; cues have a 24-voice limit and no JavaScript timers. The persistent **SOUND ON / MUTED** button works throughout the tournament. Mute preference survives a page reload when local storage is available. Mute, pause, reset, and disposal stop active voices. If audio is unavailable, the game continues silently and the button reads **SOUND N/A**.
 
-## Tournament
+## Vault Run
+
+Choose **Vault Run** on the main menu, select Jake, Brandon, or Owen, and read the full biography, all statistics, strengths, weaknesses, ability, quote, and John introduction. **Confirm character** opens the map; the biography has no deadline. Each level has a separate **Begin jump** confirmation. The selected competitor stays with you throughout the run. Results return to the map; cleared levels remain replayable.
+
+| Level             | Bronze                                             | Silver                                                 | Gold                                                              |
+| ----------------- | -------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------- |
+| Orientation Day   | Reach the start of the ramp and finish the attempt | At least two Good-or-better rhythm pushes, then finish | Perfect takeoff, then finish                                      |
+| Wheels Down       | Take off and record a landing, including a crash   | Good Brace or Perfect Brace                            | Perfect Brace and a **Clean** landing                             |
+| Commit to the Bit | At least one recognized trick                      | At least one trick and a successful landing            | At least two different recognized tricks and a successful landing |
+
+Perfect pushes count toward “Good-or-better.” A successful landing means **Clean or Scrappy**, without a recorded crash. The highest satisfied tier wins; Gold does not require separately satisfying Silver. Only finished, numerically valid attempts award medals. Bronze or better unlocks the following level for that character. Repeats never duplicate records or lower a saved medal; the result shows both this attempt's medal and the retained best. Points and their four-component breakdown are the same as Party Tournament.
+
+`js/campaign-levels.js` holds the three definitions, arena settings, active coaching modifiers, medal conditions, prerequisites, and John's introduction/result captions. The shared `santor-vault` arena uses the original geometry and gravity **1.05**. Each modifier adds live guidance for its lesson: **Rhythm Coach**, **Brace Coach**, or **Trick Coach**. Coaching changes no forces, input windows, trick thresholds, or score multipliers. The optional `santorMedal` condition slot is `null` for these three lessons.
+
+Rules use finished-attempt facts. Numeric conditions mean “at least”; booleans require an exact match. `Campaign` owns its own guarded transitions, selected character, level, attempt-local ramp observation, and last result. It uses the same fixed-step world, keyboard/touch owners, scoring, and result markup as Party Tournament. `js/tournament.js` and the skill/trick/scoring systems are unchanged.
+
+**Local progress:** the version-1 object under `santor-vault:campaign` stores the selected character and one highest-medal record per character per level. It loads on page refresh. Missing, malformed, and unsupported-version data start safely with defaults; only known character/level IDs and valid medal ranks are accepted. A denied or full storage area keeps the game playable with an explicit page-only-save message. No scores or progress are sent to a server. Saves belong to this browser and origin; another device, private session, or site origin has separate storage.
+
+**Change character** opens selection without clearing anyone's progress. **Reset campaign progress** opens an explicit confirmation screen, with **Cancel** focused by default. Confirmation clears all three characters' campaign medals/unlocks only. It never calls `localStorage.clear()` and preserves mute settings, unrelated storage, and Party Tournament. If a browser refuses the reset write, the interface explains that saved medals may return after reload.
+
+## Party Tournament
 
 Jake “Hardened Vet” Eckler, Brandon “Wordsmith” Hale, and Owen “Sparky” Wrate each get one qualifying jump, in that order. The lowest total is eliminated. Qualifying ties use distance, then the displayed roster order. The qualifying runner-up jumps first in the championship; the best qualifier jumps last.
 
-Before every attempt, the full character introduction stays visible until the player clicks/taps **Continue to Ready** or presses Enter. Its static prompt reads **PRESS ENTER WHEN READY.** There is no introduction timer or automatic transition. Continuing reveals Ready; a separate confirmation still starts the attempt. Enter must be released before it can confirm again, so holding it cannot also begin the jump. The three highlighted joke statistics appear on the introduction, with the remaining statistics on Ready. Prelaunch retries replay the introduction.
+Before every Party Tournament attempt, the full character introduction stays visible until the player clicks/taps **Continue to Ready** or presses Enter. Its static prompt reads **PRESS ENTER WHEN READY.** There is no introduction timer or automatic transition. Continuing reveals Ready; a separate confirmation still starts the attempt. Enter must be released before it can confirm again, so holding it cannot also begin the jump. The three highlighted joke statistics appear on the introduction, with the remaining statistics on Ready. Prelaunch retries replay the introduction.
 
 Both finalists receive one new jump. Only championship points determine the winner. Equal championship totals are a shared victory. Restart returns to the title with all scores cleared, without refreshing.
 
@@ -151,6 +171,11 @@ The result screen preserves all four components and their sum. A compact additio
 ## Files
 
 - `index.html`, `styles.css`, `flash.css`: game cabinet, menu containers, original arcade skin, responsive layout, and reduced-motion rules.
+- `campaign.css`, `js/campaign-ui.js`: mode selection support, full profile confirmation, simple level map, coaching, medals, and reset confirmation.
+- `js/campaign-levels.js`: immutable level definitions and threshold evaluation.
+- `js/campaign-save.js`: versioned, validated local campaign storage and safe in-memory fallback.
+- `js/campaign.js`: independent campaign state machine and medal progression.
+- `js/ui-content.js`: shared portrait fallbacks and unchanged score breakdown markup.
 - `js/characters.js`: separate personality, statistics, portrait availability, commentary, and tuning data.
 - `js/passives.js`: small character-specific forces and cosmetic status.
 - `js/introductions.js`: manual introduction visibility; no clock, deadline, or timer.
@@ -185,7 +210,7 @@ Matter advances at 120 fixed steps per simulation second, independently of drawi
 
 Non-finite physics data ends the attempt with a safety-stop result using the last valid measurements. Score components are bounded and checked before being recorded. A failed portrait uses its initials for the rest of the page session instead of retrying on every menu.
 
-Run the dependency-free physics, state-machine, stabilization, personalization, presentation/audio-lifecycle, skill-loop, trick-recognition, and HTTP tests with Node.js 22+:
+Run the dependency-free physics, state-machine, stabilization, personalization, presentation/audio-lifecycle, skill-loop, trick-recognition, campaign progression/storage, and HTTP tests with Node.js 22+:
 
 ```sh
 npm test
@@ -196,6 +221,7 @@ The optional DOM integration test uses JSDOM and native Canvas. Install those on
 ```sh
 npm install --prefix .qa --no-save jsdom@26.1.0 @napi-rs/canvas@0.1.100
 npm run test:dom
+npm run test:campaign:dom
 ```
 
 It runs the real source modules through three tournaments, restarting between them, using keyboard and button events. It completes all three optional drills, uses deliberately timed pushes and braces, and checks held/repeated input, plus all three introductions remaining open beyond 15 seconds, manual continuation, Enter-release gating, passive HUD messages, censored markup, missing-portrait request prevention, literary crash results, and a numeric-fault attempt followed by a healthy attempt. Layout, focus/visibility events, and frame timing are simulated; this is not a live-browser test. See `QA.md` for exact results and the outstanding live-preview limitation.
@@ -204,14 +230,17 @@ Additional optional checks (POSIX shell):
 
 ```sh
 MOBILE=1 npm run test:dom
+MOBILE=1 npm run test:campaign:dom
 MOBILE=1 AUDIO_UNAVAILABLE=1 npm run test:dom
 node tests/render-budget.mjs
 ```
+
+The campaign integration test completes all three levels with each character, drives upgrades and worse replays, reconstructs fresh page instances from persisted storage, checks corrupt/blocked storage, confirms reset isolation, and switches back to Party Tournament. It uses the actual DOM handlers and Matter simulation; browser layout and RAF are simulated.
 
 Mobile mode uses a simulated 360px viewport and pointer events for the five tournament jumps. The audio double checks scheduling and cleanup, not audible quality or browser autoplay policy. The render benchmark uses native Canvas and saves launch/impact renders in `.qa/polish/renders/`; it does not measure browser frame rate or HTML/CSS layout.
 
 ## Current scope
 
-One local event, desktop keyboard and basic touch controls, placeholder portraits, synthesized sound, restrained effects, and in-memory tournament scores. No slow motion, collectible cards, online features, or saved progress. Push timing, takeoff choice, rotation, trick combinations, and bracing determine each attempt. Outcomes can differ slightly across browsers; the landing meter is an estimate and actual contact determines the brace grade. Live-browser verification remains outstanding as described in `QA.md`.
+One local event, a three-level saved solo campaign, the full pass-and-play tournament, desktop keyboard and basic touch controls, placeholder portraits, synthesized sound, and restrained effects. Party scores remain in memory. No slow motion, collectible cards, online features, cloud saves, or cross-device synchronization. Push timing, takeoff choice, rotation, trick combinations, and bracing determine each attempt. Outcomes can differ slightly across browsers; the landing meter is an estimate and actual contact determines the brace grade. Live-browser verification remains outstanding as described in `QA.md`.
 
 Matter.js upstream: [0.20.0 source](https://github.com/liabru/matter-js/tree/0.20.0), [official API documentation](https://brm.io/matter-js/docs/). The vendored build was retrieved from the pinned `matter-js@0.20.0/build/matter.min.js` npm CDN artifact.

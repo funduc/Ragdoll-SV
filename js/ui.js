@@ -5,26 +5,22 @@ import { rankQualifiers } from "./scoring.js";
 import { Commentator } from "./commentary.js";
 import { SkillMeter, worldSkillView } from "./skill-ui.js";
 import { tutorialMarkup } from "./tutorial.js";
-import { TrickDisplay, trickBreakdown } from "./trick-ui.js";
+import { TrickDisplay } from "./trick-ui.js";
 import { TRICK_CONFIG } from "./trick-config.js";
-const unavailablePortraits = new Set();
-const escape = (value) =>
-  String(value).replace(
-    /[&<>"']/g,
-    (char) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        char
-      ],
-  );
-const portrait = (c) =>
-  `<div class="portrait" style="--person:${c.primaryColor}" role="img" aria-label="${escape(c.name)} portrait placeholder"><span>${c.fallbackInitials}</span>${!c.portraitAvailable || unavailablePortraits.has(c.portraitPath) ? "" : `<img src="${c.portraitPath}" alt="" loading="eager">`}</div>`;
+import {
+  escape,
+  portrait,
+  unavailablePortraits,
+  scoreDetails,
+} from "./ui-content.js";
+import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
 const roster = (characters) =>
   `<div class="roster-strip">${characters.map((c) => `<div class="roster-person" style="--person:${c.primaryColor}">${portrait(c)}<div><strong>${escape(c.name)}</strong><small>“${escape(c.nickname)}”</small></div></div>`).join("")}</div>`;
 
 export class UI {
-  constructor(onConfirm, onPractice = () => {}) {
+  constructor(onConfirm, onPractice = () => {}, onMenu = () => {}) {
     this.root = document.getElementById("game");
     this.overlay = document.getElementById("overlay");
     this.hud = document.getElementById("hud");
@@ -43,6 +39,13 @@ export class UI {
     this.commentator = new Commentator();
     this.resetAttempt();
     this.onClick = (event) => {
+      const menu = event.target.closest(
+        "button[data-mode], button[data-campaign]",
+      );
+      if (menu && !menu.disabled) {
+        onMenu(menu);
+        return;
+      }
       if (event.target.closest('[data-action="confirm"]')) onConfirm();
       const practice = event.target.closest("[data-practice]");
       if (practice) onPractice(practice.dataset.practice);
@@ -142,6 +145,20 @@ export class UI {
     this.skillHud.hidden = !t.active;
     this.trickHud.hidden = !t.active;
     this.overlay.classList.toggle("title-overlay", t.state === State.TITLE);
+    this.campaignSession = null;
+    document.getElementById("campaign-coach").hidden = true;
+    if (t.kind === "campaign") {
+      renderCampaign(this, t);
+      return;
+    }
+    this.root.dataset.mode = t.state === State.TITLE ? "menu" : "party";
+    document.getElementById("session-mode").textContent =
+      t.state === State.TITLE ? "CHOOSE YOUR MODE" : "LOCAL PASS & PLAY";
+    document.getElementById("session-players").textContent =
+      t.state === State.TITLE ? "1–3 PLAYERS" : "3 PLAYERS";
+    document.getElementById("standings-title").textContent = "THE COMPETITORS";
+    document.getElementById("standings-subtitle").textContent =
+      "QUALIFYING → TOP TWO → CHAMPIONSHIP";
     this.roundLabel.textContent = [State.TITLE, State.INSTRUCTIONS].includes(
       t.state,
     )
@@ -159,10 +176,8 @@ export class UI {
     let html = "";
     switch (t.state) {
       case State.TITLE:
-        html = `<section class="menu-panel title-panel"><p class="eyebrow">EVENT 01 / LOCAL TOURNAMENT</p><h1>RAGDOLL<br><span>OLYMPICS</span></h1><strong class="vault-title">THE SANTOR VAULT</strong><p>Three competitors. Five jumps.<br>One shopping cart with something to prove.</p>${button("Enter the Vault")}<div class="title-meta"><span>3 PLAYERS · 1 DEVICE</span><span>SHOPPING-CART LONG JUMP</span></div></section>`;
-        this.say(
-          "John Santor, live from The Santor Vault. Three competitors; five jumps.",
-        );
+        html = `<section class="menu-panel title-panel"><p class="eyebrow">EVENT 01 / CHOOSE YOUR MODE</p><h1>RAGDOLL<br><span>OLYMPICS</span></h1><strong class="vault-title">THE SANTOR VAULT</strong><p>One shopping cart with something to prove.<br>A solo campaign or a local pass-and-play tournament.</p><div class="actions mode-choices"><button type="button" class="btn" data-mode="vault">Vault Run <small>1 PLAYER</small></button><button type="button" class="btn secondary" data-mode="party">Party Tournament <small>3 PLAYERS</small></button></div><div class="title-meta"><span>1 DEVICE</span><span>SHOPPING-CART LONG JUMP</span></div></section>`;
+        this.say("John Santor, live from The Santor Vault. Choose your event.");
         break;
       case State.INSTRUCTIONS:
         html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Tap <kbd>SPACE</kbd> or <kbd>↑</kbd> at the green centre of the rhythm meter. Release each time; holding gives one push. Spam adds wobble.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down. Tap <kbd>↓</kbd> / <kbd>S</kbd> once just before contact to brace. Too early reduces air control; too late gives no benefit.</p><p>At TAKEOFF, wait for the cart marker in the green boost zone and tap once. Early spends the bonus; Late pitches forward. Touch: tap PUSH / BRACE; hold LEFT / RIGHT.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> Complete flips and controlled-flight tricks build unique-trick combos. Repeats pay ${TRICK_CONFIG.repeatFactors.map((f) => `${Math.round(f * 100)}%`).join(", ")}. Clean landings multiply trick style ×${TRICK_CONFIG.landingFactors.Clean.toFixed(2)}; crashes retain ×${TRICK_CONFIG.landingFactors.Crash.toFixed(2)}. Partial spins earn no trick points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny">One qualifying jump each; the lowest score is out. Qualifying ties use distance, then roster order. The top two get one fresh championship jump; tied championship scores share the win. Qualifying scores do not carry over.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${tutorialMarkup()}${button("Meet the competitors")}</section>`;
@@ -201,7 +216,7 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}<div class="score-grid"><div class="score-item"><span>DISTANCE</span><strong>${s.distancePoints}</strong><small>${s.distanceMetres.toFixed(1)} m × 10</small></div><div class="score-item"><span>LANDING</span><strong>${s.landingPoints}</strong><small>${s.landingQuality}${s.landingQuality === "No landing" ? "" : ` · ${s.landingAngle}° tilt`}</small></div><div class="score-item"><span>AIR STYLE</span><strong>${s.stylePoints}</strong><small>${s.tricks.completedRotations} full rotations · ${s.tricks.unique} unique tricks</small></div><div class="score-item"><span>STAY ATTACHED</span><strong>${s.attachedPoints}</strong><small>${s.attachedPoints ? "Harness held through landing" : s.attached ? "No completed landing" : "Harness broke"}</small></div></div><div class="skill-result"><span>TAKEOFF: <b id="result-takeoff">${escape(s.takeoffGrade)}</b> · boost +${s.takeoffBonus}</span><span>LANDING INPUT: <b id="result-brace">${escape(s.braceGrade)}</b> · impact tolerance ×${s.impactTolerance.toFixed(2)}</span><span>PUSHES: ${s.pushCounts.Perfect} Perfect / ${s.pushCounts.Good} Good / ${s.pushCounts.Miss} Miss</span></div>${trickBreakdown(s)}<div class="score-total"><span>TOTAL POINTS</span><strong id="attempt-total">${s.total}</strong></div><p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
         break;
       }
       case State.ELIMINATION:
@@ -221,7 +236,7 @@ export class UI {
     }
     this.overlay.innerHTML = html;
     this.overlay
-      .querySelector('[data-action="confirm"]')
+      .querySelector('[data-action="confirm"], [data-mode]')
       ?.focus({ preventScroll: true });
   }
   table(characters, scores, eliminatedId = null) {
@@ -250,6 +265,7 @@ export class UI {
     }).join("");
   }
   update(world) {
+    updateCampaignCoach(world, this.campaignSession);
     this.skillMeter.update(worldSkillView(world));
     if (this.passiveStatus.textContent !== world.passiveStatus)
       this.passiveStatus.textContent = world.passiveStatus;
