@@ -197,7 +197,10 @@ export class Campaign {
   }
   confirmNewRun() {
     if (this.state !== S.NEW_RUN) return false;
-    this.runs.begin(this.current.id, this.developer || {});
+    this.runs.begin(this.current.id, {
+      ...(this.developer || {}),
+      discardUnsupported: true,
+    });
     this.level = null;
     this.stageIndex = 0;
     this.heats = [];

@@ -21,6 +21,7 @@ const roster = (characters) =>
 
 export class UI {
   constructor(onConfirm, onPractice = () => {}, onMenu = () => {}) {
+    this.enteredVault = false;
     this.root = document.getElementById("game");
     this.overlay = document.getElementById("overlay");
     this.hud = document.getElementById("hud");
@@ -40,7 +41,7 @@ export class UI {
     this.resetAttempt();
     this.onClick = (event) => {
       const menu = event.target.closest(
-        "button[data-mode], button[data-campaign], button[data-achievement]",
+        "button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
       );
       if (menu && !menu.disabled) {
         onMenu(menu);
@@ -177,7 +178,7 @@ export class UI {
     let html = "";
     switch (t.state) {
       case State.TITLE:
-        html = `<section class="menu-panel title-panel"><p class="eyebrow">EVENT 01 / CHOOSE YOUR MODE</p><h1>RAGDOLL<br><span>OLYMPICS</span></h1><strong class="vault-title">THE SANTOR VAULT</strong><p>One shopping cart with something to prove.<br>A solo campaign or a local pass-and-play tournament.</p><div class="actions mode-choices"><button type="button" class="btn" data-mode="vault">Vault Run <small>1 PLAYER</small></button><button type="button" class="btn secondary" data-mode="party">Party Tournament <small>3 PLAYERS</small></button><button type="button" class="btn secondary" data-achievement="open">Achievement Vault</button></div><div class="title-meta"><span>1 DEVICE</span><span>SHOPPING-CART LONG JUMP</span></div></section>`;
+        html = `<section class="menu-panel title-panel"><p class="eyebrow">EVENT 01 / CHOOSE YOUR MODE</p><h1>RAGDOLL<br><span>OLYMPICS</span></h1><strong class="vault-title">THE SANTOR VAULT</strong><p>One shopping cart with something to prove.<br>A solo campaign or a local pass-and-play tournament.</p>${this.enteredVault ? `<div class="actions mode-choices"><button type="button" class="btn" data-mode="vault">Vault Run <small>1 PLAYER</small></button><button type="button" class="btn secondary" data-mode="party">Party Tournament <small>3 PLAYERS</small></button><button type="button" class="btn secondary" data-achievement="open">Achievement Vault</button></div>` : '<div class="actions"><button type="button" class="btn" data-audio-enter>Enter the Vault <small>ENTER ↵</small></button></div>'}<div class="title-meta"><span>1 DEVICE</span><span>SHOPPING-CART LONG JUMP</span></div></section>`;
         this.say("John Santor, live from The Santor Vault. Choose your event.");
         break;
       case State.INSTRUCTIONS:
@@ -237,7 +238,7 @@ export class UI {
     }
     this.overlay.innerHTML = html;
     this.overlay
-      .querySelector('[data-action="confirm"], [data-mode]')
+      .querySelector('[data-action="confirm"], [data-audio-enter], [data-mode]')
       ?.focus({ preventScroll: true });
   }
   table(characters, scores, eliminatedId = null) {

@@ -100,6 +100,30 @@ const narrow = {
   noParticles: measure(null),
   maximum96Particles: measure(effects),
 };
+// Repeat actual attempts in one process, then measure the identical render
+// fixture again. Timings are evidence, not flaky pass/fail FPS thresholds.
+const repeatedAttemptMs = [];
+for (let attempt = 0; attempt < 40; attempt++) {
+  const current = new PhysicsWorld(CHARACTERS[attempt % CHARACTERS.length]);
+  presentation.replaceWorld(current);
+  const start = performance.now();
+  for (let step = 0; step < 2500 && !current.finished; step++) {
+    current.step(timedInputs(current, 0, true));
+    presentation.observe(current);
+    presentation.frame(current, true, false, 1 / 120, 1000 / 120);
+    if (step % 12 === 0) renderer.draw(current, 0.1, presentation.effects);
+  }
+  repeatedAttemptMs.push(performance.now() - start);
+  assert.ok(current.finished && !current.invalid);
+  current.dispose();
+  assert.equal(Matter.Composite.allBodies(current.engine.world).length, 0);
+  assert.equal(Matter.Composite.allConstraints(current.engine.world).length, 0);
+  assert.equal(current.engine.events.collisionStart.length, 0);
+  assert.equal(current.engine.pairs.list.length, 0);
+}
+presentation.replaceWorld(world);
+const afterRepeatedAttempts = measure(effects);
+const average = (values) => values.reduce((a, b) => a + b, 0) / values.length;
 console.log(
   JSON.stringify(
     {
@@ -107,6 +131,13 @@ console.log(
       desktop,
       narrow,
       actualImpactRendered: true,
+      repeatAudit: {
+        attempts: repeatedAttemptMs.length,
+        firstTenMeanMs: average(repeatedAttemptMs.slice(0, 10)),
+        lastTenMeanMs: average(repeatedAttemptMs.slice(-10)),
+        narrowMaximum96ParticlesAfter: afterRepeatedAttempts,
+        disposedBodiesConstraintsCallbacksAndPairs: true,
+      },
     },
     null,
     2,

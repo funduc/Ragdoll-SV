@@ -20,12 +20,18 @@ import {
 } from "../js/run-config.js";
 import { timedInputs } from "./skill-helpers.mjs";
 import { chapterControls } from "./chapter-helpers.mjs";
+import { musicDouble } from "./fake-music.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { createCanvas } = createRequire(resolve(root, ".qa/package.json"))(
   "@napi-rs/canvas",
 );
 const mobile = Boolean(process.env.MOBILE);
+const viewport = {
+  width: Number(process.env.VIEWPORT_WIDTH) || (mobile ? 360 : 1366),
+  height: Number(process.env.VIEWPORT_HEIGHT) || (mobile ? 740 : 768),
+};
 const evidence = {
+  viewportSimulated: viewport,
   profiles: [],
   attempts: [],
   reloads: 0,
@@ -33,6 +39,7 @@ const evidence = {
   consoleErrors: [],
   consoleWarnings: [],
   achievementNotices: [],
+  storageWrites: {},
 };
 
 async function boot(saved = {}, denied = false, search = "") {
@@ -44,8 +51,18 @@ async function boot(saved = {}, denied = false, search = "") {
   const w = dom.window,
     document = w.document,
     context = dom.getInternalVMContext();
+  w.Audio = musicDouble(w.EventTarget, w.Event);
   for (const [key, value] of Object.entries(saved))
     w.localStorage.setItem(key, value);
+  let writes = 0;
+  const setItem = w.Storage.prototype.setItem;
+  w.Storage.prototype.setItem = function (key, value) {
+    writes++;
+    evidence.storageWrites[key] = (evidence.storageWrites[key] || 0) + 1;
+    return setItem.call(this, key, value);
+  };
+  Object.defineProperty(w, "innerWidth", { value: viewport.width });
+  Object.defineProperty(w, "innerHeight", { value: viewport.height });
   if (denied)
     Object.defineProperty(w, "localStorage", {
       get() {
@@ -180,6 +197,8 @@ async function boot(saved = {}, denied = false, search = "") {
   const $ = (selector) => document.querySelector(selector);
   const state = () => $("#game").dataset.state;
   const frame = (dt = 1000 / 120) => {
+    const previousState = state(),
+      previousWrites = writes;
     now += dt;
     const pending = [...callbacks.values()];
     callbacks.clear();
@@ -188,6 +207,12 @@ async function boot(saved = {}, denied = false, search = "") {
     assert.deepEqual(evidence.consoleErrors, []);
     assert.deepEqual(evidence.consoleWarnings, []);
     assert.equal(document.querySelectorAll(".portrait img").length, 0);
+    if (previousState === "active-attempt" && state() === previousState)
+      assert.equal(
+        writes,
+        previousWrites,
+        "active physics frames never write saves",
+      );
   };
   const key = (
     code,
@@ -354,6 +379,9 @@ async function boot(saved = {}, denied = false, search = "") {
     return rank;
   }
   frame();
+  assert.equal(w.Audio.instances.length, 0, "refresh never autoplays music");
+  click("[data-audio-enter]");
+  assert.equal(w.Audio.instances.length, 1);
   return {
     dom,
     w,
@@ -457,6 +485,7 @@ function returnToMap() {
     );
   }
   assert.equal(game.state(), "campaign-map");
+  assert.match(game.w.Audio.instances[0].src, /\/menu\.mp3$/);
 }
 function play(level, opts) {
   game.choose("level", level.id);
@@ -466,6 +495,11 @@ function play(level, opts) {
   game.key("Space"); // A held menu key must not turn into a campaign push.
   game.choose("confirm");
   assert.equal(game.state(), "active-attempt");
+  assert.equal(game.w.Audio.instances[0].loop, true);
+  assert.match(
+    game.w.Audio.instances[0].src,
+    level.stages ? /\/championship\.mp3$/ : /\/gameplay[12]\.mp3$/,
+  );
   game.frame();
   game.key("Space", "keydown", true);
   game.frame();
@@ -731,14 +765,18 @@ assert.equal(
   true,
 );
 game.close();
-for (const bad of ["{not-json", '{"version":500}', "null"]) {
-  game = await boot({ [SAVE]: bad });
+for (const bad of ["{not-json", '{"version":500}', '{"version":0}', "null"]) {
+  game = await boot({ [SAVE]: bad, [RUN_SAVE_KEY]: bad });
   startVault();
   select(CHARACTERS[0]);
   assert.equal(
     game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
     true,
   );
+  if (bad === '{"version":500}') {
+    assert.equal(game.savedData()[SAVE], bad);
+    assert.equal(game.savedData()[RUN_SAVE_KEY], bad);
+  }
   game.close();
 }
 game = await boot({}, true);

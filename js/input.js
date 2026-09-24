@@ -14,10 +14,18 @@ const CONTROL_KEYS = new Set([
 
 // One owner and one listener set for the entire page lifetime.
 export class Input {
-  constructor({ isActive, onConfirm, onRestart, onSuspend }) {
+  constructor({
+    isActive,
+    onConfirm,
+    onRestart,
+    onSuspend,
+    onControlButton = () => {},
+  }) {
     this.keys = new Set();
     this.downKeys = new Set();
     this.blockedKeys = new Set();
+    this.buttonKeys = new Map();
+    this.onControlButton = onControlButton;
     this.pushes = 0;
     this.brace = false;
     this.enterHeld = false;
@@ -40,6 +48,22 @@ export class Input {
       // Every intentional action requires a new physical press. Keep this state
       // across menu/attempt clears, so an old hold cannot leak into a new screen.
       if (event.repeat || held || this.blockedKeys.has(event.code)) return;
+      const button = event.target?.closest?.("button");
+      if (button && isActive() && ["Enter", "Space"].includes(event.code)) {
+        event.preventDefault();
+        if (button.disabled) return;
+        if (button.dataset.control) {
+          this.buttonKeys.set(event.code, button);
+          onControlButton(button, true, event.code);
+          return;
+        }
+        // Tutorial menu buttons retain Space activation while gameplay input
+        // is enabled. Do not turn their activation into a cart push.
+        if (event.code === "Space") {
+          button.click();
+          return;
+        }
+      }
       if (event.code === "Enter") {
         if (this.enterHeld) return;
         this.enterHeld = true;
@@ -57,6 +81,7 @@ export class Input {
       }
     };
     this.keyup = (event) => {
+      this.releaseButton(event.code);
       if (event.code === "Enter") {
         this.enterHeld = false;
         event.preventDefault();
@@ -104,9 +129,16 @@ export class Input {
   clear() {
     // Clearing movement on a screen change must not re-arm a held Enter key.
     this.keys.clear();
+    for (const code of this.buttonKeys.keys()) this.releaseButton(code);
     this.blockedKeys = new Set(this.downKeys);
     this.pushes = 0;
     this.brace = false;
+  }
+  releaseButton(code) {
+    const button = this.buttonKeys.get(code);
+    if (!button) return;
+    this.buttonKeys.delete(code);
+    this.onControlButton(button, false, code);
   }
   consume() {
     const controls = this.controls;

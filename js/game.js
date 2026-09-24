@@ -24,6 +24,7 @@ import {
   applyAchievementCosmetics,
 } from "./achievement-ui.js";
 import { installAchievementHooks } from "./achievement-dev.js";
+import { AudioControls } from "./audio-preferences.js";
 
 class Game {
   constructor() {
@@ -55,6 +56,10 @@ class Game {
       document.getElementById("mute-button"),
     );
     this.presentation.replaceWorld(this.world);
+    this.audioControls = new AudioControls(
+      document.getElementById("audio-controls"),
+      this.presentation.audio.preferences,
+    );
     this.accumulator = 0;
     this.lastTime = null;
     this.suspended = false;
@@ -65,9 +70,13 @@ class Game {
     );
     this.input = new Input({
       isActive: () => this.acceptsSkillInput,
+      onControlButton: (button, pressed, code) => {
+        if (pressed) this.touch.press(button, `key:${code}`);
+        else this.touch.release(`key:${code}`);
+      },
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
-          "button[data-mode], button[data-campaign], button[data-achievement]",
+          "button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
         );
         if (menu) {
           this.menuAction(menu);
@@ -86,6 +95,7 @@ class Game {
         this.accumulator = 0;
         this.ui.setPaused(paused && this.session.active);
         this.presentation.audio.setPaused(paused);
+        this.presentation.music.setPaused(paused);
       },
     });
     this.ui.render(this.tournament);
@@ -158,6 +168,10 @@ class Game {
       return;
     }
     if (this.tournament.state === State.TITLE) {
+      if (!this.ui.enteredVault) {
+        this.enterVault();
+        return;
+      }
       const focused = document.activeElement?.closest?.("button[data-mode]");
       const choice = focused || document.querySelector('[data-mode="vault"]');
       if (choice) this.menuAction(choice);
@@ -191,6 +205,19 @@ class Game {
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
     if (previous !== this.tournament.state) this.renderState();
+  }
+  enterVault() {
+    if (
+      this.ui.enteredVault ||
+      this.tournament.state !== State.TITLE ||
+      this.mode !== "party"
+    )
+      return;
+    this.ui.enteredVault = true;
+    this.clearControls();
+    this.presentation.audio.unlock();
+    this.presentation.music.enable();
+    this.ui.render(this.tournament);
   }
   renderState() {
     this.biographyReader.tick(null, null, 0, false);
@@ -238,6 +265,10 @@ class Game {
       !button.isConnected
     )
       return;
+    if (button.hasAttribute("data-audio-enter")) {
+      this.enterVault();
+      return;
+    }
     if (button.dataset.achievement) {
       this.achievementAction(button);
       return;
@@ -481,6 +512,7 @@ class Game {
     this.renderer.destroy();
     this.ui.destroy();
     this.presentation.destroy();
+    this.audioControls.destroy();
     this.removeAchievementHooks?.();
   }
 }

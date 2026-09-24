@@ -10,6 +10,7 @@ const args = process.argv.slice(2),
 const host = flag("--host", "127.0.0.1"),
   port = Number(flag("--port", "8000"));
 const types = {
+  ".mp3": "audio/mpeg",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8",

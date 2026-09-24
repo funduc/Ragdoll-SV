@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import { setTimeout as wait } from "node:timers/promises";
 import { audioDouble } from "./fake-audio.mjs";
+import { musicDouble } from "./fake-music.mjs";
 import { CHARACTERS } from "../js/characters.js";
 import { timedInputs } from "./skill-helpers.mjs";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
@@ -15,7 +16,11 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const mobile = Boolean(process.env.MOBILE);
-const runCount = mobile ? 1 : 3;
+const runCount = Number(process.env.TOURNAMENTS) || (mobile ? 1 : 3);
+const viewport = {
+  width: Number(process.env.VIEWPORT_WIDTH) || (mobile ? 360 : 1366),
+  height: Number(process.env.VIEWPORT_HEIGHT) || (mobile ? 740 : 768),
+};
 const require = createRequire(import.meta.url);
 const { JSDOM } = await import("../.qa/node_modules/jsdom/lib/api.js");
 let native;
@@ -32,6 +37,7 @@ const dom = new JSDOM(await readFile(resolve(root, "index.html"), "utf8"), {
 const w = dom.window,
   document = w.document,
   context = dom.getInternalVMContext();
+w.Audio = musicDouble(w.EventTarget, w.Event);
 const errors = [],
   warnings = [];
 w.console.error = (...args) => errors.push(args.map(String).join(" "));
@@ -72,8 +78,8 @@ w.matchMedia = (query) => ({
   addEventListener() {},
   removeEventListener() {},
 });
-Object.defineProperty(w, "innerWidth", { value: mobile ? 360 : 1320 });
-Object.defineProperty(w, "innerHeight", { value: mobile ? 740 : 900 });
+Object.defineProperty(w, "innerWidth", { value: viewport.width });
+Object.defineProperty(w, "innerHeight", { value: viewport.height });
 Object.defineProperty(w.performance, "now", { value: () => frameTime });
 const AudioDouble = audioDouble(() => frameTime / 1000);
 if (!process.env.AUDIO_UNAVAILABLE) w.AudioContext = AudioDouble;
@@ -445,6 +451,12 @@ if (!process.env.AUDIO_UNAVAILABLE) {
   assert.equal(mute.disabled, true);
 }
 // The intended PNGs are absent. Every view uses intentional labeled initials,
+assert.equal(w.Audio.instances.length, 0, "music waits for Enter the Vault");
+key("Enter", "keydown", false, document.querySelector("[data-audio-enter]"));
+key("Enter", "keydown", true, document.activeElement);
+assert.equal(state(), "title", "held entry Enter cannot choose a mode");
+key("Enter", "keyup");
+assert.equal(w.Audio.instances.length, 1);
 // without inserting a missing image URL or even attempting a resource request.
 assert.equal(document.querySelectorAll(".portrait img").length, 0);
 assert.ok(document.querySelector(".portrait").textContent.includes("JE"));
@@ -1113,6 +1125,7 @@ console.log(
     {
       status: "PASS",
       tournaments: runCount,
+      viewportSimulated: viewport,
       tournamentAttempts: runCount * 5,
       additionalFaultRecoveryAttempts: 2,
       engineInstances: engines.length,

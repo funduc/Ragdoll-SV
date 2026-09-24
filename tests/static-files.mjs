@@ -12,6 +12,13 @@ try {
   await once(child.stdout, "data");
   const origin = "http://127.0.0.1:8081";
   const paths = [
+    "js/music-config.js",
+    "js/music.js",
+    "js/audio-preferences.js",
+    "assets/audio/music/menu.mp3",
+    "assets/audio/music/gameplay1.mp3",
+    "assets/audio/music/gameplay2.mp3",
+    "assets/audio/music/championship.mp3",
     "index.html",
     "styles.css",
     "flash.css",
@@ -75,6 +82,8 @@ try {
       assert.ok(text.length > 0);
       if (path.endsWith(".js"))
         assert.match(response.headers.get("content-type"), /javascript/);
+      if (path.endsWith(".mp3"))
+        assert.equal(response.headers.get("content-type"), "audio/mpeg");
     }
     const page = await fetch(origin + prefix);
     assert.equal(page.status, 200);
@@ -82,6 +91,11 @@ try {
   }
   assert.equal(
     (await fetch(origin + "/ragdoll-olympics/assets/portraits/missing.svg"))
+      .status,
+    404,
+  );
+  assert.equal(
+    (await fetch(origin + "/ragdoll-olympics/assets/audio/music/missing.mp3"))
       .status,
     404,
   );

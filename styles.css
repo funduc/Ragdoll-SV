@@ -26,6 +26,31 @@ body {
 button {
   font: inherit;
 }
+.audio-controls {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin: -10px 0 16px;
+  color: var(--muted);
+  font:
+    bold 11px Arial,
+    sans-serif;
+}
+.audio-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audio-controls input {
+  width: 100px;
+  min-height: 28px;
+  accent-color: var(--orange);
+}
+.audio-controls input:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
 button:focus-visible,
 canvas:focus-visible {
   outline: 3px solid var(--blue);

@@ -1,4 +1,5 @@
 // Original synthesized cues. One lazy context; sound is never a gameplay dependency.
+import { AudioPreferences } from "./audio-preferences.js";
 export const MAX_VOICES = 24;
 export class SynthAudio {
   constructor(button, env = globalThis) {
@@ -12,10 +13,18 @@ export class SynthAudio {
     this.voices = new Set();
     this.lastCues = new Map();
     this.nextRattle = 0;
-    this.muted = false;
-    try {
-      this.muted = env.localStorage?.getItem("santor-vault:muted") === "true";
-    } catch {}
+    this.preferences = new AudioPreferences(env);
+    this.muted = this.preferences.muted;
+    this.unsubscribe = this.preferences.subscribe(() => {
+      this.muted = this.preferences.muted;
+      if (this.muted || this.preferences.effects === 0) this.stopAll();
+      try {
+        this.setLevel();
+      } catch {
+        this.disable();
+      }
+      this.updateButton();
+    });
     this.gesture = (event) => {
       if (
         event.type === "keydown" &&
@@ -23,6 +32,7 @@ export class SynthAudio {
       )
         return;
       this.unlock();
+      this.onGesture?.();
     };
     this.click = () => this.toggle();
     this.buttonKey = (event) => {
@@ -46,21 +56,26 @@ export class SynthAudio {
   }
   updateButton() {
     if (!this.button) return;
-    this.button.textContent = this.failed
+    const unavailable = this.failed && !this.musicAvailable;
+    this.button.textContent = unavailable
       ? "SOUND N/A"
       : this.muted
         ? "MUTED"
         : "SOUND ON";
-    this.button.disabled = this.failed;
-    this.button.setAttribute("aria-pressed", String(this.muted || this.failed));
+    this.button.disabled = unavailable;
+    this.button.setAttribute("aria-pressed", String(this.muted || unavailable));
     this.button.setAttribute(
       "aria-label",
-      this.failed
+      unavailable
         ? "Audio unavailable"
         : this.muted
           ? "Unmute sound"
           : "Mute sound",
     );
+  }
+  setMusicAvailable(available) {
+    this.musicAvailable = available;
+    this.updateButton();
   }
   unlock() {
     if (this.destroyed || this.failed) return;
@@ -90,7 +105,9 @@ export class SynthAudio {
       }
       if (this.context?.state === "suspended" && !this.resuming) {
         this.resuming = Promise.resolve(this.context.resume())
-          .catch(() => {})
+          .catch(() => {
+            if (!this.destroyed) this.disable();
+          })
           .finally(() => {
             this.resuming = null;
           });
@@ -102,16 +119,15 @@ export class SynthAudio {
   setLevel() {
     if (!this.master) return;
     this.master.gain.setValueAtTime(
-      this.muted || this.paused || this.failed ? 0 : 0.28,
+      this.muted || this.paused || this.failed
+        ? 0
+        : 0.28 * this.preferences.effects,
       this.context.currentTime,
     );
   }
   toggle() {
-    if (this.failed || this.destroyed) return;
-    this.muted = !this.muted;
-    try {
-      this.env.localStorage?.setItem("santor-vault:muted", String(this.muted));
-    } catch {}
+    if ((this.failed && !this.musicAvailable) || this.destroyed) return;
+    this.preferences.setMuted(!this.muted);
     if (this.muted) this.stopAll();
     else this.unlock();
     try {
@@ -183,6 +199,7 @@ export class SynthAudio {
       this.destroyed ||
       this.failed ||
       this.muted ||
+      this.preferences.effects === 0 ||
       this.paused ||
       this.context?.state !== "running"
     )
@@ -276,6 +293,7 @@ export class SynthAudio {
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.unsubscribe();
     this.stopAll();
     this.env.removeEventListener?.("pointerdown", this.gesture, true);
     this.env.removeEventListener?.("keydown", this.gesture, true);

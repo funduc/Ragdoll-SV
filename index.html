@@ -50,6 +50,37 @@
           </button>
         </div>
       </header>
+      <div
+        id="audio-controls"
+        class="audio-controls"
+        role="group"
+        aria-label="Audio volumes"
+      >
+        <label for="music-volume"
+          >MUSIC <output data-volume-value="music">45%</output>
+          <input
+            id="music-volume"
+            data-audio-volume="music"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="45"
+          />
+        </label>
+        <label for="effects-volume"
+          >EFFECTS <output data-volume-value="effects">100%</output>
+          <input
+            id="effects-volume"
+            data-audio-volume="effects"
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value="100"
+          />
+        </label>
+      </div>
       <section class="arena" aria-label="Shopping-Cart Long Jump">
         <div class="arena-top">
           <span><b>01</b> SHOPPING-CART LONG JUMP</span

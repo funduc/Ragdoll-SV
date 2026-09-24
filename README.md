@@ -10,7 +10,7 @@ Serve the project folder with any static server, for example:
 python3 -m http.server 8000
 ```
 
-Open `http://localhost:8000/`. ES modules require HTTP; do not open `index.html` as a `file://` URL.
+Open `http://localhost:8000/`, then choose **Enter the Vault**. ES modules require HTTP; do not open `index.html` as a `file://` URL.
 
 Alternatively, with Node.js installed, `npm run dev` starts the included dependency-free static test server. No `npm install` is needed to play. This server also serves `/ragdoll-olympics/` for project-prefix checks. The server is a development utility only.
 
@@ -31,7 +31,7 @@ Put the project files at the root of your repository. In GitHub Pages, publish t
 
 Air controls stop at the first landing. R is ignored after takeoff and on results screens. Switching tabs or losing focus pauses the simulation and clears held input. Press the controls again when returning. Menus never start an attempt automatically.
 
-On a touch screen, tap **PUSH** or **BRACE**, and hold **LEFT** / **RIGHT** to rotate. Four large buttons sit below the Canvas, outside the action area. Holding PUSH or BRACE does not repeat the action. The buttons appear for coarse-pointer or non-hover layouts and work during attempts and the optional instructions tutorial. Release/cancel, pause, results, and resets clear touch state. After a long frame stall, release and press again. Keyboard controls remain available.
+On a touch screen, tap **PUSH** or **BRACE**, and hold **LEFT** / **RIGHT** to rotate. Four large buttons sit below the Canvas, outside the action area. Holding PUSH or BRACE does not repeat the action. The buttons appear for coarse-pointer or non-hover layouts and work during attempts and the optional instructions tutorial. Release/cancel, pause, results, and resets clear touch state. After a long frame stall, release and press again. Keyboard controls remain available. When a control button has keyboard focus, Enter or Space activates that button: PUSH/BRACE once, LEFT/RIGHT until release. Space also activates focused tutorial buttons without creating a cart push.
 
 ## Three-phase skill loop
 
@@ -111,7 +111,15 @@ All thresholds, trick names/values, character interactions, caps, and popup limi
 
 Launch/landing dust, hard-impact sparks, and winner confetti share a cap of **96 particles**. Major crashes shake only the Canvas by at most **4 pixels for 0.22 seconds**. Effects use a separate random generator and never write to Matter bodies. Reduced-motion preferences disable shake, confetti, and CSS animations and reduce the remaining bursts.
 
-Original Web Audio synthesis supplies clicks, rattle, launch, impact, crowd, elimination, victory, and distinct skill-grade cues. One audio context is created after the first user gesture; cues have a 24-voice limit and no JavaScript timers. The persistent **SOUND ON / MUTED** button works throughout the tournament. Mute preference survives a page reload when local storage is available. Mute, pause, reset, and disposal stop active voices. If audio is unavailable, the game continues silently and the button reads **SOUND N/A**.
+Original Web Audio synthesis supplies clicks, rattle, launch, impact, crowd, elimination, victory, and distinct skill-grade cues. One audio context is created after the first user gesture; cues have a 24-voice limit and no JavaScript timers. The persistent **SOUND ON / MUTED** button works throughout the tournament. Mute preference survives a page reload when local storage is available. Mute, pause, reset, and disposal stop active voices. If effects audio is unavailable, streamed music can still play and use the sound toggle; if neither audio path is available, the game continues silently and the button reads **SOUND N/A**.
+
+## Music
+
+The supplied Menu, Gameplay1, Gameplay2 and Championship tracks are optimized to 192 kbps MP3 under `assets/audio/music/`. Music starts only after **Enter the Vault** is activated; refresh never autoplays it. Menu screens loop Menu; ordinary attempts select a gameplay track without consecutive repeats; retries retain the selection and playback position. With two supplied gameplay tracks, the initial selection is random and later levels alternate. **Gameplay3 was not attached.** Gauntlet/Overtime and Party championships use Championship.
+
+Music pauses with the existing hidden-tab/focus pause behavior. The existing sound toggle mutes both music and effects. Separate Music/Effects sliders persist under `santor-vault:audio`; the old mute key is retained. Music defaults to 45%, Effects to 100%. Sliders keep native keyboard behavior. Loading errors are contained and do not affect play. One streaming media element loops without music timers or full-track decoded buffers; an optional separate Web Audio gain uses the existing context.
+
+Tracks match perceived loudness during game playback. Menu audio was stream-copied; its volume correction lives in `js/music-config.js`. Gameplay1 was encoded once from its original to repair a positive true peak, and each WAV was encoded once. Originals and embedded cover art are excluded from published assets. See [MUSIC.md](MUSIC.md) for original/optimized sizes, gain/peak measurements, exact routing and verification limits.
 
 ## Vault Run
 
@@ -146,7 +154,7 @@ Perfect pushes count toward “Good-or-better.” A successful landing means **C
 
 Rules use finished-attempt facts. Numeric conditions mean “at least”; booleans require an exact match. `Campaign` owns its own guarded transitions, selected character, level, attempt-local ramp observation, and last result. It uses the same fixed-step world, keyboard/touch owners, scoring, and result markup as Party Tournament. Campaign upgrades supply attempt-local tuning copies; the original Party tuning, tournament, trick recognizer, and scoring formula are preserved.
 
-**Local progress:** expanding the existing level-ID catalog keeps the schema at version 1. Old three-level records, run seeds, pending rewards, temporary upgrades, and achievement timestamps survive; new levels default to no medal. Already-earned three-level completion achievements stay unlocked. New completion unlocks require all ten main levels. The version-1 object under `santor-vault:campaign` stores the selected character and one highest-medal record per character per level. It loads on page refresh. Missing, malformed, and unsupported-version data start safely with defaults; only known character/level IDs and valid medal ranks are accepted. A denied or full storage area keeps the game playable with an explicit page-only-save message. No scores or progress are sent to a server. Saves belong to this browser and origin; another device, private session, or site origin has separate storage.
+**Local progress:** expanding the existing level-ID catalog keeps the schema at version 1. Old three-level records, run seeds, pending rewards, temporary upgrades, and achievement timestamps survive; new levels default to no medal. Already-earned three-level completion achievements stay unlocked. New completion unlocks require all ten main levels. The version-1 object under `santor-vault:campaign` stores the selected character and one highest-medal record per character per level. It loads on page refresh. Missing, malformed, and unsupported old data start safely with defaults; only known character/level IDs and valid medal ranks are accepted. Newer campaign/run versions are preserved byte-for-byte while this page plays in memory. Only the existing confirmed campaign reset can replace a newer medal save; confirmed New run can replace a newer run save. Unchanged medal/run records are not rewritten, and failed writes retry on the next save action. A denied or full storage area keeps the game playable with an explicit page-only-save message. No scores or progress are sent to a server. Saves belong to this browser and origin; another device, private session, or site origin has separate storage.
 
 **Change character** opens selection without clearing anyone's medals or achievements. Confirming a different character starts a new temporary run; confirming the current character resumes the saved run, including an unchosen reward. **New run** requires confirmation, clears temporary upgrades, refreshes the original lessons’ seeded plans, and restores reward opportunities while preserving medals, unlocks, and achievements. **Reset campaign progress** also requires confirmation, with **Cancel** focused by default; it clears every character's campaign medals/unlocks and the temporary run, while preserving achievements and objective badges. Achievement reset is a separate confirmation in the Achievement Vault. Neither operation changes Party Tournament, mute settings, or unrelated storage. Failed writes are reported, including that older data may return after reload.
 
@@ -399,6 +407,7 @@ The optional DOM integration test uses JSDOM and native Canvas. Install those on
 npm install --prefix .qa --no-save jsdom@26.1.0 @napi-rs/canvas@0.1.100
 npm run test:dom
 npm run test:campaign:dom
+npm run test:accessibility:dom
 ```
 
 It runs the real source modules through three tournaments, restarting between them, using keyboard and button events. It completes all three optional drills, uses deliberately timed pushes and braces, and checks held/repeated input, plus all three introductions remaining open beyond 15 seconds, manual continuation, Enter-release gating, passive HUD messages, censored markup, missing-portrait request prevention, literary crash results, and a numeric-fault attempt followed by a healthy attempt. Layout, focus/visibility events, and frame timing are simulated; this is not a live-browser test. See `QA.md` for exact results and the outstanding live-preview limitation.
@@ -409,12 +418,14 @@ Additional optional checks (POSIX shell):
 MOBILE=1 npm run test:dom
 MOBILE=1 npm run test:campaign:dom
 MOBILE=1 AUDIO_UNAVAILABLE=1 npm run test:dom
+VIEWPORT_WIDTH=1366 VIEWPORT_HEIGHT=768 npm run test:dom
+TOURNAMENTS=1 VIEWPORT_WIDTH=1920 VIEWPORT_HEIGHT=1080 npm run test:dom
 node tests/render-budget.mjs
 ```
 
 The campaign integration test completes all ten main levels with each character, chooses temporary upgrades and replays levels, resumes a pending offer from persisted storage, checks New run and reset isolation, handles corrupt/blocked storage, and switches back to Party Tournament. It also runs Gauntlet heat hand-offs, exact combined ledgers, eight developer cases and checks that real saves stay unchanged. It uses the actual DOM handlers and Matter simulation; browser layout and RAF are simulated. `tests/run-mechanics.mjs` isolates all five conditions, eight upgrades, and eight objective types before `tests/run-progression.mjs` exercises seeded persistence and combined loadouts.
 
-Mobile mode uses a simulated 360px viewport and pointer events for the five tournament jumps. The audio double checks scheduling and cleanup, not audible quality or browser autoplay policy. The render benchmark uses native Canvas and saves launch/impact renders in `.qa/polish/renders/`; it does not measure browser frame rate or HTML/CSS layout.
+Mobile mode uses a simulated 360px viewport and pointer events for the five tournament jumps. The audio double checks scheduling and cleanup, not audible quality or browser autoplay policy. The render benchmark uses native Canvas, repeats 40 real attempts with disposal checks, and saves launch/impact renders in `.qa/polish/renders/`; it does not measure browser frame rate or HTML/CSS layout. The optional viewport environment variables configure simulated window dimensions, not a browser layout engine.
 
 ## Current scope
 

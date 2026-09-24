@@ -50,14 +50,22 @@ export class CampaignSave {
     this.notice = "";
     this.storage = null;
     this.writable = true;
+    this.writeProtected = false;
+    this.lastSaved = null;
     try {
       this.storage = storage === undefined ? globalThis.localStorage : storage;
       if (!this.storage) throw new Error("No storage");
       const text = this.storage.getItem(CAMPAIGN_SAVE_KEY);
+      this.lastSaved = text;
       if (text !== null) {
         const raw = JSON.parse(text);
         this.data = normalizeCampaignSave(raw);
-        if (raw?.version !== CAMPAIGN_SAVE_VERSION)
+        this.writeProtected =
+          Number.isInteger(raw?.version) && raw.version > CAMPAIGN_SAVE_VERSION;
+        if (this.writeProtected)
+          this.notice =
+            "A newer campaign save is preserved. This page plays without saving medals; Reset campaign can replace it.";
+        else if (raw?.version !== CAMPAIGN_SAVE_VERSION)
           this.notice =
             "This save version is not supported. A fresh campaign is ready.";
       }
@@ -70,9 +78,14 @@ export class CampaignSave {
     }
   }
   persist() {
+    if (this.writeProtected) return false;
     try {
       if (!this.storage) throw new Error("No storage");
-      this.storage.setItem(CAMPAIGN_SAVE_KEY, JSON.stringify(this.data));
+      const text = JSON.stringify(this.data);
+      if (text !== this.lastSaved) {
+        this.storage.setItem(CAMPAIGN_SAVE_KEY, text);
+        this.lastSaved = text;
+      }
       this.writable = true;
       this.notice = "";
       return true;
@@ -119,6 +132,8 @@ export class CampaignSave {
     };
   }
   reset() {
+    // This is called only after the explicit campaign-reset confirmation.
+    this.writeProtected = false;
     const selectedCharacter = this.data.selectedCharacter;
     this.data = emptyCampaignSave();
     this.data.selectedCharacter = selectedCharacter;

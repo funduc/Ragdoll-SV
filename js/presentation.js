@@ -2,12 +2,19 @@ import { SynthAudio } from "./audio.js";
 import { Effects } from "./effects.js";
 import { State } from "./tournament.js";
 import { COURSE } from "./physics.js";
+import { MusicDirector, MusicPlayer } from "./music.js";
 
 // A read-only observer of game state and Matter collision results. No physics writes.
 export class Presentation {
   constructor(root, button) {
     this.root = root;
     this.audio = new SynthAudio(button);
+    this.musicDirector = new MusicDirector();
+    this.music = new MusicPlayer(this.audio.preferences, {
+      getContext: () => this.audio.context,
+      onAvailable: (value) => this.audio.setMusicAvailable(value),
+    });
+    this.audio.onGesture = () => this.music.retryFromGesture();
     this.effects = new Effects(
       globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
         false,
@@ -25,6 +32,7 @@ export class Presentation {
     this.audio.resetAttempt();
   }
   state(t) {
+    this.music.setTrack(this.musicDirector.scene(t));
     this.root.dataset.round = t.round;
     this.root.dataset.broadcast =
       t.state === State.FINAL
@@ -112,6 +120,7 @@ export class Presentation {
     this.crashed = world.crashed;
   }
   frame(world, active, paused, dt, gap) {
+    this.music.setPaused(paused);
     this.audio.setPaused(paused);
     if (gap > 250) {
       this.effects.clear();
@@ -121,6 +130,7 @@ export class Presentation {
     this.audio.rattle(world, active && !paused);
   }
   destroy() {
+    this.music.destroy();
     this.audio.destroy();
     this.effects.clear();
   }

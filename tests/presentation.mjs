@@ -172,6 +172,9 @@ await check(
     audio.context.resume = () => Promise.reject(new Error("blocked"));
     audio.unlock();
     await audio.resuming;
+    assert.equal(audio.button.textContent, "SOUND N/A");
+    assert.equal(audio.button.disabled, true);
+    assert.equal(audio.failed, true);
     audio.play("launch");
     audio.toggle();
     audio.destroy();

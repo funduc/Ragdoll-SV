@@ -21,30 +21,12 @@ export class TouchControls {
       )
         return;
       event.preventDefault();
-      if (button.dataset.control === "push")
-        this.pushes = Math.min(
-          SKILL_CONFIG.maximumQueuedPushes,
-          this.pushes + 1,
-        );
-      if (button.dataset.control === "brace") this.brace = true;
-      this.holds.set(event.pointerId, {
-        button,
-        action: button.dataset.control,
-      });
+      this.press(button, event.pointerId);
       try {
         button.setPointerCapture(event.pointerId);
       } catch {}
-      this.paint();
     };
-    this.up = (event) => {
-      if (!this.holds.has(event.pointerId)) return;
-      const { button } = this.holds.get(event.pointerId);
-      this.holds.delete(event.pointerId);
-      try {
-        button.releasePointerCapture(event.pointerId);
-      } catch {}
-      this.paint();
-    };
+    this.up = (event) => this.release(event.pointerId);
     this.contextMenu = (event) => event.preventDefault();
     bar.addEventListener("pointerdown", this.down);
     bar.addEventListener("lostpointercapture", this.up);
@@ -52,6 +34,25 @@ export class TouchControls {
     env.addEventListener("pointerup", this.up);
     env.addEventListener("pointercancel", this.up);
     this.sync();
+  }
+  press(button, id) {
+    if (!this.isActive() || button.disabled || this.holds.has(id)) return;
+    if (button.dataset.control === "push")
+      this.pushes = Math.min(SKILL_CONFIG.maximumQueuedPushes, this.pushes + 1);
+    if (button.dataset.control === "brace") this.brace = true;
+    this.holds.set(id, { button, action: button.dataset.control });
+    this.paint();
+  }
+  release(id) {
+    if (!this.holds.has(id)) return;
+    const { button } = this.holds.get(id);
+    this.holds.delete(id);
+    if (typeof id === "number") {
+      try {
+        button.releasePointerCapture(id);
+      } catch {}
+    }
+    this.paint();
   }
   get controls() {
     const actions = new Set(
@@ -91,6 +92,7 @@ export class TouchControls {
     this.pushes = 0;
     this.brace = false;
     for (const [id, { button }] of held) {
+      if (typeof id !== "number") continue;
       try {
         button.releasePointerCapture(id);
       } catch {}

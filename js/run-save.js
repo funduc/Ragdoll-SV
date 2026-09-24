@@ -14,6 +14,7 @@ export { ACHIEVEMENT_SAVE_KEY, normalizeAchievements } from "./achievements.js";
 // Companion keys preserve the existing version-1 medal save byte-for-byte.
 // The central achievement manager migrates the separate badge key to v2.
 export const RUN_SAVE_KEY = "santor-vault:run";
+export const RUN_SAVE_VERSION = 1;
 const characterExists = (id) => CHARACTERS.some((c) => c.id === id);
 const validLevelIds = LEVELS.map((l) => l.id);
 const uniqueKnown = (raw, ids) =>
@@ -32,7 +33,7 @@ export function upgradeOffer(upgrades, seed, levelId) {
 export function normalizeRun(raw) {
   if (
     !raw ||
-    raw.version !== 1 ||
+    raw.version !== RUN_SAVE_VERSION ||
     !characterExists(raw.characterId) ||
     !Number.isInteger(raw.seed) ||
     raw.seed < 0 ||
@@ -66,8 +67,15 @@ export class RunSave {
     this.storage = storage;
     this.seedFactory = seedFactory;
     this.writeFailures = new Set();
+    this.lastSaved = new Map();
     this.notice = "";
-    this.run = normalizeRun(this.read(RUN_SAVE_KEY));
+    const raw = this.read(RUN_SAVE_KEY);
+    this.writeProtected =
+      Number.isInteger(raw?.version) && raw.version > RUN_SAVE_VERSION;
+    if (this.writeProtected)
+      this.notice =
+        "A newer run save is preserved. This page plays without saving the run; New run can replace it after confirmation.";
+    this.run = normalizeRun(raw);
     this.manager = manager || new AchievementManager(storage);
   }
   get achievements() {
@@ -82,6 +90,7 @@ export class RunSave {
   read(key) {
     try {
       const value = this.storage?.getItem(key);
+      this.lastSaved.set(key, value);
       return value ? JSON.parse(value) : null;
     } catch {
       this.notice =
@@ -90,9 +99,14 @@ export class RunSave {
     }
   }
   write(key, value) {
+    if (this.writeProtected && key === RUN_SAVE_KEY) return false;
     try {
       if (!this.storage) throw new Error("No storage");
-      this.storage.setItem(key, JSON.stringify(value));
+      const text = JSON.stringify(value);
+      if (text !== this.lastSaved.get(key)) {
+        this.storage.setItem(key, text);
+        this.lastSaved.set(key, text);
+      }
       this.writeFailures.delete(key);
       if (!this.writeFailures.size) this.notice = "";
       return true;
@@ -103,8 +117,16 @@ export class RunSave {
       return false;
     }
   }
-  begin(characterId, { seed = this.seedFactory(), upgrades = {} } = {}) {
+  begin(
+    characterId,
+    {
+      seed = this.seedFactory(),
+      upgrades = {},
+      discardUnsupported = false,
+    } = {},
+  ) {
     if (!characterExists(characterId)) return false;
+    if (discardUnsupported) this.writeProtected = false;
     this.run = {
       version: 1,
       characterId,
@@ -177,6 +199,7 @@ export class RunSave {
     return this.manager.awardObjective(characterId, objectiveId);
   }
   resetProgress() {
+    this.writeProtected = false;
     this.run = null;
     // Campaign reset must never erase the separate achievement vault.
     return this.write(RUN_SAVE_KEY, null);
