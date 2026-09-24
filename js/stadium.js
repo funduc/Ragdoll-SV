@@ -13,7 +13,7 @@ export class Stadium {
       ["BOLT CULT", "TIGHTEN YOUR EXPECTATIONS", "#ff852b"],
     ];
   }
-  backdrop(ctx, w, h, label) {
+  backdrop(ctx, w, h, label, accent = null) {
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
     gradient.addColorStop(0, "#161c24");
     gradient.addColorStop(0.5, "#30383b");
@@ -35,7 +35,7 @@ export class Stadium {
       ctx.fillRect(x, 55, 12, h * 0.62);
       ctx.fillStyle = "#617279";
       ctx.fillRect(x + 3, 55, 3, h * 0.62);
-      ctx.fillStyle = "#52cefa";
+      ctx.fillStyle = accent || "#52cefa";
       ctx.fillRect(x - 10, 52, 33, 4);
       ctx.fillStyle = "#52cefa18";
       ctx.fillRect(x - 15, 48, 43, 13);

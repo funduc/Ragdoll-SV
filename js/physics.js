@@ -4,6 +4,7 @@ import { AttemptSkills } from "./skills.js";
 import { SKILL_CONFIG } from "./skill-config.js";
 import { TrickTracker, trickSample } from "./tricks.js";
 import { trickRotationScale } from "./trick-config.js";
+import { RunEffects } from "./run-effects.js";
 export const COURSE = Object.freeze({
   groundY: 520,
   rampStart: 730,
@@ -17,14 +18,22 @@ export const ATTEMPT_LIMIT = 20;
 const RUNUP_LIMIT = 12;
 
 export class PhysicsWorld {
-  constructor(character, arena = { id: "santor-vault", gravity: 1.05 }) {
+  constructor(
+    character,
+    arena = { id: "santor-vault", gravity: 1.05 },
+    runSpec = null,
+  ) {
     this.M = globalThis.Matter;
     if (!this.M)
       throw new Error(
         "Matter.js did not load. Check vendor/matter-0.20.0.min.js.",
       );
-    this.character = character;
+    this.runEffects = runSpec ? new RunEffects(runSpec) : null;
+    this.character = this.runEffects
+      ? this.runEffects.character(character)
+      : character;
     this.course = COURSE;
+    this.arena = arena;
     this.engine = this.M.Engine.create({
       positionIterations: 8,
       velocityIterations: 8,
@@ -41,6 +50,8 @@ export class PhysicsWorld {
     this.launched = false;
     this.landed = false;
     this.crashed = false;
+    this.severeCrash = false;
+    this.crashClassification = null;
     this.attached = true;
     this.finished = false;
     this.disposed = false;
@@ -57,10 +68,12 @@ export class PhysicsWorld {
     this.riderSettleTime = 0;
     this.reason = "";
     this.events = [];
-    this.skills = new AttemptSkills();
-    this.tricks = new TrickTracker(character);
+    this.skills = new AttemptSkills(this.runEffects?.skills);
+    this.tricks = new TrickTracker(this.character);
     this.createCourse();
     this.createVehicle();
+    this.createCargo();
+    this.runEffects?.install(this);
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
     this.M.Events.on(this.engine, "collisionStart", this.collisionHandler);
   }
@@ -92,6 +105,71 @@ export class PhysicsWorld {
       label: "wall",
     });
     Composite.add(this.engine.world, [this.ground, this.ramp, this.wall]);
+    this.runwayBumps = (this.arena.bumps || []).map(({ x, width, height }) => {
+      const points = [
+        { x: x - width / 2, y: COURSE.groundY },
+        { x, y: COURSE.groundY - height },
+        { x: x + width / 2, y: COURSE.groundY },
+      ];
+      return Bodies.fromVertices(x, COURSE.groundY - height / 3, [points], {
+        ...options,
+        label: "runway repair",
+      });
+    });
+    Composite.add(this.engine.world, this.runwayBumps);
+  }
+  createCargo() {
+    const config = this.arena.cargo;
+    this.cargo = null;
+    this.cargoLost = false;
+    this.cargoStrainTime = 0;
+    if (!config) return;
+    const { Bodies, Body, Constraint, Composite } = this.M;
+    this.cargo = Bodies.rectangle(
+      COURSE.startX + 25,
+      445,
+      config.size,
+      config.size,
+      {
+        label: "ceremonial mug",
+        friction: 0.5,
+        frictionAir: 0.003,
+        restitution: 0.15,
+        collisionFilter: { group: this.cart.collisionFilter.group },
+      },
+    );
+    Body.setMass(this.cargo, config.mass);
+    this.cargoTether = Constraint.create({
+      bodyA: this.cart,
+      bodyB: this.cargo,
+      pointA: {
+        x: this.cargo.position.x - this.cart.position.x,
+        y: this.cargo.position.y - this.cart.position.y,
+      },
+      length: 0,
+      stiffness: config.stiffness,
+      damping: config.damping,
+    });
+    this.dynamic.push(this.cargo);
+    Composite.add(this.engine.world, [this.cargo, this.cargoTether]);
+  }
+  updateCargo() {
+    if (!this.cargo || this.cargoLost) return;
+    const config = this.arena.cargo;
+    this.cargoStrainTime =
+      Math.abs(normalAngle(this.cart.angle)) > config.releaseAngle
+        ? this.cargoStrainTime + STEP_MS / 1000
+        : 0;
+    if (this.cargoStrainTime < config.releaseSeconds && !this.severeCrash)
+      return;
+    this.cargoLost = true;
+    this.M.Composite.remove(this.engine.world, this.cargoTether);
+    this.skills.say(
+      this,
+      "cargo",
+      "Lost",
+      "MUG RESIGNED · delivery now requires a replacement mug",
+    );
   }
   createVehicle() {
     const { Bodies, Body, Composite, Constraint } = this.M,
@@ -111,7 +189,7 @@ export class PhysicsWorld {
       Bodies.rectangle(x - 53, 425, 24, 6),
     ];
     this.cart = Body.create({ ...base, label: "cart", parts });
-    Body.setMass(this.cart, 5.5);
+    Body.setMass(this.cart, 5.5 * (this.runEffects?.mass ?? 1));
     Body.setInertia(
       this.cart,
       this.cart.inertia * 1.4 * (this.character.passive?.cartInertiaScale ?? 1),
@@ -259,11 +337,13 @@ export class PhysicsWorld {
     this.M.Composite.remove(this.engine.world, this.harness);
     this.events.push("detach");
   }
-  crash(severe = false) {
+  crash(severe = false, classification = null) {
     if (!this.crashed) {
       this.crashed = true;
       this.events.push("crash");
+      this.crashClassification = classification;
     }
+    this.severeCrash ||= severe;
     if (severe) this.detach();
   }
   handleCollisions(pairs) {
@@ -274,7 +354,12 @@ export class PhysicsWorld {
       const body = terrain === a ? b : a;
       if (!terrain || body.isStatic) continue;
       const speed = this.preSpeeds?.get(body.id) || { x: 0, y: 0 };
-      if (this.launched && !this.landed && terrain === this.ground) {
+      if (
+        this.launched &&
+        !this.landed &&
+        terrain === this.ground &&
+        body !== this.cargo
+      ) {
         // collisionStart runs after integration: this step's rotation happened
         // in the air and must count even though it ends in ground contact.
         this.tricks.land(trickSample(this));
@@ -290,15 +375,24 @@ export class PhysicsWorld {
         );
         const tilt = Math.abs(normalAngle(this.cart.angle));
         if (tilt > 1.15 * this.character.landingStability)
-          this.crash(tilt > 1.65 && this.landingSpeed > 3);
+          this.crash(
+            tilt > 1.65 &&
+              this.landingSpeed > 3 * (this.runEffects?.harnessTolerance ?? 1),
+            "overturned",
+          );
         this.events.push("land");
         // A little rolling resistance lets a good landing actually settle.
-        for (const dynamic of this.dynamic) dynamic.frictionAir = 0.045;
+        for (const dynamic of this.dynamic)
+          dynamic.frictionAir = this.runEffects?.landingAirFriction ?? 0.045;
       }
       if ((body === this.head || body === this.torso) && this.elapsed > 0.4) {
         this.crash(
           Math.hypot(speed.x, speed.y) >
-            3.2 * this.character.landingStability * this.skills.impactTolerance,
+            3.2 *
+              this.character.landingStability *
+              this.skills.impactTolerance *
+              (this.runEffects?.harnessTolerance ?? 1),
+          body === this.head ? "head-impact" : "torso-impact",
         );
       }
     }
@@ -343,11 +437,21 @@ export class PhysicsWorld {
           Math.sign(this.cart.angularVelocity) * 0.16,
         );
     }
+    this.runEffects?.step(this, STEP_MS / 1000);
     Engine.update(this.engine, STEP_MS);
     if (!this.hasFiniteBodies()) {
       this.stopInvalid(safeMetrics);
       return;
     }
+    this.updateCargo();
+    // Follow-through can cross the runway cap between explicit impulses.
+    // Record the fact without clamping or otherwise changing existing motion.
+    if (
+      !this.launched &&
+      this.cart.position.x < this.skills.config.takeoff.armedX &&
+      Body.getVelocity(this.cart).x >= this.skills.config.rhythm.maximumSpeed
+    )
+      this.skills.runwayCapReached = true;
     if (
       !this.launched &&
       this.cart.position.x > COURSE.rampEnd + 35 &&

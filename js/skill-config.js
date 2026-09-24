@@ -67,8 +67,7 @@ export function pushGrade(position, spam = false) {
         ? "Good"
         : "Miss";
 }
-export function takeoffGrade(x) {
-  const c = SKILL_CONFIG.takeoff;
+export function takeoffGrade(x, c = SKILL_CONFIG.takeoff) {
   return x < c.goodStart
     ? "Early"
     : x > c.goodEnd
@@ -77,8 +76,7 @@ export function takeoffGrade(x) {
         ? "Perfect"
         : "Good";
 }
-export function braceGrade(lead) {
-  const c = SKILL_CONFIG.brace;
+export function braceGrade(lead, c = SKILL_CONFIG.brace) {
   if (lead === null) return "Unbraced";
   if (lead < c.goodMin) return "Late";
   if (lead > c.goodMax) return "Early";

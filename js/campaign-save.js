@@ -1,5 +1,5 @@
 import { CHARACTERS } from "./characters.js";
-import { LEVELS } from "./campaign-levels.js";
+import { ALL_LEVELS as LEVELS } from "./campaign-levels.js";
 
 // One namespaced, versioned object. Never clear localStorage: audio preferences
 // and unrelated applications on the same GitHub Pages origin are not our saves.

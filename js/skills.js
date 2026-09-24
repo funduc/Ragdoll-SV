@@ -9,7 +9,8 @@ import {
 
 // Attempt-local skill state. PhysicsWorld owns it; no wall clock, listeners or timers.
 export class AttemptSkills {
-  constructor() {
+  constructor(config = C) {
+    this.config = config;
     this.pushes = { Perfect: 0, Good: 0, Miss: 0 };
     this.lastPush = -Infinity;
     this.lastImpulse = -Infinity;
@@ -24,6 +25,7 @@ export class AttemptSkills {
     this.serial = 0;
     this.lateKick = false;
     this.driveUntil = 0;
+    this.runwayCapReached = false;
   }
   say(world, kind, grade, detail) {
     this.feedback = {
@@ -31,7 +33,7 @@ export class AttemptSkills {
       kind,
       grade,
       detail,
-      until: world.elapsed + C.feedbackSeconds,
+      until: world.elapsed + this.config.feedbackSeconds,
     };
   }
   impulse(world, speed, cap) {
@@ -50,10 +52,17 @@ export class AttemptSkills {
       const v = Body.getVelocity(body);
       Body.setVelocity(body, { x: v.x + dx, y: v.y - dx * slope });
     }
+    // Telemetry only: capture the exact applied cap before integration drag.
+    if (
+      !world.launched &&
+      world.cart.position.x < this.config.takeoff.armedX &&
+      Body.getVelocity(world.cart).x >= this.config.rhythm.maximumSpeed - 1e-8
+    )
+      this.runwayCapReached = true;
   }
   push(world, count) {
     if (world.landed || world.crashed || !count) return;
-    const c = C.rhythm,
+    const c = this.config.rhythm,
       t = world.elapsed;
     const spam = count > 1 || t - this.lastPush < c.minimumInterval;
     this.lastPush = t;
@@ -61,11 +70,14 @@ export class AttemptSkills {
       if (!this.takeoff) this.commitTakeoff(world, "Late");
       return;
     }
-    if (world.cart.position.x >= C.takeoff.armedX || this.takeoff) {
+    if (world.cart.position.x >= this.config.takeoff.armedX || this.takeoff) {
       // This is a separate, one-shot timing window. A recent rhythm push must
       // not turn a correctly placed launch push into an Early takeoff.
       if (!this.takeoff)
-        this.commitTakeoff(world, takeoffGrade(world.cart.position.x));
+        this.commitTakeoff(
+          world,
+          takeoffGrade(world.cart.position.x, this.config.takeoff),
+        );
       return;
     }
     const grade = pushGrade(rhythmPosition(t), spam);
@@ -130,7 +142,7 @@ export class AttemptSkills {
   commitTakeoff(world, grade) {
     if (this.takeoff) return;
     this.takeoff = grade;
-    const c = C.takeoff;
+    const c = this.config.takeoff;
     this.takeoffBonus =
       grade === "Perfect" ? c.perfectBonus : grade === "Good" ? c.goodBonus : 0;
     this.driveUntil = world.elapsed + c.followThrough;
@@ -161,7 +173,7 @@ export class AttemptSkills {
     if (this.lateKick) {
       world.M.Body.setAngularVelocity(
         world.cart,
-        world.cart.angularVelocity + C.takeoff.lateRotation,
+        world.cart.angularVelocity + this.config.takeoff.lateRotation,
       );
       this.lateKick = false;
     }
@@ -190,8 +202,8 @@ export class AttemptSkills {
   }
   controlScale(world) {
     return this.braceAt !== null &&
-      world.elapsed - this.braceAt > C.brace.goodMax
-      ? C.brace.earlyControlScale
+      world.elapsed - this.braceAt > this.config.brace.goodMax
+      ? this.config.brace.earlyControlScale
       : 1;
   }
   followThrough(world) {
@@ -199,21 +211,21 @@ export class AttemptSkills {
       world.launched ||
       world.crashed ||
       world.elapsed >= this.driveUntil ||
-      world.cart.velocity.x >= C.rhythm.maximumSpeed
+      world.cart.velocity.x >= this.config.rhythm.maximumSpeed
     )
       return;
     world.M.Body.applyForce(world.cart, world.cart.position, {
       x:
         world.cart.mass *
         world.character.baseAcceleration *
-        C.rhythm.followThroughScale,
+        this.config.rhythm.followThroughScale,
       y: 0,
     });
   }
   onLanding(world) {
     this.braceLead =
       this.braceAt === null ? null : Math.max(0, world.elapsed - this.braceAt);
-    this.brace = braceGrade(this.braceLead);
+    this.brace = braceGrade(this.braceLead, this.config.brace);
     this.impactTolerance = braceTolerance(this.brace);
     this.say(
       world,

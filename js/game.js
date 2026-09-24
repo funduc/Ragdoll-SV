@@ -11,11 +11,35 @@ import { TouchControls } from "./touch.js";
 import { Tutorial } from "./tutorial.js";
 import { SkillMeter } from "./skill-ui.js";
 import { Campaign, CampaignState } from "./campaign.js";
+import { readRunDeveloperSettings } from "./run-dev.js";
+import {
+  attemptAchievementFacts,
+  campaignAchievementFacts,
+  tournamentAchievementFacts,
+  BiographyReader,
+} from "./achievement-events.js";
+import {
+  renderAchievementVault,
+  showAchievementNotice,
+  applyAchievementCosmetics,
+} from "./achievement-ui.js";
+import { installAchievementHooks } from "./achievement-dev.js";
 
 class Game {
   constructor() {
     this.tournament = new Tournament();
-    this.campaign = new Campaign();
+    this.developerRun = readRunDeveloperSettings(window.location.search);
+    this.achievementDeveloper =
+      new URLSearchParams(window.location.search).get("achievementdev") === "1";
+    if (this.achievementDeveloper && !this.developerRun)
+      this.developerRun = { seed: 1, upgrades: {} };
+    this.campaign = new Campaign(undefined, { developer: this.developerRun });
+    this.achievements = this.campaign.runs.manager;
+    this.vaultOpen = false;
+    this.achievementReset = false;
+    this.biographyReader = new BiographyReader((facts) =>
+      this.achievements.send("biography-read", facts),
+    );
     this.mode = "party";
     this.introduction = new Introduction();
     this.tutorial = new Tutorial();
@@ -43,7 +67,7 @@ class Game {
       isActive: () => this.acceptsSkillInput,
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
-          "button[data-mode], button[data-campaign]",
+          "button[data-mode], button[data-campaign], button[data-achievement]",
         );
         if (menu) {
           this.menuAction(menu);
@@ -65,6 +89,12 @@ class Game {
       },
     });
     this.ui.render(this.tournament);
+    applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
+    this.removeAchievementHooks = installAchievementHooks(
+      this.achievements,
+      () => this.refreshAchievementVault(),
+      window.location.search,
+    );
     this.presentation.state(this.tournament);
     this.frame = this.frame.bind(this);
     this.raf = requestAnimationFrame(this.frame);
@@ -77,7 +107,8 @@ class Game {
     this.world?.dispose();
     this.world = new PhysicsWorld(
       character,
-      this.mode === "vault" ? this.campaign.level?.arena : undefined,
+      this.mode === "vault" ? this.campaign.attemptArena : undefined,
+      this.mode === "vault" ? this.campaign.attemptSpec : null,
     );
     this.presentation.replaceWorld(this.world);
     this.accumulator = 0;
@@ -119,6 +150,7 @@ class Game {
   }
   confirm() {
     if (this.session.active || this.destroyed) return;
+    if (this.vaultOpen) return;
     if (this.mode === "vault") {
       const previous = this.campaign.state;
       this.campaign.confirm();
@@ -138,6 +170,9 @@ class Game {
     }
     const previous = this.tournament.state;
     this.tournament.confirm();
+    if (this.tournament.state === State.FINAL && previous !== State.FINAL)
+      for (const facts of tournamentAchievementFacts(this.tournament))
+        this.achievements.send("tournament-won", facts);
     this.clearControls();
     if (
       this.tournament.state === State.READY ||
@@ -158,9 +193,11 @@ class Game {
     if (previous !== this.tournament.state) this.renderState();
   }
   renderState() {
+    this.biographyReader.tick(null, null, 0, false);
     this.touch.sync();
     this.introduction.clear();
     this.ui.render(this.session);
+    this.showAchievementsAfterAttempt();
     this.presentation.state(this.session);
     this.practiceMeter = null;
     if (this.mode === "vault") {
@@ -181,6 +218,7 @@ class Game {
     }
   }
   dismissIntroduction() {
+    this.biographyReader.tick(null, null, 0, false);
     this.introduction.clear();
     this.clearControls();
     this.ui.render(this.tournament);
@@ -200,6 +238,11 @@ class Game {
       !button.isConnected
     )
       return;
+    if (button.dataset.achievement) {
+      this.achievementAction(button);
+      return;
+    }
+    if (this.vaultOpen) return;
     const mode = button.dataset.mode;
     if (mode) {
       if (this.mode !== "party" || this.tournament.state !== State.TITLE)
@@ -208,7 +251,10 @@ class Game {
       this.presentation.audio.play("click");
       if (mode === "vault") {
         // Retain the save owner even if localStorage is unavailable this session.
-        this.campaign = new Campaign(this.campaign.save);
+        this.campaign = new Campaign(this.campaign.save, {
+          runs: this.campaign.runs,
+          developer: this.developerRun,
+        });
         this.mode = "vault";
       } else if (mode === "party") this.tournament.confirm();
       else return;
@@ -238,6 +284,18 @@ class Game {
         break;
       case "reset-confirm":
         this.campaign.confirmReset();
+        break;
+      case "new-run":
+        this.campaign.requestNewRun();
+        break;
+      case "new-run-confirm":
+        this.campaign.confirmNewRun();
+        break;
+      case "upgrade":
+        this.campaign.chooseUpgrade(button.dataset.value);
+        break;
+      case "skip-upgrade":
+        this.campaign.skipUpgrade();
         break;
       case "menu":
         if (![CampaignState.SELECT, CampaignState.MAP].includes(previous))
@@ -275,10 +333,77 @@ class Game {
     this.input.clear();
     this.touch.clear();
   }
+  achievementAction(button) {
+    if (this.mode !== "party" || this.tournament.state !== State.TITLE) return;
+    const action = button.dataset.achievement;
+    if (action !== "open" && !this.vaultOpen) return;
+    this.clearControls();
+    this.presentation.audio.play("click");
+    switch (action) {
+      case "open":
+        this.vaultOpen = true;
+        this.achievementReset = false;
+        break;
+      case "back":
+        this.vaultOpen = false;
+        this.achievementReset = false;
+        this.renderState();
+        return;
+      case "reset":
+        this.achievementReset = true;
+        break;
+      case "cancel-reset":
+        this.achievementReset = false;
+        break;
+      case "reset-confirm":
+        if (!this.achievementReset) return;
+        this.achievements.reset();
+        this.achievementReset = false;
+        break;
+      case "equip":
+        this.achievements.equip(button.dataset.value);
+        break;
+      case "default":
+        this.achievements.equip(null, button.dataset.value);
+        break;
+      default:
+        return;
+    }
+    this.refreshAchievementVault();
+  }
+  refreshAchievementVault() {
+    applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
+    if (this.vaultOpen)
+      renderAchievementVault(
+        this.ui,
+        this.achievements,
+        this.achievementReset,
+        Boolean(this.developerRun),
+      );
+  }
+  showAchievementsAfterAttempt() {
+    applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
+    if ([State.RESULTS, State.FINAL].includes(this.session.state)) {
+      showAchievementNotice(this.ui, this.achievements);
+      const line = this.achievements.cosmeticValues().commentary;
+      if (line) this.ui.say(line);
+    }
+  }
   frame(time) {
     if (this.destroyed) return;
     const gap = this.lastTime === null ? 0 : Math.max(0, time - this.lastTime);
     this.lastTime = time;
+    const reading =
+      !this.vaultOpen &&
+      (this.introduction.active ||
+        (this.mode === "vault" &&
+          this.campaign.state === CampaignState.PROFILE));
+    this.biographyReader.tick(
+      reading ? `${this.mode}:${this.session.current.id}` : null,
+      this.session.current?.id,
+      gap,
+      !this.suspended && !document.hidden,
+    );
     // Long stalls are discarded; no catch-up storm, teleport, or instant timeout.
     if (gap > 250) {
       this.accumulator = 0;
@@ -296,14 +421,28 @@ class Game {
         if (this.world.finished) {
           const score = scoreAttempt(
             this.world.metrics(),
-            this.session.current,
+            this.world.character,
           );
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);
+          this.achievements.send(
+            "attempt-ended",
+            attemptAchievementFacts(
+              this.world,
+              score,
+              this.mode === "vault" ? this.campaign : null,
+            ),
+          );
+          if (this.mode === "vault" && !this.world.invalid)
+            this.achievements.send(
+              "campaign-progress",
+              campaignAchievementFacts(this.campaign),
+            );
           this.clearControls();
           this.touch.sync();
           this.accumulator = 0;
           this.ui.render(this.session);
+          this.showAchievementsAfterAttempt();
           this.presentation.state(this.session);
           break;
         }
@@ -342,6 +481,7 @@ class Game {
     this.renderer.destroy();
     this.ui.destroy();
     this.presentation.destroy();
+    this.removeAchievementHooks?.();
   }
 }
 

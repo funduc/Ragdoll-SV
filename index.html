@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="./skills.css" />
     <link rel="stylesheet" href="./tricks.css" />
     <link rel="stylesheet" href="./campaign.css" />
+    <link rel="stylesheet" href="./achievements.css" />
     <script src="./vendor/matter-0.20.0.min.js" defer></script>
     <script type="module" src="./js/game.js"></script>
   </head>
@@ -28,6 +29,11 @@
           <span class="brand-mark" aria-hidden="true">RO<span>★</span></span>
           <div>
             <strong>RAGDOLL OLYMPICS</strong><span>THE SANTOR VAULT</span>
+            <span
+              id="achievement-badge"
+              class="achievement-badge"
+              hidden
+            ></span>
           </div>
         </div>
         <div class="session-tag">
@@ -96,6 +102,12 @@
           class="campaign-coach"
           hidden
           aria-label="Campaign coaching"
+        ></div>
+        <div
+          id="run-status"
+          class="run-status"
+          hidden
+          aria-label="Active level condition"
         ></div>
         <div
           id="trick-hud"

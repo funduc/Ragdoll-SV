@@ -1,11 +1,13 @@
 import { COURSE } from "./physics.js";
 import { Stadium } from "./stadium.js";
+import { drawRunMarkings } from "./run-renderer.js";
 import { SKILL_CONFIG } from "./skill-config.js";
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.stadium = new Stadium();
+    this.cosmetics = {};
     this.camera = { x: 0, y: -80, scale: 1 };
     this.width = 1200;
     this.height = 560;
@@ -76,7 +78,7 @@ export class Renderer {
     c.save();
     const shake = effects?.offset() || { x: 0, y: 0 };
     c.translate(shake.x, shake.y);
-    this.stadium.backdrop(c, w, h, this.label.bind(this));
+    this.stadium.backdrop(c, w, h, this.label.bind(this), this.cosmetics.arena);
     c.save();
     c.scale(this.camera.scale, this.camera.scale);
     c.translate(-this.camera.x, -this.camera.y);
@@ -140,9 +142,12 @@ export class Renderer {
     c.strokeStyle = "#a3bcc8";
     c.lineWidth = 7;
     c.stroke();
+    drawRunMarkings(this, world, left, right);
+    for (const bump of world?.runwayBumps || [])
+      this.polygon(bump.vertices, "#667782", "#ffb84b", 2);
     c.fillStyle = "#ff852b";
     // Painted ramp strip uses the same cart-centre x windows as skill grading.
-    const boost = SKILL_CONFIG.takeoff;
+    const boost = world?.skills.config.takeoff || SKILL_CONFIG.takeoff;
     const rampY = (x) =>
       COURSE.groundY -
       ((x - COURSE.rampStart) * (COURSE.groundY - COURSE.rampTop)) /
@@ -199,6 +204,22 @@ export class Renderer {
       }
       effects?.drawWorld(c);
       this.drawVehicle(world);
+      if (world.cargo) {
+        this.polygon(
+          world.cargo.vertices,
+          world.cargoLost ? "#ff852b" : "#b4ef4b",
+          "#10151a",
+          2,
+        );
+        this.label(
+          world.cargoLost ? "MUG RESIGNED" : "FRAGILE MUG",
+          world.cargo.position.x,
+          world.cargo.position.y - 22,
+          12,
+          world.cargoLost ? "#ffad72" : "#b4ef4b",
+          "center",
+        );
+      }
     }
     c.restore();
     effects?.drawScreen(c, w, h);
@@ -262,7 +283,7 @@ export class Renderer {
     c.translate(cart.position.x, cart.position.y);
     c.rotate(cart.angle);
     c.translate(world.cartArtOffset.x, world.cartArtOffset.y);
-    c.strokeStyle = "#adc5d1";
+    c.strokeStyle = this.cosmetics.cart || "#adc5d1";
     c.lineWidth = 4;
     c.lineJoin = "round";
     c.beginPath();

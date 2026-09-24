@@ -44,6 +44,7 @@ for (const name of [
   "skills.css",
   "tricks.css",
   "campaign.css",
+  "achievements.css",
 ]) {
   const style = document.createElement("style");
   style.textContent = await readFile(resolve(root, name), "utf8");
@@ -1172,4 +1173,11 @@ console.log(
     2,
   ),
 );
+const achievementData = JSON.parse(
+  w.localStorage.getItem("santor-vault:achievements"),
+);
+assert.equal(achievementData.version, 2);
+assert.equal(achievementData.records.airborne.unlocked, true);
+assert.equal(achievementData.records.butter.unlocked, true);
+assert.equal(w.__vaultAchievements, undefined);
 dom.window.close();

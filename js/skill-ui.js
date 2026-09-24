@@ -1,32 +1,42 @@
 import { SKILL_CONFIG as C, rhythmPosition } from "./skill-config.js";
 
-export function meterView(phase, position, label, message, grade = "") {
+export function meterView(
+  phase,
+  position,
+  label,
+  message,
+  grade = "",
+  config = C,
+) {
   let good, perfect;
   if (phase === "push") {
-    good = [0.5 - C.rhythm.goodHalfWidth, 0.5 + C.rhythm.goodHalfWidth];
+    good = [
+      0.5 - config.rhythm.goodHalfWidth,
+      0.5 + config.rhythm.goodHalfWidth,
+    ];
     perfect = [
-      0.5 - C.rhythm.perfectHalfWidth,
-      0.5 + C.rhythm.perfectHalfWidth,
+      0.5 - config.rhythm.perfectHalfWidth,
+      0.5 + config.rhythm.perfectHalfWidth,
     ];
   } else if (phase === "takeoff") {
-    const start = C.takeoff.armedX,
-      span = C.takeoff.goodEnd + C.takeoff.meterOvershoot - start;
+    const start = config.takeoff.armedX,
+      span = config.takeoff.goodEnd + config.takeoff.meterOvershoot - start;
     good = [
-      (C.takeoff.goodStart - start) / span,
-      (C.takeoff.goodEnd - start) / span,
+      (config.takeoff.goodStart - start) / span,
+      (config.takeoff.goodEnd - start) / span,
     ];
     perfect = [
-      (C.takeoff.perfectStart - start) / span,
-      (C.takeoff.perfectEnd - start) / span,
+      (config.takeoff.perfectStart - start) / span,
+      (config.takeoff.perfectEnd - start) / span,
     ];
   } else {
     good = [
-      1 - C.brace.goodMax / C.brace.meterSeconds,
-      1 - C.brace.goodMin / C.brace.meterSeconds,
+      1 - config.brace.goodMax / config.brace.meterSeconds,
+      1 - config.brace.goodMin / config.brace.meterSeconds,
     ];
     perfect = [
-      1 - C.brace.perfectMax / C.brace.meterSeconds,
-      1 - C.brace.perfectMin / C.brace.meterSeconds,
+      1 - config.brace.perfectMax / config.brace.meterSeconds,
+      1 - config.brace.perfectMin / config.brace.meterSeconds,
     ];
   }
   return {
@@ -41,6 +51,7 @@ export function meterView(phase, position, label, message, grade = "") {
 }
 export function worldSkillView(world) {
   const s = world.skills,
+    config = s.config,
     f = s.feedback?.until > world.elapsed ? s.feedback : null;
   if (world.launched) {
     const eta = s.contactETA(world);
@@ -48,28 +59,32 @@ export function worldSkillView(world) {
     const message = world.landed
       ? `${s.brace} · landing angle still counts`
       : early
-        ? `EARLY BRACE · air control reduced to ${Math.round(C.brace.earlyControlScale * 100)}%`
+        ? `EARLY BRACE · air control reduced to ${Math.round(config.brace.earlyControlScale * 100)}%`
         : s.braceAt !== null
           ? "Brace committed · one brace per jump"
-          : eta <= C.brace.goodMax
+          : eta <= config.brace.goodMax
             ? "BRACE NOW · tap Down / S or BRACE"
             : "Rotate to wheels down; brace once near contact";
     const takeoffFeedback =
       f?.kind === "takeoff" ? `${f.grade} takeoff · ${f.detail}` : null;
     const urgent =
-      early || (!world.landed && s.braceAt === null && eta <= C.brace.goodMax);
+      early ||
+      (!world.landed && s.braceAt === null && eta <= config.brace.goodMax);
     return meterView(
       "brace",
-      1 - eta / C.brace.meterSeconds,
+      1 - eta / config.brace.meterSeconds,
       "03 / LANDING · " + (world.landed ? s.brace : "DOWN / S"),
       urgent ? message : takeoffFeedback || f?.detail || message,
       f?.grade || s.brace,
+      config,
     );
   }
-  if (world.cart.position.x >= C.takeoff.armedX) {
+  if (world.cart.position.x >= config.takeoff.armedX) {
     const position =
-      (world.cart.position.x - C.takeoff.armedX) /
-      (C.takeoff.goodEnd + C.takeoff.meterOvershoot - C.takeoff.armedX);
+      (world.cart.position.x - config.takeoff.armedX) /
+      (config.takeoff.goodEnd +
+        config.takeoff.meterOvershoot -
+        config.takeoff.armedX);
     return meterView(
       "takeoff",
       position,
@@ -79,6 +94,7 @@ export function worldSkillView(world) {
           ? "Boost committed · get ready to rotate"
           : "Wait for the marker in green, then tap PUSH"),
       s.takeoff || "",
+      config,
     );
   }
   return meterView(
@@ -88,6 +104,7 @@ export function worldSkillView(world) {
     f?.detail ||
       "Tap at the green centre. Release between pushes; holding gives one push.",
     f?.grade || "",
+    config,
   );
 }
 export class SkillMeter {

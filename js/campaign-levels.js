@@ -1,5 +1,7 @@
-// Vault Run content and rules. All three lessons use the existing Vault arena.
+import { CHAPTER_LEVELS, HARD_GAUNTLET_DATA } from "./campaign-chapter.js";
+// Vault Run content and rules. Ten main levels plus optional Gauntlet Overtime.
 // Coaching modifiers only add live guidance; they never change scoring or input.
+// Seeded run conditions and temporary upgrades are configured in run-config.js.
 // Thresholds use facts from a finished attempt, not the displayed total score.
 const freeze = (value) => {
   if (value && typeof value === "object") {
@@ -13,6 +15,7 @@ export const MEDALS = freeze(["No medal", "Bronze", "Silver", "Gold"]);
 export const LEVELS = freeze([
   {
     id: "orientation-day",
+    upgradeReward: true,
     name: "ORIENTATION DAY",
     description:
       "Find the rhythm, then spend one well-timed push at the ramp edge.",
@@ -31,9 +34,19 @@ export const LEVELS = freeze([
       label: "Finish with a Perfect takeoff.",
       all: { reachedRamp: true, perfectTakeoff: true },
     },
-    santorMedal: null,
+    estimatedMinutes: 2,
+    santorMedal: {
+      label: "Perfect takeoff, no Missed pushes and 2 Good-or-better pushes.",
+      all: { perfectTakeoff: true, noMiss: true, goodPushes: 2 },
+    },
     prerequisites: [],
     john: {
+      characters: {
+        jake: "Jake: slower rotation, steady delivery. Learn the beat first.",
+        brandon:
+          "Brandon: save the vocabulary for the results. Tap on the beat.",
+        owen: "Owen: fast acceleration still needs deliberate pushes.",
+      },
       introduction: "Welcome to orientation. Release the key between pushes.",
       results: {
         none: "The ramp is still accepting applications.",
@@ -45,6 +58,7 @@ export const LEVELS = freeze([
   },
   {
     id: "wheels-down",
+    upgradeReward: true,
     name: "WHEELS DOWN",
     description:
       "Rotate toward level, then tap Brace shortly before first contact.",
@@ -64,9 +78,22 @@ export const LEVELS = freeze([
       label: "Earn Perfect Brace and a Clean, controlled landing.",
       all: { completedJump: true, perfectBrace: true, controlledLanding: true },
     },
-    santorMedal: null,
+    estimatedMinutes: 2,
+    santorMedal: {
+      label: "Perfect takeoff, Perfect Brace and a Clean landing.",
+      all: {
+        perfectTakeoff: true,
+        perfectBrace: true,
+        controlledLanding: true,
+      },
+    },
     prerequisites: ["orientation-day"],
     john: {
+      characters: {
+        jake: "Jake makes level look effortless. The brace still needs timing.",
+        brandon: "Brandon, punctuation happens just before contact.",
+        owen: "Owen, work ethic cannot replace landing alignment.",
+      },
       introduction:
         "Wheels down. Brace near contact. These are separate instructions.",
       results: {
@@ -79,6 +106,7 @@ export const LEVELS = freeze([
   },
   {
     id: "commit-to-the-bit",
+    upgradeReward: false,
     name: "COMMIT TO THE BIT",
     description:
       "Commit to a complete flip or controlled flight. Variety earns Gold.",
@@ -97,22 +125,35 @@ export const LEVELS = freeze([
       label: "Perform 2 different tricks and land successfully.",
       all: { uniqueTricks: 2, successfulLanding: true },
     },
-    santorMedal: null,
+    estimatedMinutes: 3,
+    santorMedal: {
+      label: "2 unique tricks, a Clean landing and Perfect Brace.",
+      all: { uniqueTricks: 2, controlledLanding: true, perfectBrace: true },
+    },
     prerequisites: ["wheels-down"],
     john: {
+      characters: {
+        jake: "Jake, commit slowly and leave room for the punchline.",
+        brandon:
+          "Brandon turns variety into extra style. Give the poem an ending.",
+        owen: "Owen builds rotation at speed. Counter-steer before the ground arrives.",
+      },
       introduction:
         "Commit to the bit. Then remember that the bit has to land.",
       results: {
         none: "A suggestion of a flip is not a complete flip.",
         bronze:
-          "A recognized trick. Your Vault Run has reached the final stamp.",
+          "A recognized trick. Showboating 101 is now accepting applications.",
         silver: "Style, followed by a landing. An ambitious combination.",
         gold: "Two different tricks. Successful landing. THE VAULT HAS SEEN ENOUGH.",
       },
     },
   },
+  ...CHAPTER_LEVELS,
 ]);
-export const levelById = (id) => LEVELS.find((level) => level.id === id);
+export const HARD_GAUNTLET = freeze(HARD_GAUNTLET_DATA);
+export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET]);
+export const levelById = (id) => ALL_LEVELS.find((level) => level.id === id);
 
 // Numeric conditions mean "at least"; boolean conditions require an exact match.
 export function meetsThreshold(threshold, facts) {

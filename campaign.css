@@ -1,4 +1,97 @@
 /* Vault Run reuses the cabinet, panels, portraits, score grid, and buttons. */
+.run-challenge,
+.run-inventory {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid #4d6572;
+  background: #101d25;
+}
+.run-challenge p {
+  margin: 0 0 12px;
+}
+.run-challenge p:last-child {
+  margin-bottom: 0;
+}
+.run-challenge b,
+.run-challenge span,
+.run-challenge small {
+  display: block;
+}
+.run-challenge b {
+  color: var(--blue);
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.run-challenge small {
+  color: var(--muted);
+  margin-top: 5px;
+}
+.run-inventory h3 {
+  font:
+    bold 11px "Courier New",
+    monospace;
+  color: var(--green);
+}
+.run-inventory ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.run-inventory li {
+  margin-bottom: 9px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.run-inventory li > span {
+  display: block;
+  color: var(--muted);
+}
+.run-dev {
+  padding: 9px;
+  border: 2px solid var(--orange);
+  color: var(--orange) !important;
+  font:
+    bold 11px "Courier New",
+    monospace !important;
+}
+.objective-outcome {
+  display: inline-block;
+  margin: 8px 0;
+  color: var(--orange);
+}
+.objective-outcome[data-objective-result="success"] {
+  color: var(--green);
+}
+.upgrade-choices {
+  display: grid;
+  gap: 12px;
+}
+.upgrade-choices article {
+  padding: 14px;
+  border: 2px solid #4d6572;
+  background: linear-gradient(#2a3945, #17232c);
+}
+.upgrade-choices h3 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+.run-status {
+  height: 54px;
+  padding: 10px 16px;
+  border-top: 1px solid #5d8094;
+  background: #172c38;
+  color: var(--blue);
+  font:
+    bold 12px/1.5 "Courier New",
+    monospace;
+  pointer-events: none;
+}
+@media (max-width: 800px) {
+  .run-status {
+    height: 76px;
+    font-size: 11px;
+  }
+}
 .mode-choices .btn {
   min-height: 48px;
 }

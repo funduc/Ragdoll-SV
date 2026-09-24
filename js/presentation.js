@@ -57,7 +57,9 @@ export class Presentation {
       this.audio.play(
         good
           ? "skill-perfect"
-          : ["Good", "Good Brace", "Braced"].includes(feedback.grade)
+          : ["Good", "Good Brace", "Braced", "Boost", "Assist"].includes(
+                feedback.grade,
+              )
             ? "skill-good"
             : "skill-miss",
       );

@@ -41,10 +41,10 @@ const storage = () => {
 };
 const finished = { finished: true, invalid: false };
 check(
-  "Three frozen level definitions contain all required data and linear unlocks",
+  "Ten frozen level definitions contain all required data and linear unlocks",
   () => {
-    assert.equal(LEVELS.length, 3);
-    assert.equal(new Set(LEVELS.map((l) => l.id)).size, 3);
+    assert.equal(LEVELS.length, 10);
+    assert.equal(new Set(LEVELS.map((l) => l.id)).size, 10);
     for (const [i, level] of LEVELS.entries()) {
       for (const key of [
         "id",
@@ -162,7 +162,7 @@ check(
     assert.equal(safe.progress.brandon[LEVELS[0].id].medal, 0);
     assert.deepEqual(safe.progress.owen[LEVELS[0].id], {
       medal: 2,
-      santor: false,
+      santor: true,
     });
   },
 );
@@ -204,7 +204,7 @@ check(
     const restored = new CampaignSave(db);
     assert.equal(restored.entry("jake", LEVELS[0].id).medal, 3);
     assert.equal(restored.data.selectedCharacter, "jake");
-    assert.equal(Object.keys(restored.data.progress.jake).length, 3);
+    assert.equal(Object.keys(restored.data.progress.jake).length, 11);
     assert.equal(db.entries.size, 1);
     const copy = restored.entry("jake", LEVELS[0].id);
     copy.medal = 0;
@@ -247,7 +247,7 @@ check(
   },
 );
 check(
-  "Each character has independent unlocks; reset changes only the campaign key",
+  "Each character has independent unlocks; campaign reset preserves unrelated storage",
   () => {
     const db = storage(),
       save = new CampaignSave(db),
@@ -276,20 +276,20 @@ check(
 );
 const actual = [];
 check(
-  "All three characters complete a real three-level campaign with fresh attempt data",
+  "All three characters complete a original three-lesson sequence with fresh attempt data",
   () => {
     const db = storage(),
       save = new CampaignSave(db);
     for (const c of CHARACTERS) {
-      const run = new Campaign(save);
+      const run = new Campaign(save, { seedFactory: () => 42 });
       run.select(c.id);
       run.confirm();
-      for (const level of LEVELS) {
+      for (const level of LEVELS.slice(0, 3)) {
         assert.equal(run.startLevel(level.id), true);
         assert.equal(run.lastScore, null);
         assert.equal(run.reachedRamp, false);
         run.confirm();
-        const world = new PhysicsWorld(c, level.arena);
+        const world = new PhysicsWorld(c, level.arena, run.attemptSpec);
         for (let i = 0; i < 2500 && !world.finished; i++) {
           let rotation = 0;
           if (world.launched && !world.landed) {
@@ -307,7 +307,7 @@ check(
           run.observe(world);
         }
         assert.ok(world.finished && !world.invalid);
-        const score = scoreAttempt(world.metrics(), c);
+        const score = scoreAttempt(world.metrics(), world.character);
         run.record(score, world);
         assert.equal(run.state, S.RESULTS);
         assert.ok(
@@ -325,6 +325,10 @@ check(
           score: score.total,
         });
         run.confirm();
+        if (run.state === S.UPGRADES) {
+          assert.equal(run.runs.run.offers.length, 3);
+          assert.equal(run.chooseUpgrade(run.runs.run.offers[0]), true);
+        }
         assert.equal(run.state, S.MAP);
         world.dispose();
         assert.equal(
@@ -332,11 +336,11 @@ check(
           0,
         );
       }
-      assert.equal(run.complete, true);
+      assert.equal(run.complete, false);
     }
     const reloaded = new CampaignSave(db);
     for (const c of CHARACTERS)
-      for (const level of LEVELS)
+      for (const level of LEVELS.slice(0, 3))
         assert.ok(reloaded.entry(c.id, level.id).medal >= 1);
   },
 );
