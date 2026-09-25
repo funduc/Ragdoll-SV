@@ -30,6 +30,7 @@ import {
 import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
 import { Records } from "./records.js";
+import { installAfterHoursStyles } from "./after-hours-styles.js";
 
 class Game {
   constructor() {
@@ -686,6 +687,7 @@ class Game {
   }
 }
 
+installAfterHoursStyles();
 try {
   const game = new Game();
   // Preserve back/forward-cache pages; dispose only on an actual unload.
