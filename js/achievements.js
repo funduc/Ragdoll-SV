@@ -84,6 +84,7 @@ export function normalizeAchievements(raw) {
 // Normalized events are flat facts. Invalid/missing numeric data is never zero
 // for predicate purposes (e.g. missing target distance cannot mean a bullseye).
 const numberFields = [
+  "syncOccurrences",
   "rotations",
   "uniqueTricks",
   "stylePoints",
@@ -103,6 +104,10 @@ const numberFields = [
   "upgradeCount",
 ];
 const booleanFields = [
+  "syncCompleted",
+  "syncPerfect",
+  "syncBoosted",
+  "syncAllMiss",
   "valid",
   "launched",
   "landed",

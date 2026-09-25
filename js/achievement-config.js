@@ -96,6 +96,61 @@ const campaign = (id, name, description, extra) => ({
   ...extra,
 });
 export const ACHIEVEMENTS = freeze([
+  attempt(
+    "sync-first",
+    "In Sync",
+    "Santor Sync",
+    "Complete your first Santor Sync and finish the attempt.",
+    [["syncCompleted", "eq", true]],
+  ),
+  attempt(
+    "sync-perfect",
+    "Physics Lost Jurisdiction",
+    "Santor Sync",
+    "Earn Perfect Sync and finish the attempt.",
+    [["syncPerfect", "eq", true]],
+  ),
+  attempt(
+    "sync-land",
+    "Beat the Landing",
+    "Santor Sync",
+    "Earn Perfect Sync and land successfully.",
+    [
+      ["syncPerfect", "eq", true],
+      ["successfulLanding", "eq", true],
+    ],
+  ),
+  attempt(
+    "sync-three",
+    "Triple Time",
+    "Santor Sync",
+    "Complete three rotations after a Sync boost.",
+    [
+      ["syncBoosted", "eq", true],
+      ["rotations", "gte", 3],
+    ],
+  ),
+  attempt(
+    "sync-miss-medal",
+    "Legally Valid",
+    "Santor Sync",
+    "Miss every Sync note but still earn a medal.",
+    [
+      ["syncAllMiss", "eq", true],
+      ["levelCompleted", "eq", true],
+    ],
+  ),
+  campaign(
+    "sync-twice",
+    "Encore in the Vault",
+    "Trigger Sync twice during one completed run.",
+    {
+      category: "Santor Sync",
+      rules: [["runComplete", "eq", true]],
+      field: "syncOccurrences",
+      target: 2,
+    },
+  ),
   campaign(
     "welcome",
     "Welcome to the Vault",

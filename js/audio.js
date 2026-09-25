@@ -209,6 +209,13 @@ export class SynthAudio {
     this.lastCues.set(cue, now);
     try {
       switch (cue) {
+        case "sync-beat":
+          this.voice("triangle", 700, 0, 0.06, 0.12, 240);
+          break;
+        case "sync-drop":
+          this.voice("sine", 150, 0, 0.2, 0.18, 40);
+          this.voice("triangle", 880, 0, 0.18, 0.1, 1760);
+          break;
         case "click":
           this.voice("square", 520, 0, 0.045, 0.055, 760);
           break;

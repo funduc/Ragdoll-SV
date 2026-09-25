@@ -1,0 +1,151 @@
+/* Isolated bonus broadcast; the cart/arena remain visible under the scrim. */
+.sync-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 16;
+  background: #080e1670;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px;
+  pointer-events: none;
+}
+.sync-overlay[hidden],
+.sync-controls[hidden] {
+  display: none;
+}
+.sync-panel {
+  width: min(460px, 60%);
+  padding: 14px;
+  border: 3px solid #38b9f2;
+  background: linear-gradient(#273c4fee, #0d161fee);
+  box-shadow: 4px 4px 0 #05090d;
+}
+.sync-panel h2 {
+  color: #ffab3c;
+  font-size: clamp(17px, 2.5vw, 28px);
+  margin: 5px 0;
+}
+.sync-panel p {
+  margin: 6px 0;
+}
+.sync-track {
+  height: 140px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+  background: #081219;
+  border: 2px solid #52687a;
+}
+.sync-lane {
+  border-right: 1px solid #52687a;
+  text-align: center;
+  color: #6c899c;
+}
+.sync-lane.sync-beat {
+  border-bottom: 6px solid #b4ef4b;
+  background: #28442b;
+}
+.sync-line {
+  position: absolute;
+  top: 78%;
+  width: 100%;
+  border-top: 3px solid #b4ef4b;
+  color: #b4ef4b;
+  font: bold 9px monospace;
+  text-align: right;
+}
+.sync-note {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  background: #145175;
+  border: 2px solid #52cefa;
+  width: 32px;
+  height: 28px;
+  text-align: center;
+  font:
+    bold 24px/24px Arial,
+    sans-serif;
+}
+.sync-feedback {
+  color: #b4ef4b;
+  font:
+    bold 19px Impact,
+    "Arial Narrow",
+    sans-serif;
+  min-height: 24px;
+}
+.sync-charge {
+  width: 100%;
+  height: 12px;
+  accent-color: #b4ef4b;
+}
+.sync-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px;
+  background: #111c26;
+}
+.sync-controls button {
+  min-height: 56px;
+  touch-action: none;
+  font-size: 26px;
+  padding: 6px;
+}
+.sync-controls small {
+  display: block;
+  font:
+    11px Arial,
+    sans-serif;
+}
+.sync-perfect {
+  border-color: #b4ef4b;
+  box-shadow:
+    0 0 20px #b4ef4b88,
+    5px 5px 0 #05090d;
+  animation: sync-pop 0.25s ease-out;
+}
+@keyframes sync-pop {
+  from {
+    transform: scale(0.96);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.sync-reduced .sync-perfect {
+  animation: none;
+  box-shadow: 3px 3px 0 #b4ef4b;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync-perfect {
+    animation: none;
+  }
+}
+@media (max-width: 600px) {
+  .sync-overlay {
+    padding: 8px;
+    align-items: flex-start;
+  }
+  .sync-panel {
+    width: 85%;
+    padding: 8px;
+  }
+  .sync-track {
+    height: 96px;
+  }
+  .sync-panel .tiny {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+  .sync-feedback {
+    font-size: 16px;
+  }
+}
+
+[data-sync] .pause-banner {
+  z-index: 17;
+}

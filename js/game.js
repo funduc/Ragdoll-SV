@@ -1,3 +1,7 @@
+import { SYNC_CONFIG, SYNC_KEYS } from "./sync-config.js";
+import { SyncSequence } from "./sync.js";
+import { SyncSave, syncRoll } from "./sync-save.js";
+import { SyncUI } from "./sync-ui.js";
 import { CHARACTERS } from "./characters.js";
 import { PhysicsWorld, STEP_MS } from "./physics.js";
 import { scoreAttempt } from "./scoring.js";
@@ -30,11 +34,19 @@ class Game {
   constructor() {
     this.tournament = new Tournament();
     this.developerRun = readRunDeveloperSettings(window.location.search);
+    this.forceSync =
+      SYNC_CONFIG.force ||
+      new URLSearchParams(window.location.search).get("syncdev") === "1";
+    if (this.forceSync && !this.developerRun)
+      this.developerRun = { seed: 1, upgrades: {} };
     this.achievementDeveloper =
       new URLSearchParams(window.location.search).get("achievementdev") === "1";
     if (this.achievementDeveloper && !this.developerRun)
       this.developerRun = { seed: 1, upgrades: {} };
     this.campaign = new Campaign(undefined, { developer: this.developerRun });
+    this.syncSave = new SyncSave(this.campaign.save.storage);
+    this.syncSequence = null;
+    this.syncUI = new SyncUI((lane) => this.hitSync(lane));
     this.achievements = this.campaign.runs.manager;
     this.vaultOpen = false;
     this.achievementReset = false;
@@ -66,13 +78,25 @@ class Game {
     this.destroyed = false;
     this.touch = new TouchControls(
       document.getElementById("touch-controls"),
-      () => this.acceptsSkillInput && !this.suspended,
+      () => this.acceptsSkillInput && !this.syncSequence && !this.suspended,
     );
     this.input = new Input({
       isActive: () => this.acceptsSkillInput,
       onControlButton: (button, pressed, code) => {
         if (pressed) this.touch.press(button, `key:${code}`);
         else this.touch.release(`key:${code}`);
+      },
+      onExclusiveKey: (event) => {
+        if (!this.syncSequence) return false;
+        if (event.code === "KeyR" && !this.suspended) this.restartAttempt();
+        else if (Object.hasOwn(SYNC_KEYS, event.code))
+          this.hitSync(SYNC_KEYS[event.code]);
+        else if (
+          event.code === "Space" &&
+          event.target?.dataset?.syncLane !== undefined
+        )
+          this.hitSync(Number(event.target.dataset.syncLane));
+        return true; // Includes Enter: never confirm or queue runway controls.
       },
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
@@ -89,6 +113,7 @@ class Game {
       onRestart: () => this.restartAttempt(),
       onSuspend: (paused) => {
         this.suspended = paused;
+        this.syncUI.releaseHolds();
         this.touch.clear();
         this.touch.sync();
         this.lastTime = null;
@@ -113,6 +138,7 @@ class Game {
     return this.mode === "vault" ? this.campaign : this.tournament;
   }
   replaceWorld(character) {
+    this.clearSync();
     this.touch?.clear();
     this.world?.dispose();
     this.world = new PhysicsWorld(
@@ -252,6 +278,7 @@ class Game {
   }
   restartAttempt() {
     if (!this.session.active || !this.world.canRestart) return;
+    if (this.mode === "vault") this.syncSave.finish(this.campaign.level.id);
     this.session.resetAttempt();
     this.clearControls();
     this.replaceWorld(this.session.current);
@@ -314,13 +341,13 @@ class Game {
         this.campaign.requestReset();
         break;
       case "reset-confirm":
-        this.campaign.confirmReset();
+        if (this.campaign.confirmReset()) this.syncSave.resetRun();
         break;
       case "new-run":
         this.campaign.requestNewRun();
         break;
       case "new-run-confirm":
-        this.campaign.confirmNewRun();
+        if (this.campaign.confirmNewRun()) this.syncSave.resetRun();
         break;
       case "upgrade":
         this.campaign.chooseUpgrade(button.dataset.value);
@@ -359,6 +386,77 @@ class Game {
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
     this.renderState();
+    if (this.campaign.active) this.startSync();
+  }
+  startSync() {
+    if (this.mode !== "vault" || !this.campaign.active) return;
+    // Party and tutorial paths never call this, even with the developer flag.
+    const decision = this.syncSave.begin(
+      this.campaign.runs.run,
+      this.campaign.level.id,
+      this.campaign.stageIndex,
+      this.forceSync,
+    );
+    if (!decision?.triggered) return;
+    if (decision.result) {
+      this.world.syncResult = decision.result;
+      return;
+    }
+    this.clearControls();
+    this.syncSequence = new SyncSequence(this.campaign.current.id);
+    this.ui.root.dataset.sync = "playing";
+    const warning =
+      this.campaign.current.id === "owen" &&
+      syncRoll(this.campaign.runs.run.seed, this.campaign.level.id, 999) <
+        SYNC_CONFIG.wrateWarningChance;
+    this.syncUI.show(this.syncSequence, warning);
+    this.presentation.music.setDuck(SYNC_CONFIG.musicDuck);
+    this.touch.sync();
+    this.lastTime = null;
+    this.accumulator = 0;
+  }
+  hitSync(lane) {
+    if (!this.syncSequence || this.suspended) return;
+    const before = this.syncSequence.serial;
+    this.syncSequence.hit(lane);
+    if (before !== this.syncSequence.serial)
+      this.presentation.audio.play(
+        `skill-${this.syncSequence.feedback.toLowerCase()}`,
+      );
+    this.syncUI.update(this.syncSequence);
+  }
+  clearSync() {
+    this.syncSequence = null;
+    this.syncUI?.hide();
+    if (this.ui) delete this.ui.root.dataset.sync;
+    this.presentation?.music.setDuck(1);
+  }
+  tickSync(gap) {
+    const sequence = this.syncSequence;
+    sequence.tick(gap / 1000);
+    for (const beat of sequence.beats.splice(0))
+      this.presentation.audio.play("sync-beat");
+    if (sequence.result && !this.world.syncResult) {
+      this.world.syncResult = sequence.result;
+      this.syncSave.result(this.campaign.level.id, sequence.result);
+      this.ui.root.dataset.sync = "result";
+      this.presentation.audio.play(
+        sequence.result.grade === "PERFECT SYNC"
+          ? "skill-perfect"
+          : "skill-good",
+      );
+    }
+    this.syncUI.update(sequence);
+    if (sequence.done) {
+      this.clearControls();
+      this.clearSync();
+      this.presentation.audio.stopAll();
+      this.presentation.audio.play("sync-drop");
+      this.touch.sync();
+      this.accumulator = 0;
+      this.lastTime = null;
+      document.getElementById("game-canvas").focus({ preventScroll: true });
+    }
   }
   clearControls() {
     this.input.clear();
@@ -439,6 +537,8 @@ class Game {
     if (gap > 250) {
       this.accumulator = 0;
       this.clearControls();
+    } else if (this.syncSequence && !this.suspended) {
+      this.tickSync(gap);
     } else if (this.session.active && !this.suspended) {
       this.accumulator += Math.min(gap, 100);
       let steps = 0;
@@ -465,10 +565,12 @@ class Game {
             ),
           );
           if (this.mode === "vault" && !this.world.invalid)
-            this.achievements.send(
-              "campaign-progress",
-              campaignAchievementFacts(this.campaign),
-            );
+            this.achievements.send("campaign-progress", {
+              ...campaignAchievementFacts(this.campaign),
+              syncOccurrences: this.syncSave.data.occurrences,
+            });
+          if (this.mode === "vault")
+            this.syncSave.finish(this.campaign.level.id);
           this.clearControls();
           this.touch.sync();
           this.accumulator = 0;
@@ -493,7 +595,7 @@ class Game {
     const drawTime = Math.min(gap / 1000, 1 / 15) || 1 / 60;
     this.presentation.frame(
       this.world,
-      this.session.active,
+      this.session.active && !this.syncSequence,
       this.suspended,
       drawTime,
       gap,
@@ -505,6 +607,8 @@ class Game {
     if (this.destroyed) return;
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
+    this.clearSync();
+    this.syncUI.destroy();
     this.input.destroy();
     this.touch.destroy();
     this.introduction.clear();

@@ -16,6 +16,19 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     world.landingTime - world.launchTime >=
       CONDITIONS["wrate-issue"].warning + CONDITIONS["wrate-issue"].duration;
   return {
+    syncCompleted: Boolean(score.sync),
+    syncPerfect: score.sync?.grade === "PERFECT SYNC",
+    syncBoosted: (score.sync?.reward.speed || 1) > 1,
+    syncAllMiss: Boolean(
+      (score.sync && score.sync.perfect === 0 && score.sync.good === 0) ||
+        (campaign?.levelFinished &&
+          campaign?.heats?.some(
+            (h) =>
+              h.score.sync &&
+              h.score.sync.perfect === 0 &&
+              h.score.sync.good === 0,
+          )),
+    ),
     characterId: world.character.id,
     levelId: campaign?.level?.id,
     riderAttached: world.attached && world.landed,
@@ -44,7 +57,8 @@ export function attemptAchievementFacts(world, score, campaign = null) {
       world.landed && !score.crashed && score.landingQuality === "Clean",
     successfulLanding,
     objectivePassed: campaign?.lastObjective?.passed === true,
-    levelCompleted: campaign?.lastMedal?.medal >= 1,
+    levelCompleted:
+      campaign?.lastMedal?.medal >= 1 && campaign?.levelFinished !== false,
     condition: world.runEffects?.conditionId,
     mechanicalFailure: world.runEffects?.mechanicalFailureOccurred === true,
     mechanicalRecovered: Boolean(pulseFinished && successfulLanding),

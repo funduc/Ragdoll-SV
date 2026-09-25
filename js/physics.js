@@ -1,3 +1,4 @@
+import { applySyncLaunch } from "./sync.js";
 import { normalAngle } from "./scoring.js";
 import { applyPassive } from "./passives.js";
 import { AttemptSkills } from "./skills.js";
@@ -464,6 +465,7 @@ export class PhysicsWorld {
       this.launchAngle = this.cart.angle;
       this.launchTime = this.elapsed;
       this.skills.onLaunch(this);
+      applySyncLaunch(this);
       this.tricks.start(trickSample(this));
       this.events.push("launch");
     }
@@ -551,6 +553,7 @@ export class PhysicsWorld {
       reason: this.reason,
       ...this.skills.metrics(),
       trickSummary: this.tricks.snapshot(),
+      sync: this.syncResult || null,
     };
   }
   drainEvents() {

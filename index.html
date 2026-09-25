@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="./tricks.css" />
     <link rel="stylesheet" href="./campaign.css" />
     <link rel="stylesheet" href="./achievements.css" />
+    <link rel="stylesheet" href="./sync.css" />
     <script src="./vendor/matter-0.20.0.min.js" defer></script>
     <script type="module" src="./js/game.js"></script>
   </head>
@@ -92,6 +93,7 @@
             tabindex="-1"
             aria-label="Shopping-cart jump arena. Tap Space or Up on the rhythm meter to push; time one push in the takeoff zone; Left and Right or A and D rotate in the air; Down or S braces before landing. On touch screens, use the buttons below the arena."
           ></canvas>
+          <div id="sync-overlay" class="sync-overlay" hidden></div>
           <div class="hud" id="hud" hidden>
             <div>
               <span id="hud-name">COMPETITOR</span
@@ -122,6 +124,13 @@
             </section>
           </div>
         </div>
+        <div
+          id="sync-controls"
+          class="sync-controls"
+          role="group"
+          aria-label="Santor Sync directional controls"
+          hidden
+        ></div>
         <div
           id="skill-hud"
           class="skill-meter"

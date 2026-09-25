@@ -30,7 +30,9 @@ try {
   native = createRequire(resolve(root, ".qa/package.json"))("@napi-rs/canvas");
 }
 const dom = new JSDOM(await readFile(resolve(root, "index.html"), "utf8"), {
-  url: "http://localhost/ragdoll-olympics/",
+  url:
+    "http://localhost/Ragdoll-SV/" +
+    (process.env.SYNC_FORCE ? "?syncdev=1" : ""),
   runScripts: "outside-only",
   pretendToBeVisual: true,
 });
@@ -320,6 +322,11 @@ function frame(gap = 1000 / 60) {
   );
   for (const popup of trickHud.querySelectorAll(".trick-pop"))
     trickPopups.add(popup.textContent);
+  assert.equal(
+    document.querySelector("#sync-overlay").hidden,
+    true,
+    "Party never receives Sync, even forced",
+  );
   assert.equal(errors.length, 0, errors.join("\n"));
   assert.equal(warnings.length, 0, warnings.join("\n"));
   assert.equal(
@@ -1197,8 +1204,16 @@ console.log(
 const achievementData = JSON.parse(
   w.localStorage.getItem("santor-vault:achievements"),
 );
-assert.equal(achievementData.version, 2);
-assert.equal(achievementData.records.airborne.unlocked, true);
-assert.equal(achievementData.records.butter.unlocked, true);
+if (process.env.SYNC_FORCE)
+  assert.equal(
+    achievementData,
+    null,
+    "explicit developer mode uses memory-only achievements",
+  );
+else {
+  assert.equal(achievementData.version, 2);
+  assert.equal(achievementData.records.airborne.unlocked, true);
+  assert.equal(achievementData.records.butter.unlocked, true);
+}
 assert.equal(w.__vaultAchievements, undefined);
 dom.window.close();

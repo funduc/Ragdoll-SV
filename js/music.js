@@ -73,6 +73,7 @@ export class MusicPlayer {
     this.onAvailable = onAvailable;
     this.enabled = false;
     this.paused = false;
+    this.duck = 1;
     this.destroyed = false;
     this.failed = new Set();
     this.wanted = "menu";
@@ -122,6 +123,10 @@ export class MusicPlayer {
     this.paused = paused;
     this.sync();
   }
+  setDuck(value = 1) {
+    this.duck = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
+    this.sync();
+  }
   sync() {
     if (!this.enabled || !this.media || this.destroyed) return;
     if (this.current !== this.wanted) {
@@ -143,7 +148,8 @@ export class MusicPlayer {
     this.setLevel(
       silent
         ? 0
-        : MUSIC_MASTER_GAIN *
+        : this.duck *
+            MUSIC_MASTER_GAIN *
             this.preferences.music *
             10 ** (MUSIC_TRACKS[this.current].gainDb / 20),
     );

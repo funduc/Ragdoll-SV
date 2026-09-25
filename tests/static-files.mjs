@@ -12,6 +12,11 @@ try {
   await once(child.stdout, "data");
   const origin = "http://127.0.0.1:8081";
   const paths = [
+    "sync.css",
+    "js/sync-config.js",
+    "js/sync.js",
+    "js/sync-save.js",
+    "js/sync-ui.js",
     "assets/portraits/jake.webp",
     "assets/portraits/brandon.webp",
     "assets/portraits/owen.webp",

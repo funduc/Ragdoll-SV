@@ -55,9 +55,9 @@ const sample = (changes = {}) => ({
 });
 const record = (m, id) => m.data.records[id];
 
-test("All 28 definitions have stable IDs, supported rules and cosmetic-only rewards", () => {
-  assert.equal(ACHIEVEMENTS.length, 28);
-  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 28);
+test("All 34 definitions have stable IDs, supported rules and cosmetic-only rewards", () => {
+  assert.equal(ACHIEVEMENTS.length, 34);
+  assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, 34);
   for (const a of ACHIEVEMENTS) {
     assert.ok(a.name && a.description && a.category && a.target > 0);
     if (a.reward) assert.ok(COSMETIC_REWARDS[a.reward]);

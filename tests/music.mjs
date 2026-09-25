@@ -307,4 +307,36 @@ await check(
     music.destroy();
   },
 );
+await check(
+  "Sync ducks without changing saved preferences or track and restores after mute/pause",
+  async () => {
+    const { music, prefs, writes } = fixture();
+    music.enable();
+    await flush();
+    const media = music.media,
+      volume = media.volume,
+      src = media.src,
+      before = writes.length;
+    music.setDuck(0.72);
+    assert.ok(Math.abs(media.volume - volume * 0.72) < 1e-10);
+    assert.equal(media.src, src);
+    assert.equal(writes.length, before);
+    prefs.setMuted(true);
+    assert.equal(media.paused, true);
+    music.setDuck(1);
+    assert.equal(media.volume, 0);
+    prefs.setMuted(false);
+    await flush();
+    assert.ok(Math.abs(media.volume - volume) < 1e-10);
+    music.setDuck(0.72);
+    music.setPaused(true);
+    assert.equal(media.paused, true);
+    music.setPaused(false);
+    await flush();
+    assert.ok(Math.abs(media.volume - volume * 0.72) < 1e-10);
+    music.setDuck(1);
+    assert.equal(media.volume, volume);
+    music.destroy();
+  },
+);
 console.log(`${checks} music groups passed.`);

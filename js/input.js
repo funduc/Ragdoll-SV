@@ -8,6 +8,7 @@ const CONTROL_KEYS = new Set([
   "KeyD",
   "ArrowDown",
   "KeyS",
+  "KeyW",
   "KeyR",
   "Enter",
 ]);
@@ -20,6 +21,7 @@ export class Input {
     onRestart,
     onSuspend,
     onControlButton = () => {},
+    onExclusiveKey = () => false,
   }) {
     this.keys = new Set();
     this.downKeys = new Set();
@@ -48,6 +50,10 @@ export class Input {
       // Every intentional action requires a new physical press. Keep this state
       // across menu/attempt clears, so an old hold cannot leak into a new screen.
       if (event.repeat || held || this.blockedKeys.has(event.code)) return;
+      if (onExclusiveKey(event)) {
+        event.preventDefault();
+        return;
+      }
       const button = event.target?.closest?.("button");
       if (button && isActive() && ["Enter", "Space"].includes(event.code)) {
         event.preventDefault();

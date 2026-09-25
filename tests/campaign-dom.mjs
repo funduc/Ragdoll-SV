@@ -83,12 +83,14 @@ async function boot(saved = {}, denied = false, search = "") {
     "tricks.css",
     "campaign.css",
     "achievements.css",
+    "sync.css",
   ]) {
     const sheet = document.createElement("style");
     sheet.textContent = readFileSync(resolve(root, filename), "utf8");
     document.head.appendChild(sheet);
     assert.ok(sheet.sheet.cssRules.length);
   }
+  let sequence = null;
   let now = 0,
     id = 0,
     world = null;
@@ -182,6 +184,13 @@ async function boot(saved = {}, denied = false, search = "") {
   );
   // Observe the real world; input below still uses actual game event listeners.
   await main.evaluate();
+  const SyncSequence = cache.get(resolve(root, "js/sync.js")).namespace
+    .SyncSequence;
+  const tickSync = SyncSequence.prototype.tick;
+  SyncSequence.prototype.tick = function (...args) {
+    sequence = this;
+    return tickSync.apply(this, args);
+  };
   const PhysicsWorld = cache.get(resolve(root, "js/physics.js")).namespace
     .PhysicsWorld;
   const vehicle = PhysicsWorld.prototype.createVehicle;
@@ -197,6 +206,7 @@ async function boot(saved = {}, denied = false, search = "") {
   const $ = (selector) => document.querySelector(selector);
   const state = () => $("#game").dataset.state;
   const frame = (dt = 1000 / 120) => {
+    const wasSync = Boolean($("#game").dataset.sync);
     const previousState = state(),
       previousWrites = writes;
     now += dt;
@@ -213,7 +223,11 @@ async function boot(saved = {}, denied = false, search = "") {
       );
       assert.equal(img.draggable, false);
     }
-    if (previousState === "active-attempt" && state() === previousState)
+    if (
+      !wasSync &&
+      previousState === "active-attempt" &&
+      state() === previousState
+    )
       assert.equal(
         writes,
         previousWrites,
@@ -310,6 +324,8 @@ async function boot(saved = {}, denied = false, search = "") {
     level = null,
   } = {}) {
     assert.equal(state(), "active-attempt");
+    // Existing regression scripts deliberately miss bonus notes, preserving their baseline jumps.
+    for (let n = 0; $("#game").dataset.sync && n < 650; n++) frame(1000 / 120);
     frame();
     assert.equal(
       $(".achievement-notice"),
@@ -379,7 +395,8 @@ async function boot(saved = {}, denied = false, search = "") {
     const equation = Math.round(
       Number($("[data-trick-subtotal]").textContent) *
         Number($("[data-trick-character]").textContent) *
-        Number($("[data-trick-landing]").textContent),
+        Number($("[data-trick-landing]").textContent) *
+        Number($("[data-trick-sync]")?.textContent || 1),
     );
     assert.equal(style, Math.min(5000, equation));
     return rank;
@@ -389,6 +406,9 @@ async function boot(saved = {}, denied = false, search = "") {
   click("[data-audio-enter]");
   assert.equal(w.Audio.instances.length, 1);
   return {
+    get sequence() {
+      return sequence;
+    },
     dom,
     w,
     document,
@@ -419,524 +439,542 @@ async function boot(saved = {}, denied = false, search = "") {
   };
 }
 
-let game = await boot({
-  "santor-vault:muted": "true",
-  "unrelated-project": "preserved",
-});
-assert.equal(game.w.__vaultAchievements, undefined);
-game.click('[data-achievement="open"]');
-assert.equal(game.state(), "achievement-vault");
-assert.equal(game.document.querySelectorAll(".achievement-card").length, 28);
-assert.equal(
-  game.document.querySelectorAll(".achievement-unavailable").length,
-  6,
-);
-game.key("Enter");
-assert.equal(game.state(), "title");
-game.key("Enter", "keydown", true);
-assert.equal(
-  game.state(),
-  "title",
-  "held Enter cannot leave the vault and enter a mode",
-);
-game.key("Enter", "keyup");
-const startVault = () => {
-  game.click('button[data-mode="vault"]');
-  assert.equal(game.state(), "campaign-select");
-};
-function select(c) {
-  game.choose("select", c.id);
-  assert.equal(game.state(), "campaign-profile");
-  const card = game.$(".intro-card"),
-    markup = card.innerHTML;
-  for (const text of [
-    c.fullName,
-    c.biography,
-    c.strength,
-    c.weakness,
-    c.passive.description,
-    c.crashQuote,
-  ])
-    assert.ok(card.textContent.includes(text));
+if (process.env.SYNC_TEST) {
+  const { runSyncScenarios } = await import("./sync-flow-helper.mjs");
+  await runSyncScenarios(boot, evidence);
+} else {
+  let game = await boot({
+    "santor-vault:muted": "true",
+    "unrelated-project": "preserved",
+  });
+  assert.equal(game.w.__vaultAchievements, undefined);
+  game.click('[data-achievement="open"]');
+  assert.equal(game.state(), "achievement-vault");
+  assert.equal(game.document.querySelectorAll(".achievement-card").length, 34);
   assert.equal(
-    card.querySelectorAll(".intro-stats > div").length,
-    c.statistics.length,
+    game.document.querySelectorAll(".achievement-unavailable").length,
+    6,
   );
-  if (c.id === "owen")
-    assert.equal(card.querySelector(".censored-icon").textContent, "CENSORED");
-  for (let i = 0; i < (c.id === "jake" ? 310 : 160); i++) game.frame(100);
-  assert.equal(game.$(".achievement-notice"), null);
-  assert.equal(card.innerHTML, markup);
   game.key("Enter");
-  assert.equal(game.state(), "campaign-map");
-  for (let i = 0; i < 10; i++) game.key("Enter", "keydown", true);
-  assert.equal(game.state(), "campaign-map");
-  game.key("Enter", "keyup");
-  evidence.profiles.push(c.id);
-}
-function returnToMap() {
-  game.choose("confirm");
-  if (game.state() === "campaign-upgrades") {
-    const cards = [
-      ...game.document.querySelectorAll('[data-campaign="upgrade"]'),
-    ];
-    assert.equal(cards.length, 3);
-    assert.equal(new Set(cards.map((card) => card.dataset.value)).size, 3);
-    cards[0].click();
-    assert.equal(game.state(), "campaign-map");
-    assert.ok(
-      game
-        .$(".run-inventory")
-        .textContent.includes(UPGRADES[cards[0].dataset.value].name),
-    );
-  }
-  assert.equal(game.state(), "campaign-map");
-  assert.match(game.w.Audio.instances[0].src, /\/menu\.mp3$/);
-}
-function play(level, opts) {
-  game.choose("level", level.id);
-  assert.equal(game.state(), "ready");
-  const current = game.world;
-  assert.equal(current.engine.gravity.y, level.arena.gravity);
-  game.key("Space"); // A held menu key must not turn into a campaign push.
-  game.choose("confirm");
-  assert.equal(game.state(), "active-attempt");
-  assert.equal(game.w.Audio.instances[0].loop, true);
-  assert.match(
-    game.w.Audio.instances[0].src,
-    level.stages ? /\/championship\.mp3$/ : /\/gameplay[12]\.mp3$/,
-  );
-  game.frame();
-  game.key("Space", "keydown", true);
-  game.frame();
+  assert.equal(game.state(), "title");
+  game.key("Enter", "keydown", true);
   assert.equal(
-    Object.values(current.skills.pushes).reduce((a, b) => a + b, 0),
-    0,
+    game.state(),
+    "title",
+    "held Enter cannot leave the vault and enter a mode",
   );
-  game.key("Space", "keyup");
-  assert.equal(game.$("#campaign-coach").hidden, false);
-  assert.equal(game.$("#run-status").hidden, false);
-  assert.ok(current.runEffects);
-  assert.ok(
-    game
-      .$("#run-status")
-      .textContent.includes(
-        current.runEffects.condition?.name.toUpperCase() || "STANDARD",
-      ),
-  );
-  assert.match(
-    game.$("#campaign-coach").textContent,
-    new RegExp(level.modifier.name),
-  );
-  let rank = game.finishAttempt({ ...opts, level });
-  let heat = 1;
-  while (
-    game
-      .$('[data-campaign="confirm"]')
-      .textContent.startsWith("Continue to heat")
-  ) {
-    const oldWorld = game.world;
+  game.key("Enter", "keyup");
+  const startVault = () => {
+    game.click('button[data-mode="vault"]');
+    assert.equal(game.state(), "campaign-select");
+  };
+  function select(c) {
+    game.choose("select", c.id);
+    assert.equal(game.state(), "campaign-profile");
+    const card = game.$(".intro-card"),
+      markup = card.innerHTML;
+    for (const text of [
+      c.fullName,
+      c.biography,
+      c.strength,
+      c.weakness,
+      c.passive.description,
+      c.crashQuote,
+    ])
+      assert.ok(card.textContent.includes(text));
+    assert.equal(
+      card.querySelectorAll(".intro-stats > div").length,
+      c.statistics.length,
+    );
+    if (c.id === "owen")
+      assert.equal(
+        card.querySelector(".censored-icon").textContent,
+        "CENSORED",
+      );
+    for (let i = 0; i < (c.id === "jake" ? 310 : 160); i++) game.frame(100);
+    assert.equal(game.$(".achievement-notice"), null);
+    assert.equal(card.innerHTML, markup);
     game.key("Enter");
+    assert.equal(game.state(), "campaign-map");
+    for (let i = 0; i < 10; i++) game.key("Enter", "keydown", true);
+    assert.equal(game.state(), "campaign-map");
+    game.key("Enter", "keyup");
+    evidence.profiles.push(c.id);
+  }
+  function returnToMap() {
+    game.choose("confirm");
+    if (game.state() === "campaign-upgrades") {
+      const cards = [
+        ...game.document.querySelectorAll('[data-campaign="upgrade"]'),
+      ];
+      assert.equal(cards.length, 3);
+      assert.equal(new Set(cards.map((card) => card.dataset.value)).size, 3);
+      cards[0].click();
+      assert.equal(game.state(), "campaign-map");
+      assert.ok(
+        game
+          .$(".run-inventory")
+          .textContent.includes(UPGRADES[cards[0].dataset.value].name),
+      );
+    }
+    assert.equal(game.state(), "campaign-map");
+    assert.match(game.w.Audio.instances[0].src, /\/menu\.mp3$/);
+  }
+  function play(level, opts) {
+    game.choose("level", level.id);
     assert.equal(game.state(), "ready");
-    assert.notEqual(game.world, oldWorld);
-    assert.equal(oldWorld.disposed, true);
-    game.key("Enter", "keydown", true);
+    const current = game.world;
+    assert.equal(current.engine.gravity.y, level.arena.gravity);
+    game.key("Space"); // A held menu key must not turn into a campaign push.
+    game.choose("confirm");
+    assert.equal(game.state(), "active-attempt");
+    assert.equal(game.w.Audio.instances[0].loop, true);
+    assert.match(
+      game.w.Audio.instances[0].src,
+      level.stages ? /\/championship\.mp3$/ : /\/gameplay[12]\.mp3$/,
+    );
+    game.frame();
+    game.key("Space", "keydown", true);
     game.frame();
     assert.equal(
-      game.state(),
-      "ready",
-      "held Enter cannot begin the next heat",
+      Object.values(current.skills.pushes).reduce((a, b) => a + b, 0),
+      0,
     );
-    game.key("Enter", "keyup");
-    heat++;
-    assert.match(
-      game.$("#overlay").textContent,
-      new RegExp(`HEAT ${heat} OF 3`),
-    );
-    game.choose("confirm");
-    rank = game.finishAttempt({ ...opts, level });
-  }
-  if (level.stages) {
-    assert.equal(heat, 3);
-    const ledger = game.$('[aria-label="Combined Gauntlet score"]');
-    const totals = evidence.attempts
-      .slice(-3)
-      .reduce((sum, a) => sum + a.score, 0);
-    assert.equal(
-      ledger.querySelector("h3").textContent,
-      `COMBINED SCORE · ${totals}`,
+    game.key("Space", "keyup");
+    for (let n = 0; game.$("#game").dataset.sync && n < 650; n++)
+      game.frame(1000 / 120);
+    game.frame();
+    game.frame();
+    assert.equal(game.$("#campaign-coach").hidden, false);
+    assert.equal(game.$("#run-status").hidden, false);
+    assert.ok(current.runEffects);
+    assert.ok(
+      game
+        .$("#run-status")
+        .textContent.includes(
+          current.runEffects.condition?.name.toUpperCase() || "STANDARD",
+        ),
     );
     assert.match(
-      ledger.textContent,
-      new RegExp(`= ${totals}. No hidden bonus`),
+      game.$("#campaign-coach").textContent,
+      new RegExp(level.modifier.name),
     );
+    let rank = game.finishAttempt({ ...opts, level });
+    let heat = 1;
+    while (
+      game
+        .$('[data-campaign="confirm"]')
+        .textContent.startsWith("Continue to heat")
+    ) {
+      const oldWorld = game.world;
+      game.key("Enter");
+      assert.equal(game.state(), "ready");
+      assert.notEqual(game.world, oldWorld);
+      assert.equal(oldWorld.disposed, true);
+      game.key("Enter", "keydown", true);
+      game.frame();
+      assert.equal(
+        game.state(),
+        "ready",
+        "held Enter cannot begin the next heat",
+      );
+      game.key("Enter", "keyup");
+      heat++;
+      assert.match(
+        game.$("#overlay").textContent,
+        new RegExp(`HEAT ${heat} OF 3`),
+      );
+      game.choose("confirm");
+      rank = game.finishAttempt({ ...opts, level });
+    }
+    if (level.stages) {
+      assert.equal(heat, 3);
+      const ledger = game.$('[aria-label="Combined Gauntlet score"]');
+      const totals = evidence.attempts
+        .slice(-3)
+        .reduce((sum, a) => sum + a.score, 0);
+      assert.equal(
+        ledger.querySelector("h3").textContent,
+        `COMBINED SCORE · ${totals}`,
+      );
+      assert.match(
+        ledger.textContent,
+        new RegExp(`= ${totals}. No hidden bonus`),
+      );
+    }
+    return rank;
   }
-  return rank;
-}
-startVault();
-for (const c of CHARACTERS) {
-  select(c);
-  assert.equal(
-    game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
-    true,
-    "new character has separate locks",
-  );
-  const old = game.savedData();
-  // A locked DOM control cannot enter the level.
-  game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).click();
-  assert.equal(game.state(), "campaign-map");
-  assert.deepEqual(game.savedData(), old);
-  if (c.id === "jake") {
-    assert.equal(play(LEVELS[0], { idle: true }), 0);
-    returnToMap();
+  startVault();
+  for (const c of CHARACTERS) {
+    select(c);
     assert.equal(
       game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
       true,
+      "new character has separate locks",
     );
-    assert.ok(play(LEVELS[0], { target: "Early" }) >= 1);
-    assert.notEqual(game.$("#result-takeoff").textContent, "Perfect");
-    game.choose("confirm");
-    assert.equal(game.state(), "campaign-upgrades");
-    const pending = game.savedData();
-    const offers = [
-      ...game.document.querySelectorAll('[data-campaign="upgrade"]'),
-    ].map((b) => b.dataset.value);
-    game.close();
-    game = await boot(pending);
-    evidence.reloads++;
-    startVault();
-    game.choose("select", "jake");
-    game.choose("confirm");
-    assert.equal(game.state(), "campaign-upgrades");
-    assert.deepEqual(
-      [...game.document.querySelectorAll('[data-campaign="upgrade"]')].map(
-        (b) => b.dataset.value,
-      ),
-      offers,
-    );
-    const choice = game.$('[data-campaign="upgrade"]');
-    game.key("Enter", "keydown", false, choice);
+    const old = game.savedData();
+    // A locked DOM control cannot enter the level.
+    game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).click();
     assert.equal(game.state(), "campaign-map");
-    game.key("Enter", "keydown", true, game.document.activeElement);
-    assert.equal(
-      game.state(),
-      "campaign-map",
-      "held Enter must not start the next level",
-    );
-    game.key("Enter", "keyup");
-  }
-  assert.equal(play(LEVELS[0]), 3);
-  returnToMap();
-  assert.equal(game.state(), "campaign-map");
-  let snapshot = JSON.parse(game.savedData()[SAVE]);
-  assert.equal(snapshot.progress[c.id][LEVELS[0].id].medal, 3);
-  assert.equal(Object.keys(snapshot.progress[c.id]).length, 11);
-  assert.ok(play(LEVELS[1]) >= 1);
-  returnToMap();
-  assert.ok(play(LEVELS[2], { flip: true }) >= 1);
-  returnToMap();
-  for (const level of LEVELS.slice(3)) {
-    assert.ok(play(level) >= 1, `${c.id} ${level.id}`);
+    assert.deepEqual(game.savedData(), old);
+    if (c.id === "jake") {
+      assert.equal(play(LEVELS[0], { idle: true }), 0);
+      returnToMap();
+      assert.equal(
+        game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`)
+          .disabled,
+        true,
+      );
+      assert.ok(play(LEVELS[0], { target: "Early" }) >= 1);
+      assert.notEqual(game.$("#result-takeoff").textContent, "Perfect");
+      game.choose("confirm");
+      assert.equal(game.state(), "campaign-upgrades");
+      const pending = game.savedData();
+      const offers = [
+        ...game.document.querySelectorAll('[data-campaign="upgrade"]'),
+      ].map((b) => b.dataset.value);
+      game.close();
+      game = await boot(pending);
+      evidence.reloads++;
+      startVault();
+      game.choose("select", "jake");
+      game.choose("confirm");
+      assert.equal(game.state(), "campaign-upgrades");
+      assert.deepEqual(
+        [...game.document.querySelectorAll('[data-campaign="upgrade"]')].map(
+          (b) => b.dataset.value,
+        ),
+        offers,
+      );
+      const choice = game.$('[data-campaign="upgrade"]');
+      game.key("Enter", "keydown", false, choice);
+      assert.equal(game.state(), "campaign-map");
+      game.key("Enter", "keydown", true, game.document.activeElement);
+      assert.equal(
+        game.state(),
+        "campaign-map",
+        "held Enter must not start the next level",
+      );
+      game.key("Enter", "keyup");
+    }
+    assert.equal(play(LEVELS[0]), 3);
     returnToMap();
-  }
-  assert.equal(
-    game.$('[data-campaign="level"][data-value="santor-gauntlet-hard"]')
-      .disabled,
-    false,
-  );
-  assert.match(game.$(".campaign-map-panel").textContent, /RUN COMPLETE/);
-  if (c.id === "jake") {
-    assert.ok(play(HARD_GAUNTLET) >= 1);
-    assert.doesNotMatch(
-      game.$("#campaign-award").textContent,
-      /ORIENTATION DAY unlocked/,
-    );
+    assert.equal(game.state(), "campaign-map");
+    let snapshot = JSON.parse(game.savedData()[SAVE]);
+    assert.equal(snapshot.progress[c.id][LEVELS[0].id].medal, 3);
+    assert.equal(Object.keys(snapshot.progress[c.id]).length, 11);
+    assert.ok(play(LEVELS[1]) >= 1);
     returnToMap();
-    assert.equal(play(LEVELS[0], { idle: true }), 0);
-    assert.match(game.$("#campaign-award").textContent, /BEST KEPT: Gold/);
+    assert.ok(play(LEVELS[2], { flip: true }) >= 1);
     returnToMap();
-    const saved = game.savedData();
-    game.close();
-    game = await boot(saved);
-    evidence.reloads++;
-    startVault();
-    select(c);
+    for (const level of LEVELS.slice(3)) {
+      assert.ok(play(level) >= 1, `${c.id} ${level.id}`);
+      returnToMap();
+    }
     assert.equal(
-      game.$(`[data-level="${LEVELS[0].id}"] .campaign-medal`).textContent,
-      "Gold",
-    );
-    assert.equal(
-      game.$(`[data-campaign="level"][data-value="${LEVELS[2].id}"]`).disabled,
+      game.$('[data-campaign="level"][data-value="santor-gauntlet-hard"]')
+        .disabled,
       false,
     );
+    assert.match(game.$(".campaign-map-panel").textContent, /RUN COMPLETE/);
+    if (c.id === "jake") {
+      assert.ok(play(HARD_GAUNTLET) >= 1);
+      assert.doesNotMatch(
+        game.$("#campaign-award").textContent,
+        /ORIENTATION DAY unlocked/,
+      );
+      returnToMap();
+      assert.equal(play(LEVELS[0], { idle: true }), 0);
+      assert.match(game.$("#campaign-award").textContent, /BEST KEPT: Gold/);
+      returnToMap();
+      const saved = game.savedData();
+      game.close();
+      game = await boot(saved);
+      evidence.reloads++;
+      startVault();
+      select(c);
+      assert.equal(
+        game.$(`[data-level="${LEVELS[0].id}"] .campaign-medal`).textContent,
+        "Gold",
+      );
+      assert.equal(
+        game.$(`[data-campaign="level"][data-value="${LEVELS[2].id}"]`)
+          .disabled,
+        false,
+      );
+    }
+    if (c.id !== "owen") game.choose("characters");
   }
-  if (c.id !== "owen") game.choose("characters");
-}
-const achievementsEarned = JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]);
-for (const id of [
-  "manual",
-  "airborne",
-  "butter",
-  "cold-blooded",
-  "coordination",
-  "graduate",
-  "liabilities",
-])
-  assert.equal(achievementsEarned.records[id].unlocked, true, id);
-assert.equal(achievementsEarned.records["cold-blooded"].progress, 3);
-assert.equal(achievementsEarned.records.factory.unlocked, false);
-const beforeNewRun = game.savedData();
-assert.ok(
-  Object.values(JSON.parse(beforeNewRun[RUN_SAVE_KEY]).upgrades).some(
-    (count) => count > 0,
-  ),
-);
-game.choose("new-run");
-assert.equal(game.state(), "campaign-new-run");
-assert.match(game.document.activeElement.textContent, /Cancel/);
-game.tap("Enter");
-assert.deepEqual(game.savedData(), beforeNewRun);
-game.choose("new-run");
-game.choose("new-run-confirm");
-assert.equal(game.state(), "campaign-map");
-const afterNewRun = game.savedData();
-assert.ok(
-  Object.values(JSON.parse(afterNewRun[RUN_SAVE_KEY]).upgrades).every(
-    (count) => count === 0,
-  ),
-);
-assert.equal(afterNewRun[SAVE], beforeNewRun[SAVE]);
-assert.equal(
-  afterNewRun[ACHIEVEMENT_SAVE_KEY],
-  beforeNewRun[ACHIEVEMENT_SAVE_KEY],
-);
-const beforeReset = game.savedData();
-game.choose("reset");
-assert.equal(game.state(), "campaign-reset");
-assert.match(game.document.activeElement.textContent, /Cancel/);
-game.tap("Enter");
-assert.equal(game.state(), "campaign-map");
-assert.deepEqual(game.savedData(), beforeReset, "default Enter cancels reset");
-// Re-enter Party after a full campaign; its three qualifying scores start empty.
-game.choose("menu");
-evidence.modeSwitches++;
-assert.equal(game.state(), "title");
-game.click('button[data-mode="party"]');
-assert.equal(game.state(), "instructions");
-for (const expected of [
-  "qualifying-intro",
-  "ready",
-  "ready",
-  "active-attempt",
-]) {
-  game.click('[data-action="confirm"]');
-  assert.equal(game.state(), expected);
-}
-assert.equal(game.$("#hud-name").textContent, "JAKE ECKLER");
-assert.equal(game.$("#campaign-coach").hidden, true);
-assert.equal(game.$("#run-status").hidden, true);
-assert.equal(game.world.runEffects, null);
-assert.equal(game.world.skills.config.takeoff.perfectStart, 980);
-assert.deepEqual(
-  game.savedData(),
-  beforeReset,
-  "Party never writes campaign progress",
-);
-const saved = game.savedData();
-game.close();
-game = await boot(saved);
-evidence.reloads++;
-startVault();
-select(CHARACTERS[2]);
-game.choose("reset");
-game.choose("reset-confirm");
-assert.equal(game.state(), "campaign-map");
-const resetData = game.savedData();
-assert.equal(
-  resetData[ACHIEVEMENT_SAVE_KEY],
-  saved[ACHIEVEMENT_SAVE_KEY],
-  "campaign reset preserves achievements",
-);
-for (const levels of Object.values(JSON.parse(resetData[SAVE]).progress))
-  for (const entry of Object.values(levels)) assert.equal(entry.medal, 0);
-assert.equal(resetData["santor-vault:muted"], "true");
-assert.equal(resetData["unrelated-project"], "preserved");
-game.close();
-game = await boot(resetData);
-evidence.reloads++;
-startVault();
-select(CHARACTERS[0]);
-assert.equal(
-  game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
-  true,
-);
-game.close();
-for (const bad of ["{not-json", '{"version":500}', '{"version":0}', "null"]) {
-  game = await boot({ [SAVE]: bad, [RUN_SAVE_KEY]: bad });
+  const achievementsEarned = JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]);
+  for (const id of [
+    "manual",
+    "airborne",
+    "butter",
+    "cold-blooded",
+    "coordination",
+    "graduate",
+    "liabilities",
+  ])
+    assert.equal(achievementsEarned.records[id].unlocked, true, id);
+  assert.equal(achievementsEarned.records["cold-blooded"].progress, 3);
+  assert.equal(achievementsEarned.records.factory.unlocked, false);
+  const beforeNewRun = game.savedData();
+  assert.ok(
+    Object.values(JSON.parse(beforeNewRun[RUN_SAVE_KEY]).upgrades).some(
+      (count) => count > 0,
+    ),
+  );
+  game.choose("new-run");
+  assert.equal(game.state(), "campaign-new-run");
+  assert.match(game.document.activeElement.textContent, /Cancel/);
+  game.tap("Enter");
+  assert.deepEqual(game.savedData(), beforeNewRun);
+  game.choose("new-run");
+  game.choose("new-run-confirm");
+  assert.equal(game.state(), "campaign-map");
+  const afterNewRun = game.savedData();
+  assert.ok(
+    Object.values(JSON.parse(afterNewRun[RUN_SAVE_KEY]).upgrades).every(
+      (count) => count === 0,
+    ),
+  );
+  assert.equal(afterNewRun[SAVE], beforeNewRun[SAVE]);
+  assert.equal(
+    afterNewRun[ACHIEVEMENT_SAVE_KEY],
+    beforeNewRun[ACHIEVEMENT_SAVE_KEY],
+  );
+  const beforeReset = game.savedData();
+  game.choose("reset");
+  assert.equal(game.state(), "campaign-reset");
+  assert.match(game.document.activeElement.textContent, /Cancel/);
+  game.tap("Enter");
+  assert.equal(game.state(), "campaign-map");
+  assert.deepEqual(
+    game.savedData(),
+    beforeReset,
+    "default Enter cancels reset",
+  );
+  // Re-enter Party after a full campaign; its three qualifying scores start empty.
+  game.choose("menu");
+  evidence.modeSwitches++;
+  assert.equal(game.state(), "title");
+  game.click('button[data-mode="party"]');
+  assert.equal(game.state(), "instructions");
+  for (const expected of [
+    "qualifying-intro",
+    "ready",
+    "ready",
+    "active-attempt",
+  ]) {
+    game.click('[data-action="confirm"]');
+    assert.equal(game.state(), expected);
+  }
+  assert.equal(game.$("#hud-name").textContent, "JAKE ECKLER");
+  assert.equal(game.$("#campaign-coach").hidden, true);
+  assert.equal(game.$("#run-status").hidden, true);
+  assert.equal(game.world.runEffects, null);
+  assert.equal(game.world.skills.config.takeoff.perfectStart, 980);
+  assert.deepEqual(
+    game.savedData(),
+    beforeReset,
+    "Party never writes campaign progress",
+  );
+  const saved = game.savedData();
+  game.close();
+  game = await boot(saved);
+  evidence.reloads++;
+  startVault();
+  select(CHARACTERS[2]);
+  game.choose("reset");
+  game.choose("reset-confirm");
+  assert.equal(game.state(), "campaign-map");
+  const resetData = game.savedData();
+  assert.equal(
+    resetData[ACHIEVEMENT_SAVE_KEY],
+    saved[ACHIEVEMENT_SAVE_KEY],
+    "campaign reset preserves achievements",
+  );
+  for (const levels of Object.values(JSON.parse(resetData[SAVE]).progress))
+    for (const entry of Object.values(levels)) assert.equal(entry.medal, 0);
+  assert.equal(resetData["santor-vault:muted"], "true");
+  assert.equal(resetData["unrelated-project"], "preserved");
+  game.close();
+  game = await boot(resetData);
+  evidence.reloads++;
   startVault();
   select(CHARACTERS[0]);
   assert.equal(
     game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
     true,
   );
-  if (bad === '{"version":500}') {
-    assert.equal(game.savedData()[SAVE], bad);
-    assert.equal(game.savedData()[RUN_SAVE_KEY], bad);
+  game.close();
+  for (const bad of ["{not-json", '{"version":500}', '{"version":0}', "null"]) {
+    game = await boot({ [SAVE]: bad, [RUN_SAVE_KEY]: bad });
+    startVault();
+    select(CHARACTERS[0]);
+    assert.equal(
+      game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
+      true,
+    );
+    if (bad === '{"version":500}') {
+      assert.equal(game.savedData()[SAVE], bad);
+      assert.equal(game.savedData()[RUN_SAVE_KEY], bad);
+    }
+    game.close();
   }
-  game.close();
-}
-game = await boot({}, true);
-startVault();
-select(CHARACTERS[0]);
-assert.match(game.$(".campaign-save").textContent, /page only/);
-assert.equal(play(LEVELS[0]), 3);
-returnToMap();
-assert.equal(
-  game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
-  false,
-);
-game.choose("menu");
-startVault();
-select(CHARACTERS[0]);
-assert.equal(
-  game.$(`[data-level="${LEVELS[0].id}"] .campaign-medal`).textContent,
-  "Gold",
-  "in-memory progress survives mode switches",
-);
-game.close();
-// A real fresh run can decline rewards and unlock Factory Settings.
-game = await boot();
-startVault();
-select(CHARACTERS[0]);
-for (const level of LEVELS) {
-  assert.ok(
-    play(level, { flip: level.id === "commit-to-the-bit" }) >= 1,
-    `Factory ${level.id}`,
-  );
-  game.choose("confirm");
-  if (game.state() === "campaign-upgrades") game.choose("skip-upgrade");
-  assert.equal(game.state(), "campaign-map");
-}
-assert.equal(
-  JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]).records.factory.unlocked,
-  true,
-);
-const preserved = game.savedData();
-game.choose("menu");
-game.click('[data-achievement="open"]');
-assert.equal(
-  game.$('[data-achievement-id="factory"]').dataset.unlocked,
-  "true",
-);
-game.click('[data-achievement="equip"][data-value="blue-cart"]');
-assert.equal(
-  JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]).equipped.cart,
-  "blue-cart",
-);
-game.click('[data-achievement="equip"][data-value="rookie-badge"]');
-assert.equal(game.$("#achievement-badge").hidden, false);
-const equipped = game.savedData();
-game.close();
-game = await boot(equipped);
-evidence.reloads++;
-assert.equal(game.$("#achievement-badge").textContent, "VAULT ROOKIE");
-game.click('[data-achievement="open"]');
-game.click('[data-achievement="reset"]');
-assert.equal(game.state(), "achievement-reset");
-assert.match(game.document.activeElement.textContent, /Cancel/);
-game.tap("Enter");
-assert.deepEqual(game.savedData(), equipped);
-game.click('[data-achievement="reset"]');
-game.click('[data-achievement="reset-confirm"]');
-assert.equal(game.state(), "achievement-vault");
-assert.equal(game.$("#achievement-badge").hidden, true);
-assert.equal(game.savedData()[SAVE], preserved[SAVE]);
-assert.equal(game.savedData()[RUN_SAVE_KEY], preserved[RUN_SAVE_KEY]);
-assert.equal(
-  Object.values(
-    JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]).records,
-  ).filter((r) => r.unlocked).length,
-  0,
-);
-game.close();
-evidence.developerCases = [];
-const realStored = {
-  [SAVE]: beforeNewRun[SAVE],
-  [RUN_SAVE_KEY]: beforeNewRun[RUN_SAVE_KEY],
-  [ACHIEVEMENT_SAVE_KEY]: beforeNewRun[ACHIEVEMENT_SAVE_KEY],
-  "unrelated-project": "keep",
-};
-for (let i = 0; i < UPGRADE_IDS.length; i++) {
-  const upgradeId = UPGRADE_IDS[i],
-    condition = CONDITION_IDS[i] || "none",
-    objective = OBJECTIVE_IDS[i];
-  game = await boot(
-    realStored,
-    false,
-    `?vaultdev=1&seed=73&condition=${condition}&upgrades=${upgradeId}:99&objective=${objective}`,
-  );
+  game = await boot({}, true);
   startVault();
-  game.choose("select", "brandon");
-  game.choose("confirm");
-  assert.match(game.$(".run-dev").textContent, /SAVES DISABLED/);
-  assert.ok(
-    game.$(".run-inventory").textContent.includes(UPGRADES[upgradeId].name),
-  );
-  game.choose("level", LEVELS[2].id); // developer mode may test a locked lesson
+  select(CHARACTERS[0]);
+  assert.match(game.$(".campaign-save").textContent, /page only/);
+  assert.equal(play(LEVELS[0]), 3);
+  returnToMap();
   assert.equal(
-    game.world.runEffects.upgrades[upgradeId],
-    UPGRADES[upgradeId].limit,
+    game.$(`[data-campaign="level"][data-value="${LEVELS[1].id}"]`).disabled,
+    false,
   );
+  game.choose("menu");
+  startVault();
+  select(CHARACTERS[0]);
   assert.equal(
-    game.world.runEffects.conditionId,
-    condition === "none" ? null : condition,
+    game.$(`[data-level="${LEVELS[0].id}"] .campaign-medal`).textContent,
+    "Gold",
+    "in-memory progress survives mode switches",
   );
-  assert.equal(game.world.runEffects.objectiveId, objective);
-  assert.ok(game.$(".run-challenge").textContent.includes("OPTIONAL"));
-  game.choose("confirm");
-  game.finishAttempt({ flip: true });
-  const outcome = game.$("[data-objective-result]").dataset.objectiveResult;
-  assert.ok(["success", "failure"].includes(outcome));
-  assert.deepEqual(
-    game.savedData(),
-    realStored,
-    "developer runs must never modify real saves",
-  );
-  evidence.developerCases.push({
-    upgrade: upgradeId,
-    condition,
-    objective,
-    outcome,
-  });
   game.close();
+  // A real fresh run can decline rewards and unlock Factory Settings.
+  game = await boot();
+  startVault();
+  select(CHARACTERS[0]);
+  for (const level of LEVELS) {
+    assert.ok(
+      play(level, { flip: level.id === "commit-to-the-bit" }) >= 1,
+      `Factory ${level.id}`,
+    );
+    game.choose("confirm");
+    if (game.state() === "campaign-upgrades") game.choose("skip-upgrade");
+    assert.equal(game.state(), "campaign-map");
+  }
+  assert.equal(
+    JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]).records.factory.unlocked,
+    true,
+  );
+  const preserved = game.savedData();
+  game.choose("menu");
+  game.click('[data-achievement="open"]');
+  assert.equal(
+    game.$('[data-achievement-id="factory"]').dataset.unlocked,
+    "true",
+  );
+  game.click('[data-achievement="equip"][data-value="blue-cart"]');
+  assert.equal(
+    JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]).equipped.cart,
+    "blue-cart",
+  );
+  game.click('[data-achievement="equip"][data-value="rookie-badge"]');
+  assert.equal(game.$("#achievement-badge").hidden, false);
+  const equipped = game.savedData();
+  game.close();
+  game = await boot(equipped);
+  evidence.reloads++;
+  assert.equal(game.$("#achievement-badge").textContent, "VAULT ROOKIE");
+  game.click('[data-achievement="open"]');
+  game.click('[data-achievement="reset"]');
+  assert.equal(game.state(), "achievement-reset");
+  assert.match(game.document.activeElement.textContent, /Cancel/);
+  game.tap("Enter");
+  assert.deepEqual(game.savedData(), equipped);
+  game.click('[data-achievement="reset"]');
+  game.click('[data-achievement="reset-confirm"]');
+  assert.equal(game.state(), "achievement-vault");
+  assert.equal(game.$("#achievement-badge").hidden, true);
+  assert.equal(game.savedData()[SAVE], preserved[SAVE]);
+  assert.equal(game.savedData()[RUN_SAVE_KEY], preserved[RUN_SAVE_KEY]);
+  assert.equal(
+    Object.values(
+      JSON.parse(game.savedData()[ACHIEVEMENT_SAVE_KEY]).records,
+    ).filter((r) => r.unlocked).length,
+    0,
+  );
+  game.close();
+  evidence.developerCases = [];
+  const realStored = {
+    [SAVE]: beforeNewRun[SAVE],
+    [RUN_SAVE_KEY]: beforeNewRun[RUN_SAVE_KEY],
+    [ACHIEVEMENT_SAVE_KEY]: beforeNewRun[ACHIEVEMENT_SAVE_KEY],
+    "unrelated-project": "keep",
+  };
+  for (let i = 0; i < UPGRADE_IDS.length; i++) {
+    const upgradeId = UPGRADE_IDS[i],
+      condition = CONDITION_IDS[i] || "none",
+      objective = OBJECTIVE_IDS[i];
+    game = await boot(
+      realStored,
+      false,
+      `?vaultdev=1&seed=73&condition=${condition}&upgrades=${upgradeId}:99&objective=${objective}`,
+    );
+    startVault();
+    game.choose("select", "brandon");
+    game.choose("confirm");
+    assert.match(game.$(".run-dev").textContent, /SAVES DISABLED/);
+    assert.ok(
+      game.$(".run-inventory").textContent.includes(UPGRADES[upgradeId].name),
+    );
+    game.choose("level", LEVELS[2].id); // developer mode may test a locked lesson
+    assert.equal(
+      game.world.runEffects.upgrades[upgradeId],
+      UPGRADES[upgradeId].limit,
+    );
+    assert.equal(
+      game.world.runEffects.conditionId,
+      condition === "none" ? null : condition,
+    );
+    assert.equal(game.world.runEffects.objectiveId, objective);
+    assert.ok(game.$(".run-challenge").textContent.includes("OPTIONAL"));
+    game.choose("confirm");
+    game.finishAttempt({ flip: true });
+    const outcome = game.$("[data-objective-result]").dataset.objectiveResult;
+    assert.ok(["success", "failure"].includes(outcome));
+    assert.deepEqual(
+      game.savedData(),
+      realStored,
+      "developer runs must never modify real saves",
+    );
+    evidence.developerCases.push({
+      upgrade: upgradeId,
+      condition,
+      objective,
+      outcome,
+    });
+    game.close();
+  }
+  // Explicit developer hooks use in-memory data, including while Party is selected.
+  game = await boot(realStored, false, "?achievementdev=1");
+  assert.ok(game.w.__vaultAchievements);
+  const hooks = game.w.__vaultAchievements;
+  game.click('[data-achievement="open"]');
+  hooks.receive({
+    id: 1,
+    type: "attempt-ended",
+    characterId: "jake",
+    valid: true,
+    brace: "Perfect Brace",
+  });
+  hooks.receive({
+    id: 1,
+    type: "attempt-ended",
+    characterId: "jake",
+    valid: true,
+    brace: "Perfect Brace",
+  });
+  assert.equal(hooks.snapshot().records["cold-blooded"].progress, 1);
+  assert.match(game.$(".run-dev").textContent, /NOT SAVED/);
+  assert.deepEqual(game.savedData(), realStored);
+  game.close();
+  console.log(
+    JSON.stringify(
+      { status: "PASS", mobileSimulated: mobile, ...evidence },
+      null,
+      2,
+    ),
+  );
 }
-// Explicit developer hooks use in-memory data, including while Party is selected.
-game = await boot(realStored, false, "?achievementdev=1");
-assert.ok(game.w.__vaultAchievements);
-const hooks = game.w.__vaultAchievements;
-game.click('[data-achievement="open"]');
-hooks.receive({
-  id: 1,
-  type: "attempt-ended",
-  characterId: "jake",
-  valid: true,
-  brace: "Perfect Brace",
-});
-hooks.receive({
-  id: 1,
-  type: "attempt-ended",
-  characterId: "jake",
-  valid: true,
-  brace: "Perfect Brace",
-});
-assert.equal(hooks.snapshot().records["cold-blooded"].progress, 1);
-assert.match(game.$(".run-dev").textContent, /NOT SAVED/);
-assert.deepEqual(game.savedData(), realStored);
-game.close();
-console.log(
-  JSON.stringify(
-    { status: "PASS", mobileSimulated: mobile, ...evidence },
-    null,
-    2,
-  ),
-);

@@ -1,3 +1,5 @@
+import { syncResult, syncReward } from "./sync-config.js";
+import { TRICK_CONFIG } from "./trick-config.js";
 export const PIXELS_PER_METRE = 40;
 import { braceTolerance } from "./skill-config.js";
 import { scoreTricks } from "./tricks.js";
@@ -64,8 +66,28 @@ export function scoreAttempt(metrics, character) {
     character,
     metrics.crashed ? "Crash" : landingQuality,
   );
-  const stylePoints = tricks.points;
+  const normalizedSync = metrics.sync
+    ? syncResult(metrics.sync.perfect, metrics.sync.good, metrics.sync.extra)
+    : null;
+  const sync = normalizedSync
+    ? Object.freeze({
+        ...normalizedSync,
+        reward: syncReward(normalizedSync, character.id),
+      })
+    : null;
+  const stylePoints = sync
+    ? Math.min(
+        TRICK_CONFIG.maximumStylePoints,
+        Math.round(
+          tricks.subtotal *
+            tricks.characterMultiplier *
+            tricks.landingMultiplier *
+            sync.reward.style,
+        ),
+      )
+    : tricks.points;
   return Object.freeze({
+    sync,
     distanceMetres,
     distancePoints,
     quarterTurns: tricks.completedRotations * 4,
