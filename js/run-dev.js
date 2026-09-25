@@ -1,5 +1,5 @@
 import {
-  CONDITION_IDS,
+  ALL_CONDITION_IDS,
   OBJECTIVE_IDS,
   UPGRADE_IDS,
   normalizeUpgrades,
@@ -20,7 +20,7 @@ export function readRunDeveloperSettings(search = "") {
   }
   return Object.freeze({
     seed: Number.isInteger(rawSeed) ? rawSeed >>> 0 : 1,
-    condition: CONDITION_IDS.includes(condition)
+    condition: ALL_CONDITION_IDS.includes(condition)
       ? condition
       : condition === "none"
         ? null

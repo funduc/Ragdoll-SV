@@ -18,10 +18,12 @@ export const ACHIEVEMENT_RULES = freeze({
 export const ACHIEVEMENT_CAPABILITIES = freeze({
   "component-loss": false,
   "wheel-loss": false,
-  "changing-conditions": false,
+  // After Hours: Karma Chameleon wind, Gauntlet ledger near-misses and the
+  // collidable Concrete+ slab now provide real telemetry for these three.
+  "changing-conditions": true,
   "objective-points": false,
-  "point-medals": false,
-  "sponsor-target": false,
+  "point-medals": true,
+  "sponsor-target": true,
 });
 export const COSMETIC_REWARDS = freeze({
   "rookie-badge": {
@@ -249,7 +251,7 @@ export const ACHIEVEMENTS = freeze([
     "appeal-denied",
     "Physics Has Denied Your Appeal",
     "General",
-    "Miss a points-based medal threshold by exactly one point.",
+    "Miss a multi-heat medal's combined-score threshold by exactly one point.",
     [["medalPointGap", "eq", 1]],
     {
       requires: "point-medals",
@@ -283,7 +285,7 @@ export const ACHIEVEMENTS = freeze([
     "chameleon",
     "Karma Chameleon",
     "Jake",
-    "Complete a level whose conditions change during the attempt as Jake.",
+    "Complete a level whose conditions change during the attempt as Jake (After Hours: Karma Chameleon).",
     [
       ["characterId", "eq", "jake"],
       ["levelCompleted", "eq", true],
@@ -464,7 +466,7 @@ export const ACHIEVEMENTS = freeze([
     "softness",
     "Softness Sold Separately",
     "Hidden",
-    "Collide with the Concrete+ sponsor target.",
+    "Collide with the Concrete+ sponsor slab.",
     [["sponsorHit", "eq", "concrete-plus"]],
     {
       hidden: true,

@@ -12,7 +12,10 @@ import {
   portrait,
   unavailablePortraits,
   scoreDetails,
+  scorecard,
+  fullBreakdown,
 } from "./ui-content.js";
+import { recordFlagsMarkup, recordsPanel } from "./records.js";
 import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
@@ -218,7 +221,7 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${scorecard(s, recordFlagsMarkup(this.recordFlags))}${flavor}${fullBreakdown(scoreDetails(s))}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
         break;
       }
       case State.ELIMINATION:
@@ -231,7 +234,7 @@ export class UI {
         break;
       case State.FINAL: {
         const tie = t.winners.length > 1;
-        html = `<section class="menu-panel championship-panel winner-panel"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">THE SANTOR VAULT / FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${escape(t.winners[0].name.toUpperCase())} WINS!`}</h2><p>${tie ? t.winners.map((c) => escape(c.fullName)).join(" & ") : escape(t.winners[0].fullName)}${tie ? " finish level on points." : " takes the championship."}</p>${this.table(t.finalists, t.championship)}<p class="tiny">Eliminated in qualifying: ${escape(t.eliminated.fullName)} · ${t.qualifying[t.eliminated.id].total} points.</p>${button("Restart tournament")}</section>`;
+        html = `<section class="menu-panel championship-panel winner-panel"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">THE SANTOR VAULT / FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${escape(t.winners[0].name.toUpperCase())} WINS!`}</h2><p>${tie ? t.winners.map((c) => escape(c.fullName)).join(" & ") : escape(t.winners[0].fullName)}${tie ? " finish level on points." : " takes the championship."}</p>${this.table(t.finalists, t.championship)}<p class="tiny">Eliminated in qualifying: ${escape(t.eliminated.fullName)} · ${t.qualifying[t.eliminated.id].total} points.</p>${button("Restart tournament")}${this.records ? recordsPanel(this.records) : ""}</section>`;
         this.caption(tie ? "tie" : "victory", t.winners[0], t.round);
         break;
       }

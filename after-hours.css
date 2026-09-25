@@ -1,0 +1,263 @@
+/* After Hours update: play-area layout, scorecard, records and bonus chapter.
+   Loaded last; only adds rules and never changes gameplay timing. */
+
+.arena {
+  scroll-margin-top: 4px;
+}
+
+/* Touch layouts: keep PUSH / BRACE directly under the arena and meter so the
+   whole play area fits one phone screen instead of sitting below the coach. */
+@media (pointer: coarse), (hover: none) {
+  .arena {
+    display: flex;
+    flex-direction: column;
+  }
+  .arena > * {
+    order: 10;
+  }
+  .arena > .arena-top {
+    order: 0;
+  }
+  .arena > .stage {
+    order: 1;
+  }
+  .arena > #sync-controls {
+    order: 2;
+  }
+  .arena > #skill-hud {
+    order: 3;
+  }
+  .arena > #touch-controls {
+    order: 4;
+  }
+}
+
+/* ---------- Results scorecard ---------- */
+.scorecard {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  align-items: center;
+  margin: 4px 0 16px;
+  padding: 14px 16px;
+  border: 2px solid #3f5664;
+  background: linear-gradient(135deg, #1b2a33, #121c23);
+  box-shadow: inset 0 1px #ffffff14;
+}
+.scorecard-total {
+  grid-row: span 2;
+  text-align: center;
+  padding-right: 18px;
+  border-right: 1px solid #3f5664;
+}
+.scorecard-total strong {
+  display: block;
+  font:
+    italic 900 44px/1 Arial,
+    sans-serif;
+  color: #ffd166;
+  text-shadow: 3px 3px #0009;
+  letter-spacing: -1px;
+}
+.scorecard-total span {
+  font:
+    bold 10px/1.4 "Courier New",
+    monospace;
+  letter-spacing: 2px;
+  color: #9fb4c0;
+}
+.scorecard-parts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+.scorecard-parts div {
+  padding: 6px 8px;
+  background: #0d151b;
+  border-left: 3px solid #52cefa;
+}
+.scorecard-parts dt {
+  font:
+    bold 9px "Courier New",
+    monospace;
+  letter-spacing: 1px;
+  color: #8ea5b1;
+}
+.scorecard-parts dd {
+  margin: 2px 0 0;
+  font:
+    bold 18px Arial,
+    sans-serif;
+  color: #eef6fa;
+}
+.scorecard-parts dd small {
+  display: block;
+  font:
+    10px Arial,
+    sans-serif;
+  color: #9fb4c0;
+}
+.scorecard-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  min-height: 0;
+}
+.scorecard-flags span {
+  padding: 3px 8px;
+  font:
+    bold 10px "Courier New",
+    monospace;
+  letter-spacing: 1px;
+  border: 1px solid #52cefa;
+  color: #9fe6ff;
+}
+.scorecard-flags span[data-flag="record"] {
+  border-color: #ffd166;
+  color: #1a1204;
+  background: #ffd166;
+  animation: record-pop 0.6s ease-out 1;
+}
+.scorecard-flags span[data-flag="crash"] {
+  border-color: #ff852b;
+  color: #ffb27a;
+}
+@keyframes record-pop {
+  0% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+details.full-breakdown {
+  margin-top: 12px;
+  border-top: 1px solid #33444f;
+  padding-top: 8px;
+}
+details.full-breakdown > summary {
+  cursor: pointer;
+  font:
+    bold 11px "Courier New",
+    monospace;
+  letter-spacing: 2px;
+  color: #9fb4c0;
+  padding: 6px 0;
+  list-style: none;
+}
+details.full-breakdown > summary::before {
+  content: "▸ ";
+  color: #ff852b;
+}
+details.full-breakdown[open] > summary::before {
+  content: "▾ ";
+}
+details.full-breakdown > summary:focus-visible {
+  outline: 2px solid #52cefa;
+}
+
+/* ---------- Personal records ---------- */
+.record-line {
+  display: block;
+  margin-top: 4px;
+  font:
+    bold 10px "Courier New",
+    monospace;
+  letter-spacing: 1px;
+  color: #ffd166;
+}
+.records-panel {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid #5b4a1f;
+  background: #1d1a10;
+}
+.records-panel h3 {
+  margin: 0 0 6px;
+  font:
+    bold 12px "Courier New",
+    monospace;
+  letter-spacing: 2px;
+  color: #ffd166;
+}
+.records-panel dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px 14px;
+  margin: 0;
+}
+.records-panel dt {
+  font:
+    10px "Courier New",
+    monospace;
+  color: #b9a979;
+}
+.records-panel dd {
+  margin: 0;
+  font:
+    bold 15px Arial,
+    sans-serif;
+  color: #fff3cf;
+}
+
+/* ---------- After Hours bonus chapter ---------- */
+.after-hours {
+  margin-top: 18px;
+  padding: 14px;
+  border: 2px solid #8a4fff;
+  background:
+    repeating-linear-gradient(135deg, #8a4fff10 0 12px, transparent 12px 24px),
+    #16121f;
+}
+.after-hours > h3 {
+  margin: 0 0 4px;
+  font:
+    italic 900 22px Arial,
+    sans-serif;
+  color: #d9c6ff;
+  letter-spacing: 1px;
+}
+.after-hours > p {
+  color: #b9a9d8;
+}
+.after-hours .campaign-level {
+  border-left-color: #8a4fff;
+}
+.after-hours .campaign-level h3 span {
+  color: #b48cff;
+}
+
+/* Compact map: the next level to play is highlighted. */
+.campaign-level[data-next="true"] {
+  box-shadow:
+    0 0 0 2px #ffd166,
+    0 0 18px #ffd16655;
+}
+
+@media (max-width: 800px) {
+  .scorecard {
+    grid-template-columns: 1fr;
+  }
+  .scorecard-total {
+    grid-row: auto;
+    border-right: 0;
+    border-bottom: 1px solid #3f5664;
+    padding: 0 0 8px;
+  }
+  .scorecard-parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scorecard-flags span[data-flag="record"] {
+    animation: none;
+  }
+}

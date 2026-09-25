@@ -48,6 +48,27 @@ export const CONDITIONS = freeze({
     duration: 0.2,
     torque: 0.24,
   },
+  // After Hours conditions. They are authored per level and are never part of
+  // the seeded shuffle used by the original lessons (see CONDITION_IDS).
+  "low-gravity": {
+    name: "Low-G Loading Dock",
+    description:
+      "The loading dock's anti-gravity promo is switched on. Gravity drops by 40%: more hang time, room for a Double Flip, later landings.",
+    gravity: 0.6,
+  },
+  tailwind: {
+    name: "Leaf-Blower Tailwind",
+    description:
+      "A sponsored industrial leaf blower pushes FORWARD while airborne. Longer jumps; the Concrete+ slab is finally in range.",
+    force: 0.00034,
+  },
+  "shifting-wind": {
+    name: "Chameleon Wind",
+    description:
+      "In the air, a gust pushes the rider's upper body and FLIPS DIRECTION every 0.45 s. Forward gusts pitch the nose down, backward gusts pitch it up. Counter-steer each change.",
+    interval: 0.45,
+    torque: 0.45, // share of the manual air-control torque, like Wrate Issue
+  },
 });
 export const UPGRADES = freeze({
   "reinforced-wheels": {
@@ -164,7 +185,16 @@ export const OBJECTIVES = freeze({
       "Complete the jump with at least one rhythm push and no Missed rhythm pushes.",
   },
 });
-export const CONDITION_IDS = Object.freeze(Object.keys(CONDITIONS));
+// Seeded plans for the original lessons shuffle only these five IDs. Keeping
+// the list fixed means existing saved runs never reshuffle after an update.
+export const CONDITION_IDS = Object.freeze([
+  "crosswind",
+  "icy-ramp",
+  "heavy-cart",
+  "boost-strip",
+  "wrate-issue",
+]);
+export const ALL_CONDITION_IDS = Object.freeze(Object.keys(CONDITIONS));
 export const UPGRADE_IDS = Object.freeze(Object.keys(UPGRADES));
 export const OBJECTIVE_IDS = Object.freeze(Object.keys(OBJECTIVES));
 export function normalizeUpgrades(value) {

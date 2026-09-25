@@ -3,10 +3,18 @@ import { CampaignState as S } from "./campaign.js";
 import {
   LEVELS,
   HARD_GAUNTLET,
+  AFTER_HOURS,
   MEDALS,
   meetsThreshold,
 } from "./campaign-levels.js";
-import { escape, portrait, scoreDetails } from "./ui-content.js";
+import {
+  escape,
+  portrait,
+  scoreDetails,
+  scorecard,
+  fullBreakdown,
+} from "./ui-content.js";
+import { recordFlagsMarkup, recordsPanel } from "./records.js";
 import {
   runInventory,
   runNotice,
@@ -50,6 +58,59 @@ function overtimeMarkup(run) {
   return `<article class="campaign-level${unlocked ? "" : " locked"}" data-level="${level.id}"><h3>OPTIONAL · ${escape(level.name)}</h3>${medal(best.medal)}${best.santor ? '<span class="campaign-medal">SANTOR ✓</span>' : ""}<p>${escape(level.description)}</p>${goals(level)}${seriesMarkup(run, level)}<div class="actions">${action(unlocked ? "Play Gauntlet Overtime" : "Beat the Santor Gauntlet to unlock", "level", level.id, false, !unlocked)}</div></article>`;
 }
 
+// Short label for where a level sits: "3 / 10", "OVERTIME" or "AFTER HOURS 2 / 4".
+function levelLabel(level, separator = " / ") {
+  if (level.chapter === "after-hours")
+    return `AFTER HOURS ${AFTER_HOURS.indexOf(level) + 1}${separator}${AFTER_HOURS.length}`;
+  if (level.bonus) return "OVERTIME";
+  return `${LEVELS.indexOf(level) + 1}${separator}${LEVELS.length}`;
+}
+function nextLevel(level) {
+  const list = level.chapter === "after-hours" ? AFTER_HOURS : LEVELS;
+  const i = list.indexOf(level);
+  return i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+}
+function unlockedNext(run, level, result) {
+  const next = nextLevel(level);
+  if (!next || result.provisional || result.medal <= 0) return "";
+  return ` · ${escape(next.name)} unlocked`;
+}
+function levelBestLine(ui, run, level, result) {
+  const records = ui.records;
+  if (!records || result.provisional) return "";
+  const best = records.levelBest(run.current.id, level.id);
+  if (!best) return "";
+  const previous = ui.recordFlags?.previousLevelBest;
+  const improved = ui.recordFlags?.levelBest;
+  return `<span class="record-line">LEVEL BEST · ${best.points.toLocaleString("en-US")} PTS${improved && previous !== null && previous !== undefined ? ` (was ${previous.toLocaleString("en-US")})` : ""}</span>`;
+}
+function bestOnMap(ui, run, level) {
+  const best = ui.records?.levelBest(run.current.id, level.id);
+  return best
+    ? `<span class="record-line">YOUR BEST · ${best.points.toLocaleString("en-US")} PTS${best.metres ? ` · ${best.metres.toFixed(1)} m` : ""}</span>`
+    : "";
+}
+function afterHoursMarkup(ui, run) {
+  const unlocked = run.isUnlocked(AFTER_HOURS[0]);
+  const cleared = AFTER_HOURS.filter(
+    (l) => run.save.entry(run.current.id, l.id).medal > 0,
+  ).length;
+  return `<section class="after-hours" aria-label="After Hours bonus chapter"><h3>AFTER HOURS · BONUS CHAPTER</h3><p class="tiny">${unlocked ? `${cleared} / ${AFTER_HOURS.length} cleared · Low gravity, a real Concrete+ slab and a wind that cannot make up its mind. Optional: not needed for campaign-completion achievements.` : "The Vault closes when you earn Bronze in The Santor Gauntlet. Then the real fun starts."}</p><ol class="campaign-map">${AFTER_HOURS.map(
+    (l, index) => {
+      const open = run.isUnlocked(l),
+        best = run.save.entry(run.current.id, l.id);
+      const next =
+        open &&
+        !best.medal &&
+        LEVELS.every((m) => run.save.entry(run.current.id, m.id).medal > 0) &&
+        AFTER_HOURS.slice(0, index).every(
+          (p) => run.save.entry(run.current.id, p.id).medal > 0,
+        );
+      return `<li class="campaign-level${open ? "" : " locked"}" data-level="${l.id}"${next ? ' data-next="true"' : ""}><div class="campaign-level-heading"><h3><span>AH${index + 1}</span> ${escape(l.name)}</h3>${medal(best.medal)}${best.santor ? '<span class="campaign-medal">SANTOR ✓</span>' : ""}</div>${bestOnMap(ui, run, l)}<p>${escape(l.description)}</p>${goals(l)}${seriesMarkup(run, l)}${challengeMarkup(run, l)}<div class="actions">${action(open ? (best.medal ? "Replay level" : "Play level") : "Locked", "level", l.id, false, !open)}${!open ? `<span class="tiny">Earn Bronze in ${escape((l.prerequisites[0] === "the-santor-gauntlet" ? LEVELS.at(-1) : AFTER_HOURS.find((p) => p.id === l.prerequisites[0])).name)}.</span>` : ""}</div></li>`;
+    },
+  ).join("")}</ol></section>`;
+}
+
 function profile(ui, c, run) {
   const john = ui.commentator.pick("introduction", c, "qualifying");
   ui.say(john);
@@ -75,7 +136,7 @@ export function renderCampaign(ui, run) {
   ui.campaignSession = run;
   ui.roundLabel.textContent =
     run.active || [S.READY, S.RESULTS].includes(run.state)
-      ? `VAULT RUN · ${level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} / ${LEVELS.length}`}${run.stage ? ` · HEAT ${run.stageIndex + 1}/3` : ""}`
+      ? `VAULT RUN · ${levelLabel(level)}${run.stage ? ` · HEAT ${run.stageIndex + 1}/3` : ""}`
       : "VAULT RUN · CAMPAIGN";
   document.getElementById("session-mode").textContent = "SINGLE PLAYER";
   document.getElementById("session-players").textContent = "VAULT RUN";
@@ -111,15 +172,15 @@ export function renderCampaign(ui, run) {
       html = profile(ui, c, run);
       break;
     case S.MAP:
-      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${escape(c.passive.name)}</p>${progressCount(run.save, c) === LEVELS.length ? '<p class="subline">RUN COMPLETE · All ten levels cleared. Gauntlet Overtime is open. Replay levels to upgrade medals.</p>' : '<p class="tiny">Bronze unlocks the next level. Perfect pushes count toward Good-or-better. Replays keep your highest medal. The condition and optional objective stay fixed for this run.</p>'}${runNotice(run)}${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · preserved across new runs.</p><ol class="campaign-map">${LEVELS.map(
+      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${escape(c.passive.name)}</p>${progressCount(run.save, c) === LEVELS.length ? '<p class="subline">RUN COMPLETE · All ten levels cleared. Gauntlet Overtime and the AFTER HOURS bonus chapter are open. Replay levels to upgrade medals.</p>' : '<p class="tiny">Bronze unlocks the next level. Perfect pushes count toward Good-or-better. Replays keep your highest medal. The condition and optional objective stay fixed for this run.</p>'}${runNotice(run)}${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · preserved across new runs.</p><ol class="campaign-map">${LEVELS.map(
         (l, index) => {
           const unlocked = run.isUnlocked(l),
             best = run.save.entry(c.id, l.id);
-          return `<li class="campaign-level${unlocked ? "" : " locked"}" data-level="${l.id}"><div class="campaign-level-heading"><h3><span>${String(index + 1).padStart(2, "0")}</span> ${escape(l.name)}</h3>${medal(best.medal)}${best.santor ? '<span class="campaign-medal">SANTOR ✓</span>' : ""}</div><p>${escape(l.description)}</p><p class="tiny">COACHING: ${escape(l.modifier.name)}${l.upgradeReward ? " · Bronze earns one upgrade choice per run" : ""}</p>${goals(l)}${seriesMarkup(run, l)}${challengeMarkup(run, l)}<div class="actions">${action(unlocked ? (best.medal ? "Replay level" : "Play level") : "Locked", "level", l.id, false, !unlocked)}${!unlocked ? `<span class="tiny">Earn Bronze in ${escape(LEVELS.find((previous) => previous.id === l.prerequisites[0]).name)}.</span>` : ""}</div></li>`;
+          return `<li class="campaign-level${unlocked ? "" : " locked"}" data-level="${l.id}"${unlocked && !best.medal && !LEVELS.slice(0, index).some((p) => run.isUnlocked(p) && !run.save.entry(c.id, p.id).medal) ? ' data-next="true"' : ""}><div class="campaign-level-heading"><h3><span>${String(index + 1).padStart(2, "0")}</span> ${escape(l.name)}</h3>${medal(best.medal)}${best.santor ? '<span class="campaign-medal">SANTOR ✓</span>' : ""}</div>${bestOnMap(ui, run, l)}<p>${escape(l.description)}</p><p class="tiny">COACHING: ${escape(l.modifier.name)}${l.upgradeReward ? " · Bronze earns one upgrade choice per run" : ""}</p>${goals(l)}${seriesMarkup(run, l)}${challengeMarkup(run, l)}<div class="actions">${action(unlocked ? (best.medal ? "Replay level" : "Play level") : "Locked", "level", l.id, false, !unlocked)}${!unlocked ? `<span class="tiny">Earn Bronze in ${escape(LEVELS.find((previous) => previous.id === l.prerequisites[0]).name)}.</span>` : ""}</div></li>`;
         },
       ).join(
         "",
-      )}</ol>${overtimeMarkup(run)}${notice(run.save)}<div class="actions">${action("New run", "new-run", "", true)}${action("Change character", "characters", "", true)}${action("Main menu", "menu", "", true)}${action("Reset campaign progress", "reset", "", true)}</div></section>`;
+      )}</ol>${overtimeMarkup(run)}${afterHoursMarkup(ui, run)}${ui.records ? recordsPanel(ui.records, c.id) : ""}${notice(run.save)}<div class="actions">${action("New run", "new-run", "", true)}${action("Change character", "characters", "", true)}${action("Main menu", "menu", "", true)}${action("Reset campaign progress", "reset", "", true)}</div></section>`;
       ui.say(
         progressCount(run.save, c) === LEVELS.length
           ? "Ten levels complete. Overtime is optional. John is not taking questions."
@@ -127,7 +188,7 @@ export function renderCampaign(ui, run) {
       );
       break;
     case S.READY:
-      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ${level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} OF ${LEVELS.length}`}${run.stage ? ` / HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""}</p><h2>${escape(level.name)}</h2><div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${runNotice(run)}${challengeMarkup(run, level)}${goals(level)}${runInventory(run)}<p class="tiny">Tap SPACE / ↑ or PUSH on the rhythm meter. Release between pushes. One push in the green takeoff zone. LEFT / RIGHT or A / D rotates; DOWN / S or BRACE braces once near landing.</p><p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div></section>`;
+      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ${levelLabel(level, " OF ")}${run.stage ? ` / HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""}</p><h2>${escape(level.name)}</h2><div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${runNotice(run)}${challengeMarkup(run, level)}${goals(level)}${runInventory(run)}<p class="tiny">Tap SPACE / ↑ or PUSH on the rhythm meter. Release between pushes. One push in the green takeoff zone. LEFT / RIGHT or A / D rotates; DOWN / S or BRACE braces once near landing.</p><p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div></section>`;
       ui.say(run.introduction);
       break;
     case S.RESULTS: {
@@ -136,7 +197,7 @@ export function renderCampaign(ui, run) {
       const flavor = s.crashed
         ? `${c.crashDescriptions ? `<p class="character-flavor">${escape(c.crashDescriptions[s.quarterTurns % c.crashDescriptions.length])}</p>` : ""}<p class="crash-quote">${escape(c.name.split(" ")[0])}: “${escape(c.crashQuote)}”</p>`
         : "";
-      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ATTEMPT COMPLETE</p><h2>${escape(level.name)}</h2><p>${escape(c.fullName)}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? "NEXT HEAT REQUIRES CONFIRMATION" : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3 · BEST KEPT" : result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${result.medal > 0 && LEVELS.indexOf(level) >= 0 && LEVELS.indexOf(level) < LEVELS.length - 1 ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked` : ""}</p></div>${level.stages ? heatLedger(run) : ""}${result.provisional ? "" : goals(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · GAUNTLET OVERTIME UNLOCKED</p>' : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${runNotice(run)}<p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}${runInventory(run)}${notice(run.save)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}</div></section>`;
+      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ATTEMPT COMPLETE</p><h2>${escape(level.name)}</h2><p>${escape(c.fullName)}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? "NEXT HEAT REQUIRES CONFIRMATION" : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3 · BEST KEPT" : result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${unlockedNext(run, level, result)}</p>${levelBestLine(ui, run, level, result)}</div>${scorecard(s, recordFlagsMarkup(ui.recordFlags))}${level.stages ? heatLedger(run) : ""}${result.provisional ? "" : goals(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · GAUNTLET OVERTIME AND AFTER HOURS UNLOCKED</p>' : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${level.arena.target ? `<p class="subline">CONCRETE+: ${result.facts.targetLanding ? "LANDED ON THE SLAB · softness not included" : result.facts.sponsorHit ? "SLAB CONTACTED · the brochure was optimistic" : "SLAB UNTOUCHED"}</p>` : ""}${flavor}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}</div>${fullBreakdown(`${challengeMarkup(run, level, true)}${runNotice(run)}<p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${scoreDetails(s)}${runInventory(run)}`)}${notice(run.save)}</section>`;
       ui.say(
         result.provisional
           ? `Heat ${run.stageIndex + 1} banked. ${run.combinedScore} points. ${run.stageIndex ? "THE LEDGER IS GETTING LOUDER." : "Please retain the cart for the next examination."}`
@@ -167,6 +228,18 @@ export function renderCampaign(ui, run) {
   (preferred || ui.overlay.querySelector("button:not(:disabled)"))?.focus({
     preventScroll: true,
   });
+  // Long map: open scrolled to the next unplayed level (layout only).
+  if (run.state === S.MAP) {
+    const next = ui.overlay.querySelector('[data-next="true"]');
+    if (next && next.getBoundingClientRect) {
+      const top =
+        next.getBoundingClientRect().top -
+        ui.overlay.getBoundingClientRect().top +
+        ui.overlay.scrollTop -
+        24;
+      if (top > 0) ui.overlay.scrollTop = top;
+    }
+  }
 }
 
 export function updateCampaignCoach(world, run) {
@@ -215,6 +288,38 @@ export function updateCampaignCoach(world, run) {
       break;
     case "speed":
       text = `${world.skills.runwayCapReached ? "MAX RUNWAY SPEED REACHED" : "Build to maximum speed with Perfect pushes"} · Counter-steer the announced pulse, then land attached.`;
+      break;
+    case "lowg": {
+      const turns = Math.floor(
+        Math.abs(world.tricks.signedRotation) / (2 * Math.PI),
+      );
+      text = !world.launched
+        ? "Max speed + Perfect takeoff = the most hang time. Then HOLD one rotation key."
+        : world.landed
+          ? `${skills.braceGrade} · Gold needs a Double Flip and a successful landing.`
+          : `${turns} full rotation${turns === 1 ? "" : "s"} · ${turns >= 2 ? "DOUBLE! Counter-steer to wheels down, then BRACE." : "keep holding the same direction"}`;
+      break;
+    }
+    case "slab":
+      text = !world.launched
+        ? "Perfect pushes, Perfect takeoff. The slab starts at 49 m."
+        : world.landed
+          ? world.landedOnTarget
+            ? "ON THE SLAB. Softness not included."
+            : `First contact at ${(world.distancePixels / 40).toFixed(1)} m · the slab is 49–56 m.`
+          : `${(world.distancePixels / 40).toFixed(1)} m · stay level; the tailwind does the rest.`;
+      break;
+    case "chameleon": {
+      const changes = world.runEffects?.conditionChanges ?? 0;
+      text = !world.launched
+        ? "Gusts start at takeoff and flip every 0.45 s. Watch the arrows and counter-steer each change."
+        : world.landed
+          ? `${skills.braceGrade} · survived ${changes} wind change${changes === 1 ? "" : "s"} · Gold needs a Clean landing with Good Brace or better.`
+          : `${changes} wind change${changes === 1 ? "" : "s"} so far · steer against the arrows, then BRACE near contact.`;
+      break;
+    }
+    case "closing":
+      text = `HEAT ${run.stageIndex + 1}/3 · ${run.stage.name} · ${run.combinedScore} points banked · ${run.introduction}`;
       break;
     case "gauntlet":
       text = `HEAT ${run.stageIndex + 1}/3 · ${run.stage.name} · ${run.combinedScore} points banked · ${run.introduction}`;

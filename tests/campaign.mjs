@@ -5,6 +5,7 @@ import { runInThisContext } from "node:vm";
 import { CHARACTERS } from "../js/characters.js";
 import {
   LEVELS,
+  ALL_LEVELS,
   evaluateMedal,
   meetsThreshold,
 } from "../js/campaign-levels.js";
@@ -204,7 +205,10 @@ check(
     const restored = new CampaignSave(db);
     assert.equal(restored.entry("jake", LEVELS[0].id).medal, 3);
     assert.equal(restored.data.selectedCharacter, "jake");
-    assert.equal(Object.keys(restored.data.progress.jake).length, 11);
+    assert.equal(
+      Object.keys(restored.data.progress.jake).length,
+      ALL_LEVELS.length,
+    );
     assert.equal(db.entries.size, 1);
     const copy = restored.entry("jake", LEVELS[0].id);
     copy.medal = 0;

@@ -9,11 +9,17 @@ import { createRequire } from "node:module";
 import { SourceTextModule, runInContext } from "node:vm";
 import { JSDOM } from "../.qa/node_modules/jsdom/lib/api.js";
 import { CHARACTERS } from "../js/characters.js";
-import { LEVELS, HARD_GAUNTLET } from "../js/campaign-levels.js";
+import {
+  LEVELS,
+  HARD_GAUNTLET,
+  ALL_LEVELS,
+  AFTER_HOURS,
+} from "../js/campaign-levels.js";
 import { CAMPAIGN_SAVE_KEY as SAVE } from "../js/campaign-save.js";
 import { RUN_SAVE_KEY, ACHIEVEMENT_SAVE_KEY } from "../js/run-save.js";
 import {
   UPGRADES,
+  CONDITIONS,
   UPGRADE_IDS,
   CONDITION_IDS,
   OBJECTIVE_IDS,
@@ -453,7 +459,7 @@ if (process.env.SYNC_TEST) {
   assert.equal(game.document.querySelectorAll(".achievement-card").length, 34);
   assert.equal(
     game.document.querySelectorAll(".achievement-unavailable").length,
-    6,
+    3, // After Hours connected three of the original six future mechanics
   );
   game.key("Enter");
   assert.equal(game.state(), "title");
@@ -524,7 +530,16 @@ if (process.env.SYNC_TEST) {
     game.choose("level", level.id);
     assert.equal(game.state(), "ready");
     const current = game.world;
-    assert.equal(current.engine.gravity.y, level.arena.gravity);
+    // Only the After Hours low-gravity condition scales the arena gravity.
+    assert.ok(
+      Math.abs(
+        current.engine.gravity.y -
+          level.arena.gravity *
+            (current.runEffects?.conditionId === "low-gravity"
+              ? CONDITIONS["low-gravity"].gravity
+              : 1),
+      ) < 1e-9,
+    );
     game.key("Space"); // A held menu key must not turn into a campaign push.
     game.choose("confirm");
     assert.equal(game.state(), "active-attempt");
@@ -662,7 +677,10 @@ if (process.env.SYNC_TEST) {
     assert.equal(game.state(), "campaign-map");
     let snapshot = JSON.parse(game.savedData()[SAVE]);
     assert.equal(snapshot.progress[c.id][LEVELS[0].id].medal, 3);
-    assert.equal(Object.keys(snapshot.progress[c.id]).length, 11);
+    assert.equal(
+      Object.keys(snapshot.progress[c.id]).length,
+      ALL_LEVELS.length,
+    );
     assert.ok(play(LEVELS[1]) >= 1);
     returnToMap();
     assert.ok(play(LEVELS[2], { flip: true }) >= 1);
@@ -678,6 +696,19 @@ if (process.env.SYNC_TEST) {
     );
     assert.match(game.$(".campaign-map-panel").textContent, /RUN COMPLETE/);
     if (c.id === "jake") {
+      // After Hours opens after the Gauntlet and plays through the real UI.
+      assert.ok(game.$(".after-hours"));
+      for (const level of AFTER_HOURS) {
+        assert.equal(
+          game.$(`[data-campaign="level"][data-value="${level.id}"]`).disabled,
+          false,
+          `${level.id} unlocked`,
+        );
+        assert.ok(play(level) >= 1, `After Hours ${level.id}`);
+        assert.match(game.$(".scorecard").textContent, /POINTS/);
+        returnToMap();
+      }
+      assert.match(game.$(".records-panel").textContent, /LONGEST JUMP/);
       assert.ok(play(HARD_GAUNTLET) >= 1);
       assert.doesNotMatch(
         game.$("#campaign-award").textContent,

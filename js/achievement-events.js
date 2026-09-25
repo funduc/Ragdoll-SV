@@ -21,13 +21,13 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     syncBoosted: (score.sync?.reward.speed || 1) > 1,
     syncAllMiss: Boolean(
       (score.sync && score.sync.perfect === 0 && score.sync.good === 0) ||
-        (campaign?.levelFinished &&
-          campaign?.heats?.some(
-            (h) =>
-              h.score.sync &&
-              h.score.sync.perfect === 0 &&
-              h.score.sync.good === 0,
-          )),
+      (campaign?.levelFinished &&
+        campaign?.heats?.some(
+          (h) =>
+            h.score.sync &&
+            h.score.sync.perfect === 0 &&
+            h.score.sync.good === 0,
+        )),
     ),
     characterId: world.character.id,
     levelId: campaign?.level?.id,
@@ -63,13 +63,38 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     mechanicalFailure: world.runEffects?.mechanicalFailureOccurred === true,
     mechanicalRecovered: Boolean(pulseFinished && successfulLanding),
     runwayCapReached: world.skills.runwayCapReached === true,
-    // Reserved telemetry. No component/sponsor/condition-change mechanic is faked.
+    // Reserved telemetry. No component or wheel-loss mechanic is faked.
     lostComponents: 0,
     lostWheels: 0,
-    conditionChanges: 0,
-    medalPointGap: null,
-    sponsorHit: null,
+    // After Hours telemetry, read from the finished world/campaign.
+    conditionChanges: world.runEffects?.conditionChanges ?? 0,
+    medalPointGap: medalPointGap(campaign),
+    sponsorHit: world.targetHit ? "concrete-plus" : null,
   };
+}
+// For a finished multi-heat level: the smallest combined-score shortfall on a
+// tier whose other requirements were all met. 1 means "missed by one point".
+export function medalPointGap(campaign) {
+  const level = campaign?.level,
+    facts = campaign?.lastMedal?.facts;
+  if (!level?.stages || !campaign.levelFinished || !facts?.finished)
+    return null;
+  let gap = null;
+  for (const tier of ["bronze", "silver", "gold"]) {
+    const rule = level[tier]?.all;
+    if (!Number.isFinite(rule?.combinedScore)) continue;
+    const short = rule.combinedScore - facts.combinedScore;
+    if (short <= 0) continue;
+    const others = Object.entries(rule).every(([key, value]) =>
+      key === "combinedScore"
+        ? true
+        : typeof value === "number"
+          ? Number.isFinite(facts[key]) && facts[key] >= value
+          : facts[key] === value,
+    );
+    if (others && (gap === null || short < gap)) gap = short;
+  }
+  return gap;
 }
 export function campaignAchievementFacts(campaign) {
   const medals = LEVELS.map(
