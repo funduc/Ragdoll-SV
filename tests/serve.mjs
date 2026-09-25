@@ -10,6 +10,7 @@ const args = process.argv.slice(2),
 const host = flag("--host", "127.0.0.1"),
   port = Number(flag("--port", "8000"));
 const types = {
+  ".webp": "image/webp",
   ".mp3": "audio/mpeg",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -26,13 +27,15 @@ createServer(async (req, res) => {
       new URL(req.url, "http://localhost").pathname,
     );
     // Exercise exactly the same project-prefix paths GitHub Pages uses.
-    if (pathname === "/ragdoll-olympics") {
-      res.writeHead(301, { Location: "/ragdoll-olympics/" });
+    const prefix = ["/ragdoll-olympics", "/Ragdoll-SV"].find(
+      (p) => pathname === p || pathname.startsWith(p + "/"),
+    );
+    if (pathname === prefix) {
+      res.writeHead(301, { Location: prefix + "/" });
       res.end();
       return;
     }
-    if (pathname.startsWith("/ragdoll-olympics/"))
-      pathname = pathname.slice("/ragdoll-olympics".length);
+    if (prefix) pathname = pathname.slice(prefix.length);
     let file = resolve(root, "." + pathname);
     if (file !== root.slice(0, -1) && !file.startsWith(root)) {
       res.writeHead(403);

@@ -12,6 +12,9 @@ try {
   await once(child.stdout, "data");
   const origin = "http://127.0.0.1:8081";
   const paths = [
+    "assets/portraits/jake.webp",
+    "assets/portraits/brandon.webp",
+    "assets/portraits/owen.webp",
     "js/music-config.js",
     "js/music.js",
     "js/audio-preferences.js",
@@ -74,7 +77,7 @@ try {
     "assets/portraits/brandon.svg",
     "assets/portraits/owen.svg",
   ];
-  for (const prefix of ["/", "/ragdoll-olympics/"]) {
+  for (const prefix of ["/", "/ragdoll-olympics/", "/Ragdoll-SV/"]) {
     for (const path of paths) {
       const response = await fetch(origin + prefix + path);
       assert.equal(response.status, 200, prefix + path);
@@ -82,6 +85,8 @@ try {
       assert.ok(text.length > 0);
       if (path.endsWith(".js"))
         assert.match(response.headers.get("content-type"), /javascript/);
+      if (path.endsWith(".webp"))
+        assert.equal(response.headers.get("content-type"), "image/webp");
       if (path.endsWith(".mp3"))
         assert.equal(response.headers.get("content-type"), "audio/mpeg");
     }
@@ -100,7 +105,7 @@ try {
     404,
   );
   console.log(
-    `PASS Local static server: ${(paths.length + 1) * 2} root/project-prefix requests, JavaScript MIME types, and missing-asset 404.`,
+    `PASS Local static server: ${(paths.length + 1) * 3} root/project-prefix requests, JavaScript MIME types, and missing-asset 404.`,
   );
 } finally {
   clearTimeout(timer);

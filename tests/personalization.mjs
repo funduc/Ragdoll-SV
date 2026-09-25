@@ -55,29 +55,26 @@ function drive(character, rotate = 0) {
   world.dispose();
   return result;
 }
-check(
-  "All characters reserve missing PNG paths without enabling image requests",
-  () => {
-    for (const c of CHARACTERS) {
-      assert.equal(c.portraitPath, `./assets/portraits/${c.id}.png`);
-      assert.equal(c.portraitAvailable, false);
-      assert.equal(
-        existsSync(new URL(`../${c.portraitPath}`, import.meta.url)),
-        false,
-      );
-      assert.ok(
-        c.fullName.includes(c.nickname) &&
-          c.biography &&
-          c.strength &&
-          c.weakness &&
-          c.passive.description,
-      );
-      assert.ok(c.statistics.length >= 3 && Object.isFrozen(c.passive));
-    }
-    assert.equal(CHARACTERS[2].keepsake.kind, "censored");
-    assert.equal(CHARACTERS[2].keepsake.label, "Temu D***o.");
-  },
-);
+check("All characters map to available optimized WebP portraits", () => {
+  for (const c of CHARACTERS) {
+    assert.equal(c.portraitPath, `./assets/portraits/${c.id}.webp`);
+    assert.equal(c.portraitAvailable, true);
+    assert.equal(
+      existsSync(new URL(`../${c.portraitPath}`, import.meta.url)),
+      true,
+    );
+    assert.ok(
+      c.fullName.includes(c.nickname) &&
+        c.biography &&
+        c.strength &&
+        c.weakness &&
+        c.passive.description,
+    );
+    assert.ok(c.statistics.length >= 3 && Object.isFrozen(c.passive));
+  }
+  assert.equal(CHARACTERS[2].keepsake.kind, "censored");
+  assert.equal(CHARACTERS[2].keepsake.label, "Temu D***o.");
+});
 check(
   "Introductions have no deadline and clear only on explicit continuation or reset",
   () => {

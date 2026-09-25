@@ -10,7 +10,7 @@ export const escape = (value) =>
       ],
   );
 export const portrait = (c) =>
-  `<div class="portrait" style="--person:${c.primaryColor}" role="img" aria-label="${escape(c.name)} portrait placeholder"><span>${c.fallbackInitials}</span>${!c.portraitAvailable || unavailablePortraits.has(c.portraitPath) ? "" : `<img src="${c.portraitPath}" alt="" loading="eager">`}</div>`;
+  `<div class="portrait" style="--person:${c.primaryColor}" role="img" aria-label="${escape(c.name)} portrait"><span>${c.fallbackInitials}</span>${!c.portraitAvailable || unavailablePortraits.has(c.portraitPath) ? "" : `<img src="${escape(c.portraitPath)}" alt="" draggable="false" style="object-position:${escape(c.portraitPosition || "50% 50%")}" loading="eager">`}</div>`;
 
 // Shared verbatim by Party Tournament and Vault Run results.
 export const scoreDetails = (s) =>

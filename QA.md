@@ -116,3 +116,7 @@ Mean execution time for the first ten stress attempts was 110.7 ms, versus 99.5 
 2. Human balance and the stated 20–30-minute first-play campaign duration remain unverified. The deterministic input policy is more precise than a novice player.
 3. Six existing achievements require unimplemented mechanics/telemetry, as listed in README.md. They remain explicitly marked as future mechanics; this no-new-features pass does not add those mechanics.
 4. Unfinished Gauntlet heats are not persisted, as announced before play. Completed medals and rewards persist. Saves remain browser/origin-local; unavailable storage cannot persist beyond the page.
+
+## Installed character headshots — September 25, 2026
+
+See PORTRAITS.md for exact image sizes, crop details, changes and verification. All existing core tests passed, including 192 static HTTP requests across root and both project prefixes. One desktop and one narrow touch Party tournament passed; the campaign harness passed 63 attempts across all characters. The new portrait DOM test verified mappings, labels, per-character positioning, drag prevention and missing-image fallback for all three characters. No captured game errors/warnings. Exported portraits were visually inspected; browser layout verification remains outstanding. Original uploads are excluded from the delivery.

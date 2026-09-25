@@ -323,11 +323,11 @@ All biographies, joke statistics, portraits, crash quotes, and character-specifi
 
 Passive status appears below the active competitor's HUD name. John has general and character-specific lines, becomes more frantic at elimination and in the championship, and avoids consecutive duplicate captions. Ordinary gameplay captions are spaced 1.6 simulation seconds apart; crashes can interrupt. Caption queues clear between attempts.
 
-## Adding the real portraits later
+## Character portraits
 
-The reserved paths are `assets/portraits/jake.png`, `assets/portraits/brandon.png`, and `assets/portraits/owen.png`. They are deliberately absent. Each character currently has `portraitAvailable: false`, so the game renders labeled initials and makes **no request** for the missing PNG.
+Optimized 512×512 WebP headshots are installed at `assets/portraits/jake.webp`, `brandon.webp`, and `owen.webp`. Character data selects the matching image and exposes `portraitPosition` (CSS object-position) for each character. Existing frames use object-fit: cover and retain their initials underneath. Failed images are hidden and not retried during that page session. Images are non-draggable and the containing portrait has the character's accessible name. Original uploads are not published.
 
-To enable a real portrait, add its PNG at the exact path and then set that character's `portraitAvailable` to `true` in `js/characters.js`. Do not enable it before the file exists: requesting a missing file can produce a browser network 404 even when an image-error handler displays a fallback. The older SVG placeholder files are retained but no longer requested by the game.
+See `PORTRAITS.md` for preparation details, source sizes, tests, and limitations. Run `node tests/portraits-dom.mjs` with the same optional JSDOM dependency used by the other DOM tests.
 
 ## Scoring
 
@@ -384,7 +384,7 @@ The result screen preserves all four components and their sum. A compact additio
 - `js/touch.js`: independent push/brace edges and rotation holds merged with keyboard input; no synthetic keyboard events.
 - `js/ui.js`: hand-offs, instructions, score breakdowns, standings, captions, and portrait fallbacks.
 - `js/game.js`: game coordination and one fixed-step animation loop.
-- `assets/portraits/`: reserved PNG locations and retained legacy SVG placeholders. Current initials are rendered directly in the UI.
+- `assets/portraits/`: optimized WebP headshots and retained legacy SVG placeholders. Initials remain the fallback.
 - `vendor/matter-0.20.0.min.js`, `vendor/MATTER-LICENSE.txt`: pinned upstream browser build and MIT license.
 - `tests/`: physics, tournament, static HTTP, and optional DOM integration checks.
 - `QA.md`: what was tested and what still needs live-browser verification.
@@ -429,6 +429,6 @@ Mobile mode uses a simulated 360px viewport and pointer events for the five tour
 
 ## Current scope
 
-One local event, a ten-level saved solo campaign plus optional three-heat Overtime, the full pass-and-play tournament, desktop keyboard and basic touch controls, placeholder portraits, synthesized sound, and restrained effects. Party scores remain in memory. No slow motion, collectible cards, online features, cloud saves, or cross-device synchronization. Push timing, takeoff choice, rotation, trick combinations, and bracing determine each attempt. Outcomes can differ slightly across browsers; the landing meter is an estimate and actual contact determines the brace grade. Live-browser verification remains outstanding as described in `QA.md`.
+One local event, a ten-level saved solo campaign plus optional three-heat Overtime, the full pass-and-play tournament, desktop keyboard and basic touch controls, character headshots, synthesized sound, and restrained effects. Party scores remain in memory. No slow motion, collectible cards, online features, cloud saves, or cross-device synchronization. Push timing, takeoff choice, rotation, trick combinations, and bracing determine each attempt. Outcomes can differ slightly across browsers; the landing meter is an estimate and actual contact determines the brace grade. Live-browser verification remains outstanding as described in `QA.md`.
 
 Matter.js upstream: [0.20.0 source](https://github.com/liabru/matter-js/tree/0.20.0), [official API documentation](https://brm.io/matter-js/docs/). The vendored build was retrieved from the pinned `matter-js@0.20.0/build/matter.min.js` npm CDN artifact.

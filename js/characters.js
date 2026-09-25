@@ -1,5 +1,4 @@
-// Portrait paths are reserved for the real files. Keep portraitAvailable false
-// until a PNG is installed: intentional initials must never request a missing file.
+// Optimized portraits; object position can be adjusted per character without reprocessing.
 const freeze = (value) => {
   if (value && typeof value === "object") {
     Object.values(value).forEach(freeze);
@@ -14,8 +13,9 @@ export const CHARACTERS = freeze([
     name: "Jake Eckler",
     nickname: "Hardened Vet",
     primaryColor: "#ff852b",
-    portraitPath: "./assets/portraits/jake.png",
-    portraitAvailable: false,
+    portraitPath: "./assets/portraits/jake.webp",
+    portraitAvailable: true,
+    portraitPosition: "50% 50%",
     fallbackInitials: "JE",
     baseAcceleration: 0.0029,
     rotationControl: 0.9,
@@ -61,8 +61,9 @@ export const CHARACTERS = freeze([
     name: "Brandon Hale",
     nickname: "Wordsmith",
     primaryColor: "#52cefa",
-    portraitPath: "./assets/portraits/brandon.png",
-    portraitAvailable: false,
+    portraitPath: "./assets/portraits/brandon.webp",
+    portraitAvailable: true,
+    portraitPosition: "50% 50%",
     fallbackInitials: "BH",
     baseAcceleration: 0.00285,
     rotationControl: 1.12,
@@ -112,8 +113,9 @@ export const CHARACTERS = freeze([
     name: "Owen Wrate",
     nickname: "Sparky",
     primaryColor: "#b4ef4b",
-    portraitPath: "./assets/portraits/owen.png",
-    portraitAvailable: false,
+    portraitPath: "./assets/portraits/owen.webp",
+    portraitAvailable: true,
+    portraitPosition: "50% 50%",
     fallbackInitials: "OW",
     baseAcceleration: 0.00305,
     rotationControl: 1.28,

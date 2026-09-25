@@ -206,7 +206,13 @@ async function boot(saved = {}, denied = false, search = "") {
     assert.equal(callbacks.size, 1);
     assert.deepEqual(evidence.consoleErrors, []);
     assert.deepEqual(evidence.consoleWarnings, []);
-    assert.equal(document.querySelectorAll(".portrait img").length, 0);
+    for (const img of document.querySelectorAll(".portrait img")) {
+      assert.match(
+        img.getAttribute("src"),
+        /assets\/portraits\/(jake|brandon|owen)\.webp$/,
+      );
+      assert.equal(img.draggable, false);
+    }
     if (previousState === "active-attempt" && state() === previousState)
       assert.equal(
         writes,

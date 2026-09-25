@@ -450,15 +450,19 @@ if (!process.env.AUDIO_UNAVAILABLE) {
   assert.equal(mute.textContent, "SOUND N/A");
   assert.equal(mute.disabled, true);
 }
-// The intended PNGs are absent. Every view uses intentional labeled initials,
+// Optimized portraits retain initials underneath for load failures.
 assert.equal(w.Audio.instances.length, 0, "music waits for Enter the Vault");
 key("Enter", "keydown", false, document.querySelector("[data-audio-enter]"));
 key("Enter", "keydown", true, document.activeElement);
 assert.equal(state(), "title", "held entry Enter cannot choose a mode");
 key("Enter", "keyup");
 assert.equal(w.Audio.instances.length, 1);
-// without inserting a missing image URL or even attempting a resource request.
-assert.equal(document.querySelectorAll(".portrait img").length, 0);
+// All enabled portrait URLs use the installed WebP assets.
+assert.ok(
+  [...document.querySelectorAll(".portrait img")].every((img) =>
+    img.getAttribute("src").endsWith(".webp"),
+  ),
+);
 assert.ok(document.querySelector(".portrait").textContent.includes("JE"));
 let realIntroductionWaitMs = 0;
 async function waitOnJake() {
@@ -582,7 +586,11 @@ for (let run = 0; run < runCount; run++) {
   document.querySelector('[data-mode="party"]').focus();
   key("Enter", "keydown", false, document.activeElement);
   assert.equal(state(), "instructions");
-  assert.equal(document.querySelectorAll(".portrait img").length, 0);
+  assert.ok(
+    [...document.querySelectorAll(".portrait img")].every((img) =>
+      img.getAttribute("src").endsWith(".webp"),
+    ),
+  );
   key("Enter", "keydown", true);
   assert.equal(state(), "instructions", "held Enter must not skip screens");
   key("Enter", "keyup");

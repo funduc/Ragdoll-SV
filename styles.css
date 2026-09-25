@@ -403,7 +403,7 @@ h1 span {
   height: 100%;
   object-fit: cover;
 }
-.portrait:after {
+.portrait:not(:has(img:not([hidden]))):after {
   content: "PLACEHOLDER";
   position: absolute;
   bottom: 3px;
