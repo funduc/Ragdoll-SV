@@ -1058,3 +1058,21 @@ kbd {
     gap: 12px;
   }
 }
+.replay-banner {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 12;
+  padding: 8px 12px;
+  border: 2px solid #ffd166;
+  background: #11171c;
+  color: #ffd166;
+  font: bold 14px "Courier New", monospace;
+  cursor: pointer;
+}
+.replay-banner span {
+  display: block;
+  margin-top: 4px;
+  color: #eef6fa;
+  font-size: 11px;
+}

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node tests/serve.mjs",
-    "test": "node tests/physics-and-tournament.mjs && node tests/stability.mjs && node tests/personalization.mjs && node tests/presentation.mjs && node tests/skill-loop.mjs && node tests/tricks.mjs && node tests/run-mechanics.mjs && node tests/run-progression.mjs && node tests/achievements.mjs && node tests/campaign.mjs && node tests/first-campaign.mjs && node tests/final-regression.mjs && node tests/music.mjs && node tests/sync.mjs && node tests/retry.mjs && node tests/static-files.mjs",
+    "test": "node tests/physics-and-tournament.mjs && node tests/stability.mjs && node tests/personalization.mjs && node tests/presentation.mjs && node tests/skill-loop.mjs && node tests/tricks.mjs && node tests/run-mechanics.mjs && node tests/run-progression.mjs && node tests/achievements.mjs && node tests/campaign.mjs && node tests/first-campaign.mjs && node tests/final-regression.mjs && node tests/music.mjs && node tests/sync.mjs && node tests/retry.mjs && node tests/replay.mjs && node tests/static-files.mjs",
     "test:dom": "node --experimental-vm-modules tests/dom-flow.mjs",
     "test:campaign:dom": "node --experimental-vm-modules tests/campaign-dom.mjs",
     "test:accessibility:dom": "node tests/accessibility-dom.mjs"

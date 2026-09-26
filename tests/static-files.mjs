@@ -58,6 +58,7 @@ try {
     "js/tricks.js",
     "js/trick-ui.js",
     "js/game.js",
+    "js/replay.js",
     "js/input.js",
     "js/ui.js",
     "js/renderer.js",

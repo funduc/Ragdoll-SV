@@ -29,6 +29,7 @@ import {
 } from "./achievement-ui.js";
 import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
+import { ReplayRecording, ReplayPlayer, ReplayControls } from "./replay.js";
 
 class Game {
   constructor() {
@@ -68,6 +69,8 @@ class Game {
       document.getElementById("mute-button"),
     );
     this.presentation.replaceWorld(this.world);
+    this.recording = new ReplayRecording(this.world);
+    this.replayPlayer = null;
     this.audioControls = new AudioControls(
       document.getElementById("audio-controls"),
       this.presentation.audio.preferences,
@@ -89,7 +92,7 @@ class Game {
       onExclusiveKey: (event) => this.exclusiveKey(event),
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
-          "button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
+          "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
         );
         if (menu) {
           this.menuAction(menu);
@@ -112,6 +115,9 @@ class Game {
         this.presentation.music.setPaused(paused);
       },
     });
+    this.replayControls = new ReplayControls(
+      window, () => Boolean(this.replayPlayer), () => this.stopReplay(), this.input,
+    );
     this.ui.render(this.tournament);
     applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
     this.removeAchievementHooks = installAchievementHooks(
@@ -136,6 +142,7 @@ class Game {
       this.mode === "vault" ? this.campaign.attemptSpec : null,
     );
     this.presentation.replaceWorld(this.world);
+    this.recording = new ReplayRecording(this.world);
     this.accumulator = 0;
     this.lastTime = null;
     this.renderer.resetCamera();
@@ -174,6 +181,7 @@ class Game {
     }
   }
   confirm() {
+    if (this.replayPlayer) return;
     if (this.session.active || this.destroyed) return;
     if (this.vaultOpen) return;
     if (this.mode === "vault") {
@@ -294,6 +302,7 @@ class Game {
     return true; // Includes Enter: never confirm or queue runway controls.
   }
   retryLevel() {
+    if (this.replayPlayer) return;
     if (this.destroyed || this.vaultOpen || this.mode !== "vault") return;
     const previous = this.campaign.state;
     this.campaign.retryLevel();
@@ -302,11 +311,16 @@ class Game {
   menuAction(button) {
     if (
       this.destroyed ||
+      this.replayPlayer ||
       this.session.active ||
       button.disabled ||
       !button.isConnected
     )
       return;
+    if (button.hasAttribute("data-replay")) {
+      this.startReplay();
+      return;
+    }
     if (button.hasAttribute("data-audio-enter")) {
       this.enterVault();
       return;
@@ -538,10 +552,56 @@ class Game {
       if (line) this.ui.say(line);
     }
   }
+  get reducedMotion() {
+    return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
+  }
+  startReplay(automatic = false) {
+    if (this.destroyed || this.replayPlayer || this.session.state !== State.RESULTS ||
+      !this.recording.available) return;
+    this.replayPlayer = new ReplayPlayer(this.recording, {
+      automatic, reducedMotion: this.reducedMotion,
+    });
+    this.clearControls();
+    this.presentation.audio.stopAll();
+    this.ui.overlay.hidden = true;
+    this.ui.hud.hidden = true;
+    document.getElementById("replay-banner").hidden = false;
+    this.ui.say(this.session.lastScore.crashed
+      ? "JOHN: ROLL THAT BACK. THE CART WOULD LIKE A SECOND OPINION!"
+      : "JOHN: ONCE MORE FOR THE PEOPLE MEASURING THE LANDING!");
+    this.renderer.resetCamera();
+    this.lastTime = null;
+    document.getElementById("game-canvas").focus({ preventScroll: true });
+  }
+  stopReplay() {
+    if (!this.replayPlayer) return;
+    this.replayPlayer = null;
+    document.getElementById("replay-banner").hidden = true;
+    this.clearControls();
+    this.lastTime = null;
+    this.renderer.resetCamera();
+    this.renderState();
+    // Skipping updates the canvas now, without waiting for another animation frame.
+    this.renderer.draw(this.world, 0, this.presentation.effects);
+  }
   frame(time) {
     if (this.destroyed) return;
     const gap = this.lastTime === null ? 0 : Math.max(0, time - this.lastTime);
     this.lastTime = time;
+    if (this.replayPlayer) {
+      this.replayPlayer.reducedMotion = this.reducedMotion;
+      if (!this.suspended && !document.hidden && gap <= 250)
+        this.replayPlayer.advance(gap / 1000);
+      const replay = this.replayPlayer.sample();
+      const cosmetics = this.renderer.cosmetics;
+      this.renderer.cosmetics = replay.cosmetics;
+      this.renderer.draw(replay.world, Math.min(gap / 1000, 1 / 15), replay.effects);
+      this.renderer.cosmetics = cosmetics;
+      if (this.replayPlayer.done) this.stopReplay();
+      this.raf = requestAnimationFrame(this.frame);
+      return;
+    }
+    let finishedScore = null;
     const reading =
       !this.vaultOpen &&
       (this.introduction.active ||
@@ -564,6 +624,7 @@ class Game {
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
         this.world.step(this.touch.merge(this.input.consume()));
+        this.recording.observe(this.world);
         if (this.mode === "vault") this.campaign.observe(this.world);
         this.presentation.observe(this.world);
         this.accumulator -= STEP_MS;
@@ -574,6 +635,7 @@ class Game {
             this.world.metrics(),
             this.world.character,
           );
+          finishedScore = score;
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);
           this.achievements.send(
@@ -595,8 +657,6 @@ class Game {
           this.touch.sync();
           this.accumulator = 0;
           this.ui.render(this.session);
-          this.showAchievementsAfterAttempt();
-          this.presentation.state(this.session);
           break;
         }
       }
@@ -620,12 +680,25 @@ class Game {
       drawTime,
       gap,
     );
+    if ((this.session.active && !this.syncSequence) || finishedScore)
+      this.recording.capture(this.world, this.presentation.effects, this.renderer.cosmetics);
     this.renderer.draw(this.world, drawTime, this.presentation.effects);
+    if (finishedScore) {
+      if (this.recording.shouldAutoPlay(finishedScore, this.reducedMotion))
+        this.startReplay(true);
+      else {
+        this.showAchievementsAfterAttempt();
+        this.presentation.state(this.session);
+      }
+    }
     this.raf = requestAnimationFrame(this.frame);
   }
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.replayControls.destroy();
+    this.replayPlayer = null;
+    this.recording = null;
     cancelAnimationFrame(this.raf);
     this.clearSync();
     this.syncUI.destroy();

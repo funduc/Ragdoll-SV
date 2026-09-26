@@ -26,6 +26,8 @@ On touch screens, use the on-screen controls. During Santor Sync, match the disp
 
 On Vault Run results, **RETRY** or **R** starts the same level without the map or briefing. Three-heat levels restart at heat 1. A pending upgrade choice comes first; choosing or skipping it then starts your retry.
 
+Results in both modes offer **WATCH REPLAY**. Crashes and landings over 55 m replay automatically with slow motion around impact; any key or tap skips to results. Recordings stay in memory for the current attempt (up to 20 seconds). Reduced motion disables automatic playback and slow motion; manual replay remains available.
+
 ## Engineering and tests
 
 Run the dependency-free test suite with Node.js 22 or newer:

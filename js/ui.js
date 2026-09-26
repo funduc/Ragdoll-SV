@@ -41,7 +41,7 @@ export class UI {
     this.resetAttempt();
     this.onClick = (event) => {
       const menu = event.target.closest(
-        "button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
+        "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
       );
       if (menu && !menu.disabled) {
         onMenu(menu);
@@ -218,7 +218,7 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p>${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p><div class="actions">${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div></section>`;
         break;
       }
       case State.ELIMINATION:
