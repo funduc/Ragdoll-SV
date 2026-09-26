@@ -241,15 +241,7 @@ export class AttemptSkills {
   contactETA(world) {
     if (!world.launched || world.landed) return Infinity;
     const bottom = Math.max(...world.dynamic.map((body) => body.bounds.max.y));
-    // An After Hours slab raises the landing surface under its footprint.
-    const slab = world.target;
-    const surface =
-      slab &&
-      world.cart.position.x >= slab.bounds.min.x - 40 &&
-      world.cart.position.x <= slab.bounds.max.x + 40
-        ? slab.bounds.min.y
-        : world.course.groundY;
-    const height = Math.max(0, surface - bottom);
+    const height = Math.max(0, world.course.groundY - bottom);
     const velocity = world.M.Body.getVelocity(world.cart).y * 60;
     const gravity = world.engine.gravity.y * world.engine.gravity.scale * 1e6;
     return (

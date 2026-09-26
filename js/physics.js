@@ -118,30 +118,6 @@ export class PhysicsWorld {
       });
     });
     Composite.add(this.engine.world, this.runwayBumps);
-    // After Hours: an optional, real Concrete+ sponsor slab on the landing
-    // strip. It is ordinary static terrain (concrete, not a crash mat).
-    this.target = null;
-    this.targetHit = false;
-    this.landedOnTarget = false;
-    const target = this.arena.target;
-    if (target) {
-      const start = COURSE.rampEnd + target.startMetres * 40,
-        width = (target.endMetres - target.startMetres) * 40;
-      const bevel = Math.min(target.bevel || 0, width / 3);
-      const points = [
-        { x: start, y: COURSE.groundY },
-        { x: start + bevel, y: COURSE.groundY - target.height },
-        { x: start + width - 8, y: COURSE.groundY - target.height },
-        { x: start + width, y: COURSE.groundY },
-      ];
-      const centre = this.M.Vertices.centre(points);
-      this.target = Bodies.fromVertices(centre.x, centre.y, [points], {
-        ...options,
-        label: "concrete-plus",
-        friction: 0.9,
-      });
-      Composite.add(this.engine.world, this.target);
-    }
   }
   createCargo() {
     const config = this.arena.cargo;
@@ -379,14 +355,12 @@ export class PhysicsWorld {
       const body = terrain === a ? b : a;
       if (!terrain || body.isStatic) continue;
       const speed = this.preSpeeds?.get(body.id) || { x: 0, y: 0 };
-      if (terrain === this.target && body !== this.cargo) this.targetHit = true;
       if (
         this.launched &&
         !this.landed &&
-        (terrain === this.ground || (this.target && terrain === this.target)) &&
+        terrain === this.ground &&
         body !== this.cargo
       ) {
-        this.landedOnTarget = terrain === this.target;
         // collisionStart runs after integration: this step's rotation happened
         // in the air and must count even though it ends in ground contact.
         this.tricks.land(trickSample(this));

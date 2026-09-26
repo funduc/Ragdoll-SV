@@ -12,11 +12,21 @@ python3 -m http.server 8000
 
 Open `http://localhost:8000/`, then choose **Enter the Vault**. ES modules require HTTP; do not open `index.html` as a `file://` URL.
 
-Alternatively, with Node.js installed, `npm run dev` starts the included dependency-free static test server. No `npm install` is needed to play. This server also serves `/ragdoll-olympics/` for project-prefix checks. The server is a development utility only.
+Alternatively, with Node.js installed, `npm run dev` starts the included dependency-free static test server. No `npm install` is needed to play. This server also serves `/Ragdoll-SV/` and `/ragdoll-olympics/` for project-prefix checks. The server is a development utility only.
 
 ## GitHub Pages
 
 Put the project files at the root of your repository. In GitHub Pages, publish that branch and the root folder. `index.html` and every runtime asset use relative paths, including the local Matter.js build, so the game works under a project URL such as `/ragdoll-olympics/`. No build action is required. The `tests/` directory and `package.json` are optional on the published site.
+
+## Santor Sync
+
+Vault Run can roll a rare, four-lane rhythm bonus immediately after Begin jump. Match Left/A, Down/S, Up/W, Right/D to the green timing line, or use the four directional buttons. Enter cannot skip it. The arena stays visible and physics is paused. The ordinary jump begins automatically after the short result display; release rhythm keys before controlling the cart.
+
+Base appearance is 11%, with a guaranteed event after six eligible attempts without one. A level can receive it once per run, including all retries and Gauntlet heats. Party Tournament and tutorial drills are excluded. Decisions and earned grades are stored under the separate version-1 `santor-vault:sync` key. If a decision cannot be saved, the ordinary jump proceeds without Sync. Existing saves and achievements retain their formats and records.
+
+MISS has no penalty. GOOD, GREAT and PERFECT SYNC progressively improve launch speed/height; Great and Perfect also multiply style points inside the existing style cap. See [SANTOR_SYNC.md](SANTOR_SYNC.md) for every tuning value, character difference, achievement hook, test command and limitation.
+
+Developer-only test mode: add `?syncdev=1` to the URL (or `&syncdev=1` alongside existing Vault developer options). This forces the first eligible event on each level, still excludes Party/tutorials and still respects the once-per-level limit. All campaign/achievement/Sync progress in this explicit mode is memory-only. Start a new run to test another event on the same level. Removing the query restores normal saved play.
 
 ## Controls
 

@@ -61,14 +61,9 @@ test("All 34 definitions have stable IDs, supported rules and cosmetic-only rewa
   for (const a of ACHIEVEMENTS) {
     assert.ok(a.name && a.description && a.category && a.target > 0);
     if (a.reward) assert.ok(COSMETIC_REWARDS[a.reward]);
-    if (a.requires)
-      assert.equal(typeof ACHIEVEMENT_CAPABILITIES[a.requires], "boolean");
+    if (a.requires) assert.equal(ACHIEVEMENT_CAPABILITIES[a.requires], false);
   }
   assert.equal(ACHIEVEMENTS.filter((a) => a.requires).length, 6);
-  // After Hours connects three; three remain honest future mechanics.
-  const live = ["changing-conditions", "point-medals", "sponsor-target"];
-  for (const [id, on] of Object.entries(ACHIEVEMENT_CAPABILITIES))
-    assert.equal(on, live.includes(id), id);
 });
 test("v1 objective flags migrate intact; old medals import only provable achievements without fake dates", () => {
   const db = memory(),
@@ -233,7 +228,7 @@ test("Every active one-attempt achievement accepts its facts and rejects incompl
   assert.equal(record(m, "dead-centre").unlocked, false);
   assert.equal(record(m, "style-over").unlocked, false);
 });
-test("Unavailable mechanics remain locked, connected After Hours mechanics unlock, and future telemetry uses the same evaluator", () => {
+test("Unavailable mechanics remain locked; configured future telemetry can use the same evaluator", () => {
   const facts = sample({
     landed: true,
     lostComponents: 2,
@@ -257,12 +252,7 @@ test("Unavailable mechanics remain locked, connected After Hours mechanics unloc
   normal.send("attempt-ended", facts);
   future.send("attempt-ended", facts);
   for (const a of ACHIEVEMENTS.filter((a) => a.requires)) {
-    // Connected mechanics unlock in normal play; the rest stay locked.
-    assert.equal(
-      record(normal, a.id).unlocked,
-      ACHIEVEMENT_CAPABILITIES[a.requires],
-      a.id,
-    );
+    assert.equal(record(normal, a.id).unlocked, false);
     assert.equal(record(future, a.id).unlocked, true);
   }
 });

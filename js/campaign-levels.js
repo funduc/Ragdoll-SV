@@ -1,5 +1,4 @@
 import { CHAPTER_LEVELS, HARD_GAUNTLET_DATA } from "./campaign-chapter.js";
-import { AFTER_HOURS_LEVELS } from "./after-hours.js";
 // Vault Run content and rules. Ten main levels plus optional Gauntlet Overtime.
 // Coaching modifiers only add live guidance; they never change scoring or input.
 // Seeded run conditions and temporary upgrades are configured in run-config.js.
@@ -153,10 +152,7 @@ export const LEVELS = freeze([
   ...CHAPTER_LEVELS,
 ]);
 export const HARD_GAUNTLET = freeze(HARD_GAUNTLET_DATA);
-// Optional bonus chapter after the Gauntlet. Appended last so existing level
-// indices (and therefore existing seeded plans) never shift.
-export const AFTER_HOURS = freeze(AFTER_HOURS_LEVELS);
-export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET, ...AFTER_HOURS]);
+export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET]);
 export const levelById = (id) => ALL_LEVELS.find((level) => level.id === id);
 
 // Numeric conditions mean "at least"; boolean conditions require an exact match.

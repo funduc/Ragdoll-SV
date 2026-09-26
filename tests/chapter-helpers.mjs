@@ -30,21 +30,15 @@ export function chapterControls(world, level, { flip, delay, target } = {}) {
       "heavy-cart": 0.25,
     },
   };
-  // After Hours: low gravity leaves room for a Double Flip; the slab heat
-  // needs a level, fast flight; the chameleon wind is countered, not flipped.
-  const turns = condition === "low-gravity" ? 2 : 1;
   flip ??=
-    condition === "low-gravity" ||
-    (condition !== "tailwind" &&
-      (level.id === "showboating-101" ||
-        level.id === "commit-to-the-bit" ||
-        Boolean(level.stages)));
-  delay ??=
-    delays[character][condition || "standard"] ?? delays[character].standard;
+    level.id === "showboating-101" ||
+    level.id === "commit-to-the-bit" ||
+    Boolean(level.stages);
+  delay ??= delays[character][condition || "standard"] ?? 0.05;
   const spinning =
     flip &&
     world.elapsed - world.launchTime >= delay &&
-    world.cart.angle - world.launchAngle < Math.PI * 2 * turns;
+    world.cart.angle - world.launchAngle < Math.PI * 2;
   const value = spinning
     ? 1
     : -normalAngle(world.cart.angle) * 2 - world.cart.angularVelocity * 28;

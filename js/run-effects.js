@@ -28,10 +28,6 @@ export class RunEffects {
     this.stabilizerUsed = false;
     this.stabilizerUntil = 0;
     this.previousX = 0;
-    // Karma Chameleon telemetry: how many times the wind actually changed
-    // direction during this attempt's flight. Read-only for achievements.
-    this.conditionChanges = 0;
-    this.windDirection = 0;
     this.skills = this.skillConfig();
   }
   skillConfig() {
@@ -77,8 +73,6 @@ export class RunEffects {
   }
   install(world) {
     this.previousX = world.cart.position.x;
-    if (this.conditionId === "low-gravity")
-      world.engine.gravity.y *= this.condition.gravity;
     if (this.conditionId === "icy-ramp") {
       world.ground.friction = this.condition.groundFriction;
       world.ramp.friction = this.condition.rampFriction;
@@ -118,26 +112,6 @@ export class RunEffects {
           x: body.mass * this.condition.force,
           y: 0,
         });
-    }
-    if (air && this.conditionId === "tailwind") {
-      for (const body of world.dynamic)
-        Body.applyForce(body, body.position, {
-          x: body.mass * this.condition.force,
-          y: 0,
-        });
-    }
-    if (this.conditionId === "shifting-wind") {
-      const direction = this.shiftingDirection(world);
-      if (air && direction !== this.windDirection) {
-        if (this.windDirection !== 0) this.conditionChanges++;
-        this.windDirection = direction;
-      }
-      if (air) {
-        // A gust on the rider's upper body pitches the whole assembly: a
-        // forward gust pitches the nose down, a backward gust pitches it up.
-        world.cart.torque +=
-          direction * world.cart.inertia * 0.00006 * this.condition.torque;
-      }
     }
     if (air && this.conditionId === "wrate-issue") {
       const phase = world.elapsed - world.launchTime - this.condition.warning;
@@ -181,34 +155,8 @@ export class RunEffects {
       );
     }
   }
-  shiftingDirection(world) {
-    if (!world.launched || world.landed) return 0;
-    const phase = Math.floor(
-      (world.elapsed - world.launchTime) / this.condition.interval,
-    );
-    return phase % 2 === 0 ? 1 : -1;
-  }
   status(world) {
     switch (this.conditionId) {
-      case "low-gravity":
-        return "LOW-G LOADING DOCK · 40% less gravity · hang time for a Double Flip";
-      case "tailwind":
-        return world.launched && !world.landed
-          ? "LEAF-BLOWER TAILWIND → · full power"
-          : "LEAF-BLOWER TAILWIND → · pushes forward once airborne";
-      case "shifting-wind": {
-        if (!world.launched)
-          return "CHAMELEON WIND · flips every 0.45 s once airborne";
-        if (world.landed)
-          return `CHAMELEON WIND · settled after ${this.conditionChanges} direction changes`;
-        const d = this.shiftingDirection(world);
-        const next =
-          this.condition.interval -
-          ((world.elapsed - world.launchTime) % this.condition.interval);
-        return d > 0
-          ? `CHAMELEON WIND · GUST → nose down · counter LEFT / A · flips in ${next.toFixed(1)} s`
-          : `CHAMELEON WIND · GUST ← nose up · counter RIGHT / D · flips in ${next.toFixed(1)} s`;
-      }
       case "crosswind":
         return world.launched && !world.landed
           ? "CROSSWIND → · steady airborne drift"

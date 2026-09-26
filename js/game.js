@@ -29,8 +29,6 @@ import {
 } from "./achievement-ui.js";
 import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
-import { Records } from "./records.js";
-import { installAfterHoursStyles } from "./after-hours-styles.js";
 
 class Game {
   constructor() {
@@ -47,7 +45,6 @@ class Game {
       this.developerRun = { seed: 1, upgrades: {} };
     this.campaign = new Campaign(undefined, { developer: this.developerRun });
     this.syncSave = new SyncSave(this.campaign.save.storage);
-    this.records = new Records(this.campaign.save.storage);
     this.syncSequence = null;
     this.syncUI = new SyncUI((lane) => this.hitSync(lane));
     this.achievements = this.campaign.runs.manager;
@@ -64,7 +61,6 @@ class Game {
       (action) => this.practiceAction(action),
       (button) => this.menuAction(button),
     );
-    this.ui.records = this.records;
     this.renderer = new Renderer(document.getElementById("game-canvas"));
     this.world = new PhysicsWorld(CHARACTERS[0]);
     this.presentation = new Presentation(
@@ -235,7 +231,6 @@ class Game {
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
     if (previous !== this.tournament.state) this.renderState();
-    else if (this.tournament.active) this.revealArena();
   }
   enterVault() {
     if (
@@ -250,47 +245,11 @@ class Game {
     this.presentation.music.enable();
     this.ui.render(this.tournament);
   }
-  // Keep the Canvas, timing meter and touch buttons on screen during a jump.
-  // Short laptop screens and phones otherwise start an attempt with the meter
-  // (or PUSH/BRACE) below the fold. Layout-only; never touches the simulation.
-  revealArena() {
-    // Measure after the attempt's HUD, meter and touch row have been laid out.
-    if (typeof requestAnimationFrame === "function" && !this.revealFrame) {
-      this.revealFrame = requestAnimationFrame(() => {
-        this.revealFrame = null;
-        if (!this.destroyed && this.session.active) this.scrollArenaIntoView();
-      });
-    }
-  }
-  scrollArenaIntoView() {
-    const arena = document.querySelector(".arena");
-    if (!arena?.getBoundingClientRect || typeof window.scrollTo !== "function")
-      return;
-    const touch = document.getElementById("touch-controls");
-    const meter = document.getElementById("skill-hud");
-    const lowest = [meter, touch]
-      .filter((el) => el && !el.hidden && el.offsetParent !== null)
-      .reduce((n, el) => Math.max(n, el.getBoundingClientRect().bottom), 0);
-    const top = arena.getBoundingClientRect().top;
-    if (top >= 0 && lowest <= window.innerHeight) return;
-    const reduced = globalThis.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    try {
-      window.scrollTo({
-        top: Math.max(0, window.scrollY + top - 4),
-        behavior: reduced ? "auto" : "smooth",
-      });
-    } catch {
-      // Older/embedded browsers without smooth scrolling keep the old layout.
-    }
-  }
   renderState() {
     this.biographyReader.tick(null, null, 0, false);
     this.touch.sync();
     this.introduction.clear();
     this.ui.render(this.session);
-    if (this.session.active) this.revealArena();
     this.showAchievementsAfterAttempt();
     this.presentation.state(this.session);
     this.practiceMeter = null;
@@ -595,31 +554,8 @@ class Game {
             this.world.metrics(),
             this.world.character,
           );
-          this.ui.recordFlags = this.records.submit({
-            mode: this.mode,
-            characterId: this.world.character.id,
-            levelId:
-              this.mode === "vault" && !this.campaign.level?.stages
-                ? this.campaign.level?.id
-                : null,
-            score,
-            launched: this.world.launched,
-            landed: this.world.landed,
-            valid: !this.world.invalid,
-          });
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);
-          if (
-            this.mode === "vault" &&
-            this.campaign.level?.stages &&
-            this.campaign.levelFinished &&
-            !this.world.invalid
-          )
-            this.records.submitLevelTotal(
-              this.world.character.id,
-              this.campaign.level.id,
-              this.campaign.combinedScore,
-            );
           this.achievements.send(
             "attempt-ended",
             attemptAchievementFacts(
@@ -671,8 +607,6 @@ class Game {
     if (this.destroyed) return;
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
-    if (this.revealFrame) cancelAnimationFrame(this.revealFrame);
-    this.revealFrame = null;
     this.clearSync();
     this.syncUI.destroy();
     this.input.destroy();
@@ -687,7 +621,6 @@ class Game {
   }
 }
 
-installAfterHoursStyles();
 try {
   const game = new Game();
   // Preserve back/forward-cache pages; dispose only on an actual unload.
