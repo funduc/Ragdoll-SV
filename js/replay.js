@@ -43,6 +43,11 @@ export class ReplayRecording {
       hips: rider[world.rider.indexOf(world.hips)],
       cargo: world.cargo ? bodyPose(world.cargo) : null,
       cargoLost: world.cargoLost,
+      damage: {
+        lostParts: new Set(world.damage.lostParts),
+        debris: world.damage.debris.map(bodyPose),
+      },
+      crashed: world.crashed,
       attached: world.attached,
       landed: world.landed,
       distancePixels: world.distancePixels,
@@ -116,6 +121,13 @@ export class ReplayPlayer {
         head: rider[a.world.rider.indexOf(a.world.head)],
         hips: rider[a.world.rider.indexOf(a.world.hips)],
         cargo: a.world.cargo ? interpolateBody(a.world.cargo, b.world.cargo, f) : null,
+        damage: {
+          ...a.world.damage,
+          debris: a.world.damage.debris.map(body => {
+            const next = b.world.damage.debris.find(part => part.label === body.label);
+            return next ? interpolateBody(body, next, f) : body;
+          }),
+        },
       };
     }
     return {

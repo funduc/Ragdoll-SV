@@ -63,6 +63,7 @@ try {
     "js/ui.js",
     "js/renderer.js",
     "js/physics.js",
+    "js/carnage.js",
     "js/tournament.js",
     "js/scoring.js",
     "js/characters.js",

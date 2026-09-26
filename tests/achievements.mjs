@@ -61,7 +61,8 @@ test("All 34 definitions have stable IDs, supported rules and cosmetic-only rewa
   for (const a of ACHIEVEMENTS) {
     assert.ok(a.name && a.description && a.category && a.target > 0);
     if (a.reward) assert.ok(COSMETIC_REWARDS[a.reward]);
-    if (a.requires) assert.equal(ACHIEVEMENT_CAPABILITIES[a.requires], false);
+    if (a.requires)
+      assert.equal(ACHIEVEMENT_CAPABILITIES[a.requires], ["component-loss", "wheel-loss"].includes(a.requires));
   }
   assert.equal(ACHIEVEMENTS.filter((a) => a.requires).length, 6);
 });
@@ -233,6 +234,7 @@ test("Unavailable mechanics remain locked; configured future telemetry can use t
     landed: true,
     lostComponents: 2,
     lostWheels: 1,
+    landedAfterWheelLoss: true,
     medalPointGap: 1,
     conditionChanges: 1,
     levelCompleted: true,
@@ -252,7 +254,7 @@ test("Unavailable mechanics remain locked; configured future telemetry can use t
   normal.send("attempt-ended", facts);
   future.send("attempt-ended", facts);
   for (const a of ACHIEVEMENTS.filter((a) => a.requires)) {
-    assert.equal(record(normal, a.id).unlocked, false);
+    assert.equal(record(normal, a.id).unlocked, ACHIEVEMENT_CAPABILITIES[a.requires]);
     assert.equal(record(future, a.id).unlocked, true);
   }
 });

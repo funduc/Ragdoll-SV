@@ -631,10 +631,10 @@ class Game {
         steps++;
         this.ui.observeAttempt(this.world, this.session);
         if (this.world.finished) {
-          const score = scoreAttempt(
-            this.world.metrics(),
-            this.world.character,
-          );
+          const score = Object.freeze({
+            ...scoreAttempt(this.world.metrics(), this.world.character),
+            carnage: this.world.damage.summary(),
+          });
           finishedScore = score;
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);

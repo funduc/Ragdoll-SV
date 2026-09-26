@@ -6,6 +6,7 @@ import { SKILL_CONFIG } from "./skill-config.js";
 import { TrickTracker, trickSample } from "./tricks.js";
 import { trickRotationScale } from "./trick-config.js";
 import { RunEffects } from "./run-effects.js";
+import { CrashDamage } from "./carnage.js";
 export const COURSE = Object.freeze({
   groundY: 520,
   rampStart: 730,
@@ -73,6 +74,7 @@ export class PhysicsWorld {
     this.tricks = new TrickTracker(this.character);
     this.createCourse();
     this.createVehicle();
+    this.damage = new CrashDamage(this);
     this.createCargo();
     this.runEffects?.install(this);
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
@@ -337,6 +339,7 @@ export class PhysicsWorld {
     this.attached = false;
     this.M.Composite.remove(this.engine.world, this.harness);
     this.events.push("detach");
+    this.damage.ejectionPending = true;
   }
   crash(severe = false, classification = null) {
     if (!this.crashed) {
@@ -355,11 +358,12 @@ export class PhysicsWorld {
       const body = terrain === a ? b : a;
       if (!terrain || body.isStatic) continue;
       const speed = this.preSpeeds?.get(body.id) || { x: 0, y: 0 };
+      this.damage.contact(body, terrain, speed);
       if (
         this.launched &&
         !this.landed &&
         terrain === this.ground &&
-        body !== this.cargo
+        (body === this.cart || this.wheels.includes(body) || this.rider.includes(body))
       ) {
         // collisionStart runs after integration: this step's rotation happened
         // in the air and must count even though it ends in ground contact.
@@ -444,6 +448,7 @@ export class PhysicsWorld {
       this.stopInvalid(safeMetrics);
       return;
     }
+    this.damage.afterStep(STEP_MS / 1000);
     this.updateCargo();
     // Follow-through can cross the runway cap between explicit impulses.
     // Record the fact without clamping or otherwise changing existing motion.

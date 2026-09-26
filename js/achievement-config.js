@@ -16,8 +16,8 @@ export const ACHIEVEMENT_RULES = freeze({
   crashClasses: ["overturned", "head-impact", "torso-impact"],
 });
 export const ACHIEVEMENT_CAPABILITIES = freeze({
-  "component-loss": false,
-  "wheel-loss": false,
+  "component-loss": true,
+  "wheel-loss": true,
   "changing-conditions": false,
   "objective-points": false,
   "point-medals": false,
@@ -238,11 +238,10 @@ export const ACHIEVEMENTS = freeze([
     "theseus",
     "Cart of Theseus",
     "General",
-    "Finish after losing at least two cosmetic or nonessential cart components.",
+    "Finish after losing at least two cart parts.",
     [["lostComponents", "gte", 2]],
     {
       requires: "component-loss",
-      unavailable: "Cart component loss is not implemented yet.",
     },
   ),
   attempt(
@@ -449,15 +448,15 @@ export const ACHIEVEMENTS = freeze([
     "wheel",
     "The Wheel Was Never Essential",
     "Hidden",
-    "Land after losing a wheel, when wheel loss is available.",
+    "Touch down after a wheel snaps off in a crash.",
     [
       ["lostWheels", "gte", 1],
       ["landed", "eq", true],
+      ["landedAfterWheelLoss", "eq", true],
     ],
     {
       hidden: true,
       requires: "wheel-loss",
-      unavailable: "Wheel loss is not implemented yet.",
     },
   ),
   attempt(

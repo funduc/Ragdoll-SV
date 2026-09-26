@@ -111,6 +111,7 @@ const booleanFields = [
   "valid",
   "launched",
   "landed",
+  "landedAfterWheelLoss",
   "severeCrash",
   "objectivePassed",
   "levelCompleted",

@@ -63,9 +63,10 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     mechanicalFailure: world.runEffects?.mechanicalFailureOccurred === true,
     mechanicalRecovered: Boolean(pulseFinished && successfulLanding),
     runwayCapReached: world.skills.runwayCapReached === true,
-    // Reserved telemetry. No component/sponsor/condition-change mechanic is faked.
-    lostComponents: 0,
-    lostWheels: 0,
+    lostComponents: world.damage.lostParts.size,
+    lostWheels: world.damage.lostWheels.size,
+    landedAfterWheelLoss: world.damage.landedAfterWheelLoss,
+    // Reserved telemetry for mechanics that are still unavailable.
     conditionChanges: 0,
     medalPointGap: null,
     sponsorHit: null,

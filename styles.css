@@ -1076,3 +1076,20 @@ kbd {
   color: #eef6fa;
   font-size: 11px;
 }
+.carnage-card {
+  margin: 16px 0;
+  padding: 14px;
+  border: 2px solid #ff852b;
+  background: #211810;
+  color: #ffe1ad;
+}
+.carnage-card > strong {
+  display: block;
+  font: 900 30px "Courier New", monospace;
+  color: #ffb24a;
+}
+.carnage-card > span,
+.carnage-card h3 {
+  font: bold 14px "Courier New", monospace;
+  letter-spacing: 2px;
+}

@@ -12,6 +12,7 @@ import {
   portrait,
   unavailablePortraits,
   scoreDetails,
+  crashOfNightMarkup,
 } from "./ui-content.js";
 import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
 const button = (label) =>
@@ -231,7 +232,7 @@ export class UI {
         break;
       case State.FINAL: {
         const tie = t.winners.length > 1;
-        html = `<section class="menu-panel championship-panel winner-panel"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">THE SANTOR VAULT / FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${escape(t.winners[0].name.toUpperCase())} WINS!`}</h2><p>${tie ? t.winners.map((c) => escape(c.fullName)).join(" & ") : escape(t.winners[0].fullName)}${tie ? " finish level on points." : " takes the championship."}</p>${this.table(t.finalists, t.championship)}<p class="tiny">Eliminated in qualifying: ${escape(t.eliminated.fullName)} · ${t.qualifying[t.eliminated.id].total} points.</p>${button("Restart tournament")}</section>`;
+        html = `<section class="menu-panel championship-panel winner-panel"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">THE SANTOR VAULT / FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${escape(t.winners[0].name.toUpperCase())} WINS!`}</h2><p>${tie ? t.winners.map((c) => escape(c.fullName)).join(" & ") : escape(t.winners[0].fullName)}${tie ? " finish level on points." : " takes the championship."}</p>${this.table(t.finalists, t.championship)}<p class="tiny">Eliminated in qualifying: ${escape(t.eliminated.fullName)} · ${t.qualifying[t.eliminated.id].total} points.</p>${crashOfNightMarkup(t.crashOfNight)}${button("Restart tournament")}</section>`;
         this.caption(tie ? "tie" : "victory", t.winners[0], t.round);
         break;
       }
