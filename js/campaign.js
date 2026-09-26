@@ -25,10 +25,10 @@ const allowed = {
   [S.MAP]: [S.SELECT, S.READY, S.RESET, S.NEW_RUN],
   [S.RESET]: [S.MAP],
   [S.NEW_RUN]: [S.MAP],
-  [S.UPGRADES]: [S.MAP],
+  [S.UPGRADES]: [S.MAP, S.RESULTS],
   [S.READY]: [S.ACTIVE, S.MAP],
   [S.ACTIVE]: [S.RESULTS, S.READY],
-  [S.RESULTS]: [S.MAP, S.UPGRADES, S.READY],
+  [S.RESULTS]: [S.MAP, S.UPGRADES, S.READY, S.ACTIVE],
 };
 export function campaignFacts(score, world, reachedRamp) {
   const zone = evaluateObjective("landing-zone", score, world);
@@ -98,6 +98,7 @@ export class Campaign {
     this.level = null;
     this.stageIndex = 0;
     this.heats = [];
+    this.retryAfterReward = false;
     this.resetAttemptData();
   }
   get active() {
@@ -210,12 +211,32 @@ export class Campaign {
   }
   chooseUpgrade(id) {
     if (this.state !== S.UPGRADES || !this.runs.choose(id)) return false;
-    this.transition(S.MAP);
+    this.finishReward();
     return true;
   }
   skipUpgrade() {
     if (this.state !== S.UPGRADES || !this.runs.skipOffer()) return false;
-    this.transition(S.MAP);
+    this.finishReward();
+    return true;
+  }
+  finishReward() {
+    if (this.retryAfterReward) {
+      this.retryAfterReward = false;
+      this.transition(S.RESULTS);
+      this.retryLevel();
+    } else this.transition(S.MAP);
+  }
+  retryLevel() {
+    if (this.state !== S.RESULTS) return false;
+    if (this.runs.run?.pendingLevel) {
+      this.retryAfterReward = true;
+      this.transition(S.UPGRADES);
+      return true;
+    }
+    this.stageIndex = 0;
+    this.heats = [];
+    this.resetAttemptData();
+    this.transition(S.ACTIVE);
     return true;
   }
   get attemptSpec() {

@@ -20,9 +20,11 @@ Open http://127.0.0.1:8000/ and choose **Enter the Vault**. No dependency instal
 | Left / A, Right / D | Rotate in the air |
 | Down / S | Brace once, just before landing |
 | Enter | Continue an introduction or confirm a menu |
-| R | Restart before takeoff |
+| R | Restart before takeoff; instantly retry from Vault Run results |
 
 On touch screens, use the on-screen controls. During Santor Sync, match the displayed arrow notes. Losing focus pauses play; release and press the controls again when returning. The Instructions screen includes optional practice drills.
+
+On Vault Run results, **RETRY** or **R** starts the same level without the map or briefing. Three-heat levels restart at heat 1. A pending upgrade choice comes first; choosing or skipping it then starts your retry.
 
 ## Engineering and tests
 

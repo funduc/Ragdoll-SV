@@ -86,18 +86,7 @@ class Game {
         if (pressed) this.touch.press(button, `key:${code}`);
         else this.touch.release(`key:${code}`);
       },
-      onExclusiveKey: (event) => {
-        if (!this.syncSequence) return false;
-        if (event.code === "KeyR" && !this.suspended) this.restartAttempt();
-        else if (Object.hasOwn(SYNC_KEYS, event.code))
-          this.hitSync(SYNC_KEYS[event.code]);
-        else if (
-          event.code === "Space" &&
-          event.target?.dataset?.syncLane !== undefined
-        )
-          this.hitSync(Number(event.target.dataset.syncLane));
-        return true; // Includes Enter: never confirm or queue runway controls.
-      },
+      onExclusiveKey: (event) => this.exclusiveKey(event),
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
           "button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
@@ -284,6 +273,32 @@ class Game {
     this.replaceWorld(this.session.current);
     this.renderState();
   }
+  exclusiveKey(event) {
+    if (
+      event.code === "KeyR" &&
+      this.mode === "vault" &&
+      this.campaign.state === State.RESULTS
+    ) {
+      this.retryLevel();
+      return true;
+    }
+    if (!this.syncSequence) return false;
+    if (event.code === "KeyR" && !this.suspended) this.restartAttempt();
+    else if (Object.hasOwn(SYNC_KEYS, event.code))
+      this.hitSync(SYNC_KEYS[event.code]);
+    else if (
+      event.code === "Space" &&
+      event.target?.dataset?.syncLane !== undefined
+    )
+      this.hitSync(Number(event.target.dataset.syncLane));
+    return true; // Includes Enter: never confirm or queue runway controls.
+  }
+  retryLevel() {
+    if (this.destroyed || this.vaultOpen || this.mode !== "vault") return;
+    const previous = this.campaign.state;
+    this.campaign.retryLevel();
+    this.finishCampaignTransition(previous);
+  }
   menuAction(button) {
     if (
       this.destroyed ||
@@ -327,6 +342,9 @@ class Game {
         break;
       case "confirm":
         this.confirm();
+        return;
+      case "retry":
+        this.retryLevel();
         return;
       case "characters":
         this.campaign.changeCharacter();
@@ -373,11 +391,13 @@ class Game {
     this.presentation.audio.play("click");
     this.clearControls();
     if (
+      (this.campaign.active && previous !== State.READY) ||
       [State.READY, CampaignState.MAP, CampaignState.SELECT].includes(
         this.campaign.state,
       )
     )
       this.replaceWorld(this.campaign.current || CHARACTERS[0]);
+    if (this.campaign.active && previous !== State.READY) this.ui.resetAttempt();
     if (this.campaign.active) {
       this.lastTime = null;
       this.accumulator = 0;
