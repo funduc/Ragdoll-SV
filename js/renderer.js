@@ -65,8 +65,9 @@ export class Renderer {
     const scale = Math.min(w / (w < 600 ? 800 : 1200), h / visibleHeight),
       viewW = w / scale,
       viewH = h / scale;
+    // The left edge stops just behind the run-up start, as it always has.
     const targetX = world
-      ? Math.max(0, world.cart.position.x - viewW * 0.32)
+      ? Math.max(COURSE.startX - 210, world.cart.position.x - viewW * 0.32)
       : 0;
     const targetY = COURSE.groundY + 90 - viewH;
     const factor = this.snap ? 1 : 1 - Math.exp(-dt * 9);
@@ -181,7 +182,13 @@ export class Renderer {
       "#ffac6f",
       "center",
     );
-    this.label("RUN-UP  →", 275, COURSE.groundY + 34, 12, "#91a9b6");
+    this.label(
+      "RUN-UP  →",
+      COURSE.startX + 65,
+      COURSE.groundY + 34,
+      12,
+      "#91a9b6",
+    );
     if (world) {
       if (world.landed) {
         const x = COURSE.rampEnd + world.distancePixels;

@@ -22,7 +22,8 @@ import {
   upgradeChoices,
   updateRunStatus,
 } from "./run-ui.js";
-import { CONDITIONS, OBJECTIVE_IDS } from "./run-config.js";
+import { CONDITIONS, OBJECTIVES, OBJECTIVE_IDS } from "./run-config.js";
+import { CONCRETE_SLAB } from "./after-hours.js";
 import { TRICK_CONFIG } from "./trick-config.js";
 
 const action = (label, name, value = "", secondary = false, disabled = false) =>
@@ -277,8 +278,7 @@ export function updateCampaignCoach(world, run) {
         : `CARGO SECURED · ${world.cargoStrainTime > 0 ? "CORD STRAINING — return toward level!" : "Stay near level, then brace. Gold needs a Clean landing."}`;
       break;
     case "wind":
-      text =
-        "CROSSWIND → · aim for the green 30–45 m zone. Gold needs the rider attached. Try Good takeoff if you overshoot.";
+      text = `CROSSWIND → · aim for the green ${OBJECTIVES["landing-zone"].minimum}–${OBJECTIVES["landing-zone"].maximum} m zone. Gold needs the rider attached. Try Good takeoff if you overshoot.`;
       break;
     case "runway":
       text = `${skills.pushCounts.Miss} Misses · ${skills.pushCounts.Good + skills.pushCounts.Perfect} Good-or-better pushes · Use the rhythm meter over the marked concrete repairs.`;
@@ -302,11 +302,11 @@ export function updateCampaignCoach(world, run) {
     }
     case "slab":
       text = !world.launched
-        ? "Perfect pushes, Perfect takeoff. The slab starts at 49 m."
+        ? `Perfect pushes, Perfect takeoff. The slab starts at ${CONCRETE_SLAB.startMetres} m.`
         : world.landed
           ? world.landedOnTarget
             ? "ON THE SLAB. Softness not included."
-            : `First contact at ${(world.distancePixels / 40).toFixed(1)} m · the slab is 49–56 m.`
+            : `First contact at ${(world.distancePixels / 40).toFixed(1)} m · the slab is ${CONCRETE_SLAB.startMetres}–${CONCRETE_SLAB.endMetres} m.`
           : `${(world.distancePixels / 40).toFixed(1)} m · stay level; the tailwind does the rest.`;
       break;
     case "chameleon": {

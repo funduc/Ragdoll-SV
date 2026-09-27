@@ -11,7 +11,7 @@ export const COURSE = Object.freeze({
   rampStart: 730,
   rampEnd: 1080,
   rampTop: 330,
-  startX: 210,
+  startX: -3000, // long run-up: about six on-beat pushes before the ramp
   endX: 10500,
 });
 export const STEP_MS = 1000 / 120;
@@ -86,7 +86,15 @@ export class PhysicsWorld {
       restitution: 0.03,
       label: "ground",
     };
-    this.ground = Bodies.rectangle(5000, 600, 12000, 160, options);
+    // The ground and back wall sit a fixed distance behind the run-up start.
+    const groundLeft = COURSE.startX - 1210;
+    this.ground = Bodies.rectangle(
+      (groundLeft + 11000) / 2,
+      600,
+      11000 - groundLeft,
+      160,
+      options,
+    );
     const points = [
       { x: COURSE.rampStart, y: COURSE.groundY },
       { x: COURSE.rampEnd, y: COURSE.rampTop },
@@ -101,7 +109,7 @@ export class PhysicsWorld {
       label: "ramp",
       friction: 0.65,
     });
-    this.wall = Bodies.rectangle(-100, 200, 80, 900, {
+    this.wall = Bodies.rectangle(COURSE.startX - 310, 200, 80, 900, {
       ...options,
       label: "wall",
     });
@@ -471,6 +479,16 @@ export class PhysicsWorld {
       return;
     }
     this.updateCargo();
+    // Settle the cart's spin on the ramp (takeoff.rampSettle): no wheelie.
+    if (
+      !this.launched &&
+      this.cart.position.x >= COURSE.rampStart &&
+      this.cart.position.x < COURSE.rampEnd
+    )
+      Body.setAngularVelocity(
+        this.cart,
+        this.cart.angularVelocity * this.skills.config.takeoff.rampSettle,
+      );
     // Follow-through can cross the runway cap between explicit impulses.
     // Record the fact without clamping or otherwise changing existing motion.
     if (

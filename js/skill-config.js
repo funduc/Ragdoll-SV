@@ -6,21 +6,25 @@ export const SKILL_CONFIG = Object.freeze({
     period: 0.72,
     perfectHalfWidth: 0.12, // normalized meter distance from the centre (0.5)
     goodHalfWidth: 0.3,
-    minimumInterval: 0.24, // faster presses count as Miss, not extra good pushes
-    starterSpeed: 4.5, // one explicit first-push kick helps new players get moving
-    perfectSpeed: 3.8,
-    goodSpeed: 2.6,
-    missSpeed: 1.2,
+    // Over half a beat: tapping twice per beat counts as Miss, never extra speed.
+    minimumInterval: 0.4,
+    starterSpeed: 3.0, // one explicit first-push kick helps new players get moving
+    perfectSpeed: 1.0,
+    goodSpeed: 0.7,
+    missSpeed: 0.3,
     spamSpeed: 0.08, // awarded at most once per minimumInterval
-    maximumSpeed: 15.5,
+    // About six on-beat Perfect pushes reach the cap; Good pushes fall short.
+    maximumSpeed: 25.5,
     accelerationReference: 0.0029,
     missWobble: 0.014, // angular-velocity impulse, alternating deterministically
     maximumWobble: 0.045,
     perfectDamping: 0.65,
-    perfectFollowThrough: 0.58, // finite propulsion after the tap, never a held key
-    goodFollowThrough: 0.46,
-    missFollowThrough: 0.22,
-    followThroughScale: 0.95, // multiplier on the character's existing acceleration
+    // Finite propulsion after the tap, never a held key. A Perfect push drives
+    // for the whole beat; a Miss (or spam) cuts the drive short.
+    perfectFollowThrough: 0.8,
+    goodFollowThrough: 0.52,
+    missFollowThrough: 0.1,
+    followThroughScale: 0.47, // multiplier on the character's existing acceleration
   }),
   takeoff: Object.freeze({
     armedX: 860, // first push after this line commits the one launch opportunity
@@ -32,11 +36,15 @@ export const SKILL_CONFIG = Object.freeze({
     baseSpeed: 1.5,
     perfectBonus: 6.0,
     goodBonus: 3.0,
-    maximumSpeed: 29,
+    maximumSpeed: 36,
     perfectDamping: 0.25,
     goodDamping: 0.65,
     lateRotation: 0.035, // clockwise / forward; also applies if the zone is missed
     followThrough: 0.5, // finish the committed push up the last part of the ramp
+    followThroughScale: 0.95, // stronger than a rhythm push's follow-through
+    // Per-step cart spin damping while on the ramp. At full run-up speed the
+    // kink at the ramp foot would otherwise flip the cart into a wheelie.
+    rampSettle: 0.75,
   }),
   brace: Object.freeze({
     perfectMin: 0.09,

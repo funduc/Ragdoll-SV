@@ -43,31 +43,32 @@ The instructions screen contains three short, optional interactive drills. Tap t
 
 All tuning lives in the documented, frozen **`SKILL_CONFIG`** in `js/skill-config.js`. Time is simulation seconds; positions are world pixels. Speed increments are Matter units (pixels per 1/60-second frame), not metres per second. There is no random acceleration.
 
-| Setting                                       | Current value                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| Rhythm period                                 | 720 ms                                                             |
-| Perfect / Good timing                         | Within ±12% / ±30% of the meter centre (±86.4 / ±216 ms)           |
-| Minimum intentional push interval             | 240 ms; faster pushes count as Miss                                |
-| Perfect / Good / Miss / spam speed increments | 3.8 / 2.6 / 1.2 / 0.08, scaled by character acceleration           |
-| One-time first-push kick; run-up speed cap    | 4.5; 15.5                                                          |
-| Perfect / Good / Miss follow-through          | 580 / 460 / 220 ms at 0.95 × character acceleration; spam has none |
-| Miss wobble; maximum wobble impulse result    | ±0.014 angular velocity; capped at ±0.045                          |
-| Perfect push angular damping                  | ×0.65                                                              |
-| Takeoff arms / Good zone / Perfect zone       | x=860 / x=940–1090 / x=980–1060; ramp edge x=1080                  |
-| Takeoff speed increment                       | Base 1.5; Perfect adds 6, Good adds 3; capped at 29                |
-| Perfect / Good takeoff angular damping        | ×0.25 / ×0.65                                                      |
-| Late takeoff forward rotation                 | +0.035 angular velocity                                            |
-| Takeoff follow-through                        | 500 ms                                                             |
-| Perfect Brace lead time                       | 90–220 ms before contact                                           |
-| Good Brace lead time                          | 35–400 ms before contact, outside the Perfect window               |
-| Perfect / Good impact tolerance               | ×1.40 / ×1.18                                                      |
-| Early / Late / Unbraced tolerance             | ×1.00; Early leaves 38% of manual air control after 400 ms         |
-| Practice sweep (takeoff / brace)              | 2 seconds                                                          |
-| Takeoff meter extension                       | 40 pixels beyond the Good zone                                     |
-| Landing meter horizon; feedback duration      | 850 ms; 850 ms                                                     |
-| Maximum queued push events per physics step   | 4 (multiple queued presses are spam in the rhythm phase)           |
+| Setting                                       | Current value                                                                            |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Rhythm period                                 | 720 ms                                                                                   |
+| Perfect / Good timing                         | Within ±12% / ±30% of the meter centre (±86.4 / ±216 ms)                                 |
+| Minimum intentional push interval             | 400 ms; faster pushes count as Miss, so tapping twice per beat never helps               |
+| Perfect / Good / Miss / spam speed increments | 1.0 / 0.7 / 0.3 / 0.08, scaled by character acceleration                                 |
+| One-time first-push kick; run-up speed cap    | 3.0; 25.5 (about six on-beat Perfect pushes)                                             |
+| Perfect / Good / Miss follow-through          | 800 / 520 / 100 ms at 0.47 × character acceleration, up to the run-up cap; spam has none |
+| Miss wobble; maximum wobble impulse result    | ±0.014 angular velocity; capped at ±0.045                                                |
+| Perfect push angular damping                  | ×0.65                                                                                    |
+| Takeoff arms / Good zone / Perfect zone       | x=860 / x=940–1090 / x=980–1060; ramp edge x=1080                                        |
+| Takeoff speed increment                       | Base 1.5; Perfect adds 6, Good adds 3; capped at 36                                      |
+| Perfect / Good takeoff angular damping        | ×0.25 / ×0.65                                                                            |
+| Late takeoff forward rotation                 | +0.035 angular velocity                                                                  |
+| Takeoff follow-through                        | 500 ms at 0.95 × character acceleration, up to the takeoff cap                           |
+| Run-up start; ramp spin damping               | x=−3000 (the ramp starts at x=730); cart spin ×0.75 per physics step on the ramp         |
+| Perfect Brace lead time                       | 90–220 ms before contact                                                                 |
+| Good Brace lead time                          | 35–400 ms before contact, outside the Perfect window                                     |
+| Perfect / Good impact tolerance               | ×1.40 / ×1.18                                                                            |
+| Early / Late / Unbraced tolerance             | ×1.00; Early leaves 38% of manual air control after 400 ms                               |
+| Practice sweep (takeoff / brace)              | 2 seconds                                                                                |
+| Takeoff meter extension                       | 40 pixels beyond the Good zone                                                           |
+| Landing meter horizon; feedback duration      | 850 ms; 850 ms                                                                           |
+| Maximum queued push events per physics step   | 4 (multiple queued presses are spam in the rhythm phase)                                 |
 
-The run-up force is applied only within a tap's finite follow-through window. Its duration uses the fixed physics clock. Launch impulse moves the joined cart/rider assembly together to avoid stretching the joints. Existing character passives and all terrain, body, joint, collision, and end-of-attempt settings are retained except the explicit brace tolerance and input-driven impulses described above.
+The run-up is long: a good one takes about six on-beat pushes (roughly 4 seconds). Only Perfect pushes reach the speed cap, Good pushes top out lower, and a Miss cuts the drive. Typical first-contact distances: sloppy play 20–30 m, solid play 40–50 m, excellent play 60–70 m. The run-up force is applied only within a tap's finite follow-through window. Its duration uses the fixed physics clock. Launch impulse moves the joined cart/rider assembly together to avoid stretching the joints. Existing character passives and all terrain, body, joint, collision, and end-of-attempt settings are retained except the explicit brace tolerance, the ramp spin damping and input-driven impulses described above.
 
 ## Tricks and combinations
 
@@ -133,12 +134,12 @@ The first campaign contains **ten levels**, ending in a three-heat finale. Clear
 | 2. Wheels Down | Brace / original seeded lesson plan | Perfect Brace and Clean landing |
 | 3. Commit to the Bit | Tricks / original seeded lesson plan | Two unique tricks and successful landing |
 | 4. Showboating 101 | Variety and combos / Standard | Three unique tricks and successful landing |
-| 5. Cross Examination | Target control / Crosswind | First contact in 30–45 m zone; rider attached at finish |
+| 5. Cross Examination | Target control / Crosswind | First contact in 49–64 m zone; rider attached at finish |
 | 6. Fragile Cargo | Physical boxed mug / Standard | Clean landing with cargo secured |
 | 7. The Mapleton Run | Three visible runway repairs / Standard | Two Good-or-better pushes, no Misses, successful landing |
 | 8. Ice Cream Weather | Sliding and bracing / Icy Ramp | Perfect Brace and Clean landing |
 | 9. Siemens Certified | Speed and recovery / Wrate Issue | Maximum runway speed; recover and land attached |
-| 10. The Santor Gauntlet | Boost Strip → Icy Ramp → Wrate Issue | 2,400 combined points; three successful landings, two Good-or-better Braces, two unique tricks across heats |
+| 10. The Santor Gauntlet | Boost Strip → Icy Ramp → Wrate Issue | 3,000 combined points; three successful landings, two Good-or-better Braces, two unique tricks across heats |
 
 The **24-minute planning budget includes reading, practice and retries**. No forced waits were added. Automated attempts do not validate a human 20–30-minute playthrough; that pacing target remains a playtest question.
 
@@ -150,7 +151,7 @@ Perfect pushes count toward “Good-or-better.” A successful landing means **C
 
 **Mapleton:** three outlined triangular repairs at x=380/530/665, widths 100/110/90 and heights 5/7/5 world pixels. They are real static collision bodies. Neither cargo nor repairs are created in Party Tournament.
 
-**Gauntlets:** each heat uses the existing Ready → Attempt → Results flow with a fresh world. Enter must be released between Results, Ready, and Begin. The combined total is the exact sum of the three existing scores, with a component ledger; unique tricks are a union across heats. No medal, completion, reward, or Overtime unlock is granted before heat three. A prelaunch restart repeats only the current heat; returning to the map or refreshing discards the unfinished sequence. Saved best medals remain. Overtime raises landing/style/score requirements and begins with Heavy Cart instead of Boost Strip. Its optional Santor requirement is 3,900 points, three Clean landings, three Perfect takeoffs, and three Perfect Braces.
+**Gauntlets:** each heat uses the existing Ready → Attempt → Results flow with a fresh world. Enter must be released between Results, Ready, and Begin. The combined total is the exact sum of the three existing scores, with a component ledger; unique tricks are a union across heats. No medal, completion, reward, or Overtime unlock is granted before heat three. A prelaunch restart repeats only the current heat; returning to the map or refreshing discards the unfinished sequence. Saved best medals remain. Overtime raises landing/style/score requirements and begins with Heavy Cart instead of Boost Strip. Its optional Santor requirement is 4,600 points, three Clean landings, three Perfect takeoffs, and three Perfect Braces.
 
 Rules use finished-attempt facts. Numeric conditions mean “at least”; booleans require an exact match. `Campaign` owns its own guarded transitions, selected character, level, attempt-local ramp observation, and last result. It uses the same fixed-step world, keyboard/touch owners, scoring, and result markup as Party Tournament. Campaign upgrades supply attempt-local tuning copies; the original Party tuning, tournament, trick recognizer, and scoring formula are preserved.
 
@@ -174,12 +175,12 @@ Optional objectives do not block medals or level unlocks. Results show **SUCCESS
 
 | Objective ID       | Exact completion rule                                                                                           |
 | ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `distance-35`      | Finished launched attempt with at least 35.0 scored metres.                                                     |
+| `distance-35`      | Finished launched attempt with at least 50.0 scored metres.                                                     |
 | `front-flip`       | At least one recognized, scored Front Flip.                                                                     |
 | `two-tricks`       | At least two different recognized tricks.                                                                       |
 | `attached-landing` | Take off, land, and finish with the rider attached; a crash may count.                                          |
 | `perfect-brace`    | Completed jump with exactly Perfect Brace.                                                                      |
-| `landing-zone`     | First ground contact in the visibly marked 30–45 m zone; measured before display rounding.                      |
+| `landing-zone`     | First ground contact in the visibly marked 49–64 m zone; measured before display rounding.                      |
 | `style-factor`     | A scored trick and final character × landing factor strictly above ×1.50. Per-trick combo factors are separate. |
 | `no-miss`          | Completed jump with at least one Good/Perfect rhythm push and zero Missed rhythm pushes.                        |
 
@@ -225,13 +226,13 @@ Achievements are shared by this browser/origin. General flight/skill achievement
 Specific criteria resolve existing game terminology as follows:
 
 - **Do a Barrel Roll:** at least one completed rotation and a landing; crash landings count. Oscillations/partial spins still do not count.
-- **Dead Centre:** first-contact distance is within 0.5 m of the centre of the active marked landing-zone objective (37.5 m for the current 30–45 m zone). Ordinary jumps with no target cannot unlock it.
+- **Dead Centre:** first-contact distance is within 0.5 m of the centre of the active marked landing-zone objective (56.5 m for the current 49–64 m zone). Ordinary jumps with no target cannot unlock it.
 - **Against All Coordination:** Brandon lands **Clean** with Perfect Brace and no recorded crash.
 - **A Tragedy in Three Acts:** Brandon records each of three first-crash causes across attempts: overturned, head impact, torso impact. Later contacts in one crash cannot count as additional acts.
 - **No Visible Reaction:** Jake passes the active optional objective after a crash that triggered the physics engine's severe-impact rule.
 - **Wrate Issues:** Owen earns a campaign medal with the Wrate Issue condition after its pulse actually occurred.
 - **I Can Fix That:** Owen's Wrate Issue pulse finishes before contact, followed by a Clean/Scrappy landing without a crash.
-- **Siemens Certified:** Owen reaches the configured rhythm-push cap (currently 15.5 Matter speed units) before the takeoff zone. Both explicit pushes and follow-through are observed; motion is unchanged.
+- **Siemens Certified:** Owen reaches the configured rhythm-push cap (currently 25.5 Matter speed units) before the takeoff zone. Both explicit pushes and follow-through are observed; motion is unchanged.
 - **Vault Graduate / Three Different Liabilities / John’s Favourite:** respectively all ten main levels with one character, all three characters, and Gold on every main level with one character. Permanent medal records supply these facts.
 - **Cone of Composure / Shift Supervisor:** earn Gold in Ice Cream Weather as Jake / Siemens Certified as Owen. These optional achievements do not restrict level access.
 - **Factory Settings:** all ten main levels cleared in one temporary run, with zero selected upgrades. Decline all six reward offers. Old medals alone do not prove this achievement.
@@ -334,7 +335,7 @@ See `PORTRAITS.md` for preparation details, source sizes, tests, and limitations
 | Component | Rule                                                                                                                                                                                                                                                                   |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Distance  | Cart-centre distance from the ramp edge at the first post-launch ground collision of cart or rider. 40 world pixels = 1 metre. Truncate metres to one decimal, then award 10 points per metre. Rolling after contact adds nothing.                                     |
-| Landing   | Clean: 150; scrappy: 75; rough or crash: 0. Clean requires impact tilt ≤ `0.42 × stability` radians and vertical speed < `12 × stability × braceTolerance` Matter units. Scrappy requires tilt ≤ `0.9 × stability` radians. Any recorded crash removes landing points. |
+| Landing   | Clean: 150; scrappy: 75; rough or crash: 0. Clean requires impact tilt ≤ `0.42 × stability` radians and vertical speed < `14 × stability × braceTolerance` Matter units. Scrappy requires tilt ≤ `0.9 × stability` radians. Any recorded crash removes landing points. |
 | Style     | Recognized trick occurrences, discounted for repeats and multiplied by the unique-trick combo at each occurrence; the subtotal then receives the character style multiplier and landing multiplier. Rounded and capped at 5000. See the trick rules below.             |
 | Attached  | 100 if the rider remains attached at the end of a launched attempt with a recorded landing, including an attached crash. Otherwise 0.                                                                                                                                  |
 

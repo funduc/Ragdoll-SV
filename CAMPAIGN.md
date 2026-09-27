@@ -108,7 +108,7 @@ Turn one stunt into a routine. A flip, recovered No Hands and a late recovery ca
 
 ## 5. CROSS EXAMINATION
 
-The arrow tells the truth: a steady crosswind pushes right throughout flight. Choose your launch speed for the marked 30–45 m target.
+The arrow tells the truth: a steady crosswind pushes right throughout flight. Choose your launch speed for the marked 49–64 m target.
 
 **Objective:** Land inside the green target zone with the rider still attached. A Good takeoff can help avoid overshooting.
 
@@ -117,7 +117,7 @@ The arrow tells the truth: a steady crosswind pushes right throughout flight. Ch
 | Medal | Requirement |
 | --- | --- |
 | Bronze | Take off and complete a landing. |
-| Silver | Land inside the 30–45 m target zone. |
+| Silver | Land inside the 49–64 m target zone. |
 | Gold | Hit the target zone with the rider attached at finish. |
 | Santor (optional) | Hit the target with a Clean landing and Perfect Brace. |
 
@@ -241,10 +241,10 @@ Three short jumps. Three announced conditions. Each result is banked; all three 
 
 | Medal | Requirement |
 | --- | --- |
-| Bronze | Complete all 3 jumps and bank at least 900 combined points. |
-| Silver | Bank 1,800 points, 2 successful landings, 1 Good-or-better Brace and 1 unique trick. |
-| Gold | Bank 2,400 points, 3 successful landings, 2 Good-or-better Braces and 2 unique tricks. |
-| Santor (optional) | 3,200 combined points, 3 Clean landings and 3 Perfect Braces. |
+| Bronze | Complete all 3 jumps and bank at least 1,050 combined points. |
+| Silver | Bank 2,250 points, 2 successful landings, 1 Good-or-better Brace and 1 unique trick. |
+| Gold | Bank 3,000 points, 3 successful landings, 2 Good-or-better Braces and 2 unique tricks. |
+| Santor (optional) | 3,950 combined points, 3 Clean landings and 3 Perfect Braces. |
 
 **John’s introduction:** “This is the final examination. I have misplaced the marking scheme.”
 
@@ -274,10 +274,10 @@ An optional harder three-heat rematch: heavy cart, ice, then the Wrate Issue. Hi
 
 | Medal | Requirement |
 | --- | --- |
-| Bronze | Complete 3 jumps, land successfully twice and bank 1,800 points. |
-| Silver | 3 successful landings, 2 unique tricks and 2,800 combined points. |
-| Gold | 3 successful landings, 3 Perfect Braces, 3 unique tricks and 3,600 points. |
-| Santor (optional) | 3,900 points, 3 Clean landings, 3 Perfect takeoffs and 3 Perfect Braces. |
+| Bronze | Complete 3 jumps, land successfully twice and bank 2,250 points. |
+| Silver | 3 successful landings, 2 unique tricks and 3,400 combined points. |
+| Gold | 3 successful landings, 3 Perfect Braces, 3 unique tricks and 4,250 points. |
+| Santor (optional) | 4,600 points, 3 Clean landings, 3 Perfect takeoffs and 3 Perfect Braces. |
 
 **John’s introduction:** “The harder Gauntlet is open. I was not consulted.”
 

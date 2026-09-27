@@ -332,7 +332,7 @@ const metric = {
   landed: true,
   attached: true,
   crashed: false,
-  distancePixels: 1600,
+  distancePixels: 2200, // 55 m: past the distance goal and inside the target zone
   landingAngle: 0,
   landingSpeed: 5,
   braceGrade: "Perfect Brace",
@@ -374,15 +374,15 @@ test("Objective boundaries exclude the wrong trick, post-landing roll, wrong bra
   assert.equal(
     evaluateObjective("landing-zone", result, {
       ...world,
-      distancePixels: 45.001 * 40,
-      cart: { position: { x: 2400 } },
+      distancePixels: 64.001 * 40,
+      cart: { position: { x: 1080 + 55 * 40 } },
     }).passed,
     false,
   );
   assert.equal(
     evaluateObjective("landing-zone", result, {
       ...world,
-      distancePixels: 45 * 40,
+      distancePixels: 64 * 40,
     }).passed,
     true,
   );

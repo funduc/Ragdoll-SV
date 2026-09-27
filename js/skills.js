@@ -207,18 +207,22 @@ export class AttemptSkills {
       : 1;
   }
   followThrough(world) {
+    // Rhythm pushes drive up to the run-up cap; a committed takeoff push keeps
+    // its own, stronger follow-through up to the takeoff cap. Caps use Matter's
+    // per-1/60 s units, so compare getVelocity, not the per-step Body.velocity.
+    const c = this.takeoff ? this.config.takeoff : this.config.rhythm;
     if (
       world.launched ||
       world.crashed ||
       world.elapsed >= this.driveUntil ||
-      world.cart.velocity.x >= this.config.rhythm.maximumSpeed
+      world.M.Body.getVelocity(world.cart).x >= c.maximumSpeed
     )
       return;
     world.M.Body.applyForce(world.cart, world.cart.position, {
       x:
         world.cart.mass *
         world.character.baseAcceleration *
-        this.config.rhythm.followThroughScale,
+        c.followThroughScale,
       y: 0,
     });
   }

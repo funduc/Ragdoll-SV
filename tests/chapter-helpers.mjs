@@ -3,33 +3,41 @@ import { timedInputs } from "./skill-helpers.mjs";
 
 // A deterministic practice policy: only discrete left/right keys, meter-timed
 // pushes and one brace. Never moves a body, changes a score, or awards a trick.
-// The quicker characters wait a little before a flip to recover near contact.
+// Each character waits a little before a flip so it recovers near contact.
 export function chapterControls(world, level, { flip, delay, target } = {}) {
   const character = world.character.id,
     condition = world.runEffects?.conditionId;
   const delays = {
     jake: {
-      standard: 0.05,
-      "boost-strip": 0.05,
-      "icy-ramp": 0.05,
-      "wrate-issue": 0.05,
-      "heavy-cart": 0.05,
+      standard: 0.2,
+      "boost-strip": 0.2,
+      "icy-ramp": 0.4,
+      "wrate-issue": 0.35,
+      "heavy-cart": 0.4,
+      "low-gravity": 0.6,
+      "shifting-wind": 0.4,
     },
     brandon: {
-      standard: 0.05,
-      "boost-strip": 0.1,
-      "icy-ramp": 0.15,
-      "wrate-issue": 0.15,
-      "heavy-cart": 0.15,
+      standard: 0.35,
+      "boost-strip": 0.4,
+      "icy-ramp": 0.45,
+      "wrate-issue": 0.45,
+      "heavy-cart": 0.4,
+      "low-gravity": 1.0,
+      "shifting-wind": 0.5,
     },
     owen: {
-      standard: 0.3,
-      "boost-strip": 0.35,
-      "icy-ramp": 0.225,
-      "wrate-issue": 0.3,
-      "heavy-cart": 0.25,
+      standard: 0.4,
+      "boost-strip": 0.5,
+      "icy-ramp": 0.45,
+      "wrate-issue": 0.6,
+      "heavy-cart": 0.4,
+      "low-gravity": 1.05,
+      "shifting-wind": 0.4,
     },
   };
+  // A short back-tap straight after takeoff jolts the grip loose (No Hands).
+  const taps = { jake: 0, brandon: 0.1, owen: 0.25 };
   // After Hours: low gravity leaves room for a Double Flip; the slab heat
   // needs a level, fast flight; the chameleon wind is countered, not flipped.
   const turns = condition === "low-gravity" ? 2 : 1;
@@ -41,13 +49,17 @@ export function chapterControls(world, level, { flip, delay, target } = {}) {
         Boolean(level.stages)));
   delay ??=
     delays[character][condition || "standard"] ?? delays[character].standard;
+  const airTime = world.elapsed - world.launchTime;
+  const tapping = flip && world.launched && airTime < taps[character];
   const spinning =
     flip &&
-    world.elapsed - world.launchTime >= delay &&
+    airTime >= delay &&
     world.cart.angle - world.launchAngle < Math.PI * 2 * turns;
-  const value = spinning
-    ? 1
-    : -normalAngle(world.cart.angle) * 2 - world.cart.angularVelocity * 28;
+  const value = tapping
+    ? -1
+    : spinning
+      ? 1
+      : -normalAngle(world.cart.angle) * 2 - world.cart.angularVelocity * 28;
   const rotate = !world.landed
     ? Math.abs(value) < 0.1
       ? 0

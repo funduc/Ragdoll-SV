@@ -86,10 +86,13 @@ export class Stadium {
       ctx.lineTo(x + 65, y + 68);
       ctx.stroke();
     }
-    for (let i = 0; i < 16; i++) {
+    // Boards continue back along the lengthened run-up (negative x).
+    const count = this.sponsors.length;
+    for (let i = Math.floor((left - 500) / 640); i < 16; i++) {
       const x = 300 + i * 640;
       if (x + 200 < left || x - 180 > right) continue;
-      const [name, slogan, color] = this.sponsors[i % this.sponsors.length];
+      const [name, slogan, color] =
+        this.sponsors[((i % count) + count) % count];
       ctx.fillStyle = "#10191e";
       ctx.fillRect(x - 135, y - 108, 270, 58);
       ctx.strokeStyle = "#070b0f";

@@ -50,7 +50,8 @@ export function scoreAttempt(metrics, character) {
     if (metrics.crashed) landingQuality = "Crash";
     else if (
       angle <= 0.42 * stability &&
-      metrics.landingSpeed < 12 * stability * tolerance
+      // A full-speed jump from the long run-up lands at about 16.8.
+      metrics.landingSpeed < 14 * stability * tolerance
     ) {
       landingQuality = "Clean";
       landingPoints = 150;
