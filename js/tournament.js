@@ -57,6 +57,16 @@ export class Tournament {
   get next() {
     return this.roster[this.turn + 1] || null;
   }
+  get crashOfNight() {
+    let best = null;
+    for (const round of ["qualifying", "championship"])
+      for (const character of round === "qualifying" ? CHARACTERS : this.finalists) {
+        const score = this[round][character.id];
+        if (score?.crashed && score.carnage && (!best || score.carnage.total > best.carnage.total))
+          best = { character, carnage: score.carnage, round };
+      }
+    return best;
+  }
   transition(next) {
     if (!ALLOWED[this.state]?.includes(next))
       throw new Error(`Invalid tournament transition: ${this.state} → ${next}`);

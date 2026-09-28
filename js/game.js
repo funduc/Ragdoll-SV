@@ -29,8 +29,7 @@ import {
 } from "./achievement-ui.js";
 import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
-import { Records } from "./records.js";
-import { installAfterHoursStyles } from "./after-hours-styles.js";
+import { ReplayRecording, ReplayPlayer, ReplayControls } from "./replay.js";
 
 class Game {
   constructor() {
@@ -47,7 +46,6 @@ class Game {
       this.developerRun = { seed: 1, upgrades: {} };
     this.campaign = new Campaign(undefined, { developer: this.developerRun });
     this.syncSave = new SyncSave(this.campaign.save.storage);
-    this.records = new Records(this.campaign.save.storage);
     this.syncSequence = null;
     this.syncUI = new SyncUI((lane) => this.hitSync(lane));
     this.achievements = this.campaign.runs.manager;
@@ -64,7 +62,6 @@ class Game {
       (action) => this.practiceAction(action),
       (button) => this.menuAction(button),
     );
-    this.ui.records = this.records;
     this.renderer = new Renderer(document.getElementById("game-canvas"));
     this.world = new PhysicsWorld(CHARACTERS[0]);
     this.presentation = new Presentation(
@@ -72,6 +69,8 @@ class Game {
       document.getElementById("mute-button"),
     );
     this.presentation.replaceWorld(this.world);
+    this.recording = new ReplayRecording(this.world);
+    this.replayPlayer = null;
     this.audioControls = new AudioControls(
       document.getElementById("audio-controls"),
       this.presentation.audio.preferences,
@@ -90,21 +89,10 @@ class Game {
         if (pressed) this.touch.press(button, `key:${code}`);
         else this.touch.release(`key:${code}`);
       },
-      onExclusiveKey: (event) => {
-        if (!this.syncSequence) return false;
-        if (event.code === "KeyR" && !this.suspended) this.restartAttempt();
-        else if (Object.hasOwn(SYNC_KEYS, event.code))
-          this.hitSync(SYNC_KEYS[event.code]);
-        else if (
-          event.code === "Space" &&
-          event.target?.dataset?.syncLane !== undefined
-        )
-          this.hitSync(Number(event.target.dataset.syncLane));
-        return true; // Includes Enter: never confirm or queue runway controls.
-      },
+      onExclusiveKey: (event) => this.exclusiveKey(event),
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
-          "button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
+          "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
         );
         if (menu) {
           this.menuAction(menu);
@@ -127,6 +115,9 @@ class Game {
         this.presentation.music.setPaused(paused);
       },
     });
+    this.replayControls = new ReplayControls(
+      window, () => Boolean(this.replayPlayer), () => this.stopReplay(), this.input,
+    );
     this.ui.render(this.tournament);
     applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
     this.removeAchievementHooks = installAchievementHooks(
@@ -151,6 +142,7 @@ class Game {
       this.mode === "vault" ? this.campaign.attemptSpec : null,
     );
     this.presentation.replaceWorld(this.world);
+    this.recording = new ReplayRecording(this.world);
     this.accumulator = 0;
     this.lastTime = null;
     this.renderer.resetCamera();
@@ -189,6 +181,7 @@ class Game {
     }
   }
   confirm() {
+    if (this.replayPlayer) return;
     if (this.session.active || this.destroyed) return;
     if (this.vaultOpen) return;
     if (this.mode === "vault") {
@@ -235,7 +228,6 @@ class Game {
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
     if (previous !== this.tournament.state) this.renderState();
-    else if (this.tournament.active) this.revealArena();
   }
   enterVault() {
     if (
@@ -250,47 +242,11 @@ class Game {
     this.presentation.music.enable();
     this.ui.render(this.tournament);
   }
-  // Keep the Canvas, timing meter and touch buttons on screen during a jump.
-  // Short laptop screens and phones otherwise start an attempt with the meter
-  // (or PUSH/BRACE) below the fold. Layout-only; never touches the simulation.
-  revealArena() {
-    // Measure after the attempt's HUD, meter and touch row have been laid out.
-    if (typeof requestAnimationFrame === "function" && !this.revealFrame) {
-      this.revealFrame = requestAnimationFrame(() => {
-        this.revealFrame = null;
-        if (!this.destroyed && this.session.active) this.scrollArenaIntoView();
-      });
-    }
-  }
-  scrollArenaIntoView() {
-    const arena = document.querySelector(".arena");
-    if (!arena?.getBoundingClientRect || typeof window.scrollTo !== "function")
-      return;
-    const touch = document.getElementById("touch-controls");
-    const meter = document.getElementById("skill-hud");
-    const lowest = [meter, touch]
-      .filter((el) => el && !el.hidden && el.offsetParent !== null)
-      .reduce((n, el) => Math.max(n, el.getBoundingClientRect().bottom), 0);
-    const top = arena.getBoundingClientRect().top;
-    if (top >= 0 && lowest <= window.innerHeight) return;
-    const reduced = globalThis.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    try {
-      window.scrollTo({
-        top: Math.max(0, window.scrollY + top - 4),
-        behavior: reduced ? "auto" : "smooth",
-      });
-    } catch {
-      // Older/embedded browsers without smooth scrolling keep the old layout.
-    }
-  }
   renderState() {
     this.biographyReader.tick(null, null, 0, false);
     this.touch.sync();
     this.introduction.clear();
     this.ui.render(this.session);
-    if (this.session.active) this.revealArena();
     this.showAchievementsAfterAttempt();
     this.presentation.state(this.session);
     this.practiceMeter = null;
@@ -325,14 +281,46 @@ class Game {
     this.replaceWorld(this.session.current);
     this.renderState();
   }
+  exclusiveKey(event) {
+    if (
+      event.code === "KeyR" &&
+      this.mode === "vault" &&
+      this.campaign.state === State.RESULTS
+    ) {
+      this.retryLevel();
+      return true;
+    }
+    if (!this.syncSequence) return false;
+    if (event.code === "KeyR" && !this.suspended) this.restartAttempt();
+    else if (Object.hasOwn(SYNC_KEYS, event.code))
+      this.hitSync(SYNC_KEYS[event.code]);
+    else if (
+      event.code === "Space" &&
+      event.target?.dataset?.syncLane !== undefined
+    )
+      this.hitSync(Number(event.target.dataset.syncLane));
+    return true; // Includes Enter: never confirm or queue runway controls.
+  }
+  retryLevel() {
+    if (this.replayPlayer) return;
+    if (this.destroyed || this.vaultOpen || this.mode !== "vault") return;
+    const previous = this.campaign.state;
+    this.campaign.retryLevel();
+    this.finishCampaignTransition(previous);
+  }
   menuAction(button) {
     if (
       this.destroyed ||
+      this.replayPlayer ||
       this.session.active ||
       button.disabled ||
       !button.isConnected
     )
       return;
+    if (button.hasAttribute("data-replay")) {
+      this.startReplay();
+      return;
+    }
     if (button.hasAttribute("data-audio-enter")) {
       this.enterVault();
       return;
@@ -368,6 +356,9 @@ class Game {
         break;
       case "confirm":
         this.confirm();
+        return;
+      case "retry":
+        this.retryLevel();
         return;
       case "characters":
         this.campaign.changeCharacter();
@@ -414,11 +405,13 @@ class Game {
     this.presentation.audio.play("click");
     this.clearControls();
     if (
+      (this.campaign.active && previous !== State.READY) ||
       [State.READY, CampaignState.MAP, CampaignState.SELECT].includes(
         this.campaign.state,
       )
     )
       this.replaceWorld(this.campaign.current || CHARACTERS[0]);
+    if (this.campaign.active && previous !== State.READY) this.ui.resetAttempt();
     if (this.campaign.active) {
       this.lastTime = null;
       this.accumulator = 0;
@@ -559,10 +552,56 @@ class Game {
       if (line) this.ui.say(line);
     }
   }
+  get reducedMotion() {
+    return globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false;
+  }
+  startReplay(automatic = false) {
+    if (this.destroyed || this.replayPlayer || this.session.state !== State.RESULTS ||
+      !this.recording.available) return;
+    this.replayPlayer = new ReplayPlayer(this.recording, {
+      automatic, reducedMotion: this.reducedMotion,
+    });
+    this.clearControls();
+    this.presentation.audio.stopAll();
+    this.ui.overlay.hidden = true;
+    this.ui.hud.hidden = true;
+    document.getElementById("replay-banner").hidden = false;
+    this.ui.say(this.session.lastScore.crashed
+      ? "JOHN: ROLL THAT BACK. THE CART WOULD LIKE A SECOND OPINION!"
+      : "JOHN: ONCE MORE FOR THE PEOPLE MEASURING THE LANDING!");
+    this.renderer.resetCamera();
+    this.lastTime = null;
+    document.getElementById("game-canvas").focus({ preventScroll: true });
+  }
+  stopReplay() {
+    if (!this.replayPlayer) return;
+    this.replayPlayer = null;
+    document.getElementById("replay-banner").hidden = true;
+    this.clearControls();
+    this.lastTime = null;
+    this.renderer.resetCamera();
+    this.renderState();
+    // Skipping updates the canvas now, without waiting for another animation frame.
+    this.renderer.draw(this.world, 0, this.presentation.effects);
+  }
   frame(time) {
     if (this.destroyed) return;
     const gap = this.lastTime === null ? 0 : Math.max(0, time - this.lastTime);
     this.lastTime = time;
+    if (this.replayPlayer) {
+      this.replayPlayer.reducedMotion = this.reducedMotion;
+      if (!this.suspended && !document.hidden && gap <= 250)
+        this.replayPlayer.advance(gap / 1000);
+      const replay = this.replayPlayer.sample();
+      const cosmetics = this.renderer.cosmetics;
+      this.renderer.cosmetics = replay.cosmetics;
+      this.renderer.draw(replay.world, Math.min(gap / 1000, 1 / 15), replay.effects);
+      this.renderer.cosmetics = cosmetics;
+      if (this.replayPlayer.done) this.stopReplay();
+      this.raf = requestAnimationFrame(this.frame);
+      return;
+    }
+    let finishedScore = null;
     const reading =
       !this.vaultOpen &&
       (this.introduction.active ||
@@ -585,41 +624,20 @@ class Game {
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
         this.world.step(this.touch.merge(this.input.consume()));
+        this.recording.observe(this.world);
         if (this.mode === "vault") this.campaign.observe(this.world);
         this.presentation.observe(this.world);
         this.accumulator -= STEP_MS;
         steps++;
         this.ui.observeAttempt(this.world, this.session);
         if (this.world.finished) {
-          const score = scoreAttempt(
-            this.world.metrics(),
-            this.world.character,
-          );
-          this.ui.recordFlags = this.records.submit({
-            mode: this.mode,
-            characterId: this.world.character.id,
-            levelId:
-              this.mode === "vault" && !this.campaign.level?.stages
-                ? this.campaign.level?.id
-                : null,
-            score,
-            launched: this.world.launched,
-            landed: this.world.landed,
-            valid: !this.world.invalid,
+          const score = Object.freeze({
+            ...scoreAttempt(this.world.metrics(), this.world.character),
+            carnage: this.world.damage.summary(),
           });
+          finishedScore = score;
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);
-          if (
-            this.mode === "vault" &&
-            this.campaign.level?.stages &&
-            this.campaign.levelFinished &&
-            !this.world.invalid
-          )
-            this.records.submitLevelTotal(
-              this.world.character.id,
-              this.campaign.level.id,
-              this.campaign.combinedScore,
-            );
           this.achievements.send(
             "attempt-ended",
             attemptAchievementFacts(
@@ -639,8 +657,6 @@ class Game {
           this.touch.sync();
           this.accumulator = 0;
           this.ui.render(this.session);
-          this.showAchievementsAfterAttempt();
-          this.presentation.state(this.session);
           break;
         }
       }
@@ -664,15 +680,26 @@ class Game {
       drawTime,
       gap,
     );
+    if ((this.session.active && !this.syncSequence) || finishedScore)
+      this.recording.capture(this.world, this.presentation.effects, this.renderer.cosmetics);
     this.renderer.draw(this.world, drawTime, this.presentation.effects);
+    if (finishedScore) {
+      if (this.recording.shouldAutoPlay(finishedScore, this.reducedMotion))
+        this.startReplay(true);
+      else {
+        this.showAchievementsAfterAttempt();
+        this.presentation.state(this.session);
+      }
+    }
     this.raf = requestAnimationFrame(this.frame);
   }
   destroy() {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.replayControls.destroy();
+    this.replayPlayer = null;
+    this.recording = null;
     cancelAnimationFrame(this.raf);
-    if (this.revealFrame) cancelAnimationFrame(this.revealFrame);
-    this.revealFrame = null;
     this.clearSync();
     this.syncUI.destroy();
     this.input.destroy();
@@ -687,7 +714,6 @@ class Game {
   }
 }
 
-installAfterHoursStyles();
 try {
   const game = new Game();
   // Preserve back/forward-cache pages; dispose only on an actual unload.

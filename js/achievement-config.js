@@ -16,14 +16,12 @@ export const ACHIEVEMENT_RULES = freeze({
   crashClasses: ["overturned", "head-impact", "torso-impact"],
 });
 export const ACHIEVEMENT_CAPABILITIES = freeze({
-  "component-loss": false,
-  "wheel-loss": false,
-  // After Hours: Karma Chameleon wind, Gauntlet ledger near-misses and the
-  // collidable Concrete+ slab now provide real telemetry for these three.
-  "changing-conditions": true,
+  "component-loss": true,
+  "wheel-loss": true,
+  "changing-conditions": false,
   "objective-points": false,
-  "point-medals": true,
-  "sponsor-target": true,
+  "point-medals": false,
+  "sponsor-target": false,
 });
 export const COSMETIC_REWARDS = freeze({
   "rookie-badge": {
@@ -240,18 +238,17 @@ export const ACHIEVEMENTS = freeze([
     "theseus",
     "Cart of Theseus",
     "General",
-    "Finish after losing at least two cosmetic or nonessential cart components.",
+    "Finish after losing at least two cart parts.",
     [["lostComponents", "gte", 2]],
     {
       requires: "component-loss",
-      unavailable: "Cart component loss is not implemented yet.",
     },
   ),
   attempt(
     "appeal-denied",
     "Physics Has Denied Your Appeal",
     "General",
-    "Miss a multi-heat medal's combined-score threshold by exactly one point.",
+    "Miss a points-based medal threshold by exactly one point.",
     [["medalPointGap", "eq", 1]],
     {
       requires: "point-medals",
@@ -285,7 +282,7 @@ export const ACHIEVEMENTS = freeze([
     "chameleon",
     "Karma Chameleon",
     "Jake",
-    "Complete a level whose conditions change during the attempt as Jake (After Hours: Karma Chameleon).",
+    "Complete a level whose conditions change during the attempt as Jake.",
     [
       ["characterId", "eq", "jake"],
       ["levelCompleted", "eq", true],
@@ -451,22 +448,22 @@ export const ACHIEVEMENTS = freeze([
     "wheel",
     "The Wheel Was Never Essential",
     "Hidden",
-    "Land after losing a wheel, when wheel loss is available.",
+    "Touch down after a wheel snaps off in a crash.",
     [
       ["lostWheels", "gte", 1],
       ["landed", "eq", true],
+      ["landedAfterWheelLoss", "eq", true],
     ],
     {
       hidden: true,
       requires: "wheel-loss",
-      unavailable: "Wheel loss is not implemented yet.",
     },
   ),
   attempt(
     "softness",
     "Softness Sold Separately",
     "Hidden",
-    "Collide with the Concrete+ sponsor slab.",
+    "Collide with the Concrete+ sponsor target.",
     [["sponsorHit", "eq", "concrete-plus"]],
     {
       hidden: true,

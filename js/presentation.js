@@ -26,6 +26,7 @@ export class Presentation {
     this.launched = false;
     this.landed = false;
     this.crashed = false;
+    this.lostParts = 0;
     this.nextImpact = 0;
     this.skillSerial = 0;
     this.effects.clear();
@@ -114,6 +115,11 @@ export class Presentation {
       const speed = world.preSpeeds?.get(world.head.id);
       if (!world.attached || (speed && Math.hypot(speed.x, speed.y) > 6))
         this.effects.shake();
+    }
+    if (world.damage.lostParts.size > this.lostParts) {
+      this.effects.burst("spark", world.cart.position.x, world.cart.position.y, 24);
+      this.audio.play("impact");
+      this.lostParts = world.damage.lostParts.size;
     }
     this.launched = world.launched;
     this.landed = world.landed;

@@ -62,18 +62,22 @@ export class Renderer {
       : 100;
     const visibleHeight = Math.max(620, COURSE.groundY - highest + 190);
     // Narrow screens show a closer view; the world itself never resizes.
-    const scale = Math.min(w / (w < 600 ? 800 : 1200), h / visibleHeight),
+    const crashWidth = world?.crashed && !world.attached
+      ? Math.abs(world.head.position.x - world.cart.position.x) + 400 : 0;
+    const scale = Math.min(w / Math.max(w < 600 ? 800 : 1200, crashWidth), h / visibleHeight),
       viewW = w / scale,
       viewH = h / scale;
     // The left edge stops just behind the run-up start, as it always has.
     const targetX = world
-      ? Math.max(COURSE.startX - 210, world.cart.position.x - viewW * 0.32)
+      ? Math.max(COURSE.startX - 210, (crashWidth ? Math.min(world.cart.position.x, world.head.position.x) : world.cart.position.x) - viewW * 0.32)
       : 0;
     const targetY = COURSE.groundY + 90 - viewH;
     const factor = this.snap ? 1 : 1 - Math.exp(-dt * 9);
-    this.camera.scale += (scale - this.camera.scale) * factor;
-    this.camera.x += (targetX - this.camera.x) * factor;
-    this.camera.y += (targetY - this.camera.y) * factor;
+    // A snap lands exactly on target, independent of the previous camera.
+    const ease = (from, to) => (this.snap ? to : from + (to - from) * factor);
+    this.camera.scale = ease(this.camera.scale, scale);
+    this.camera.x = ease(this.camera.x, targetX);
+    this.camera.y = ease(this.camera.y, targetY);
     this.snap = false;
     // Shake affects only the Canvas art; HUD, menus, and controls stay still.
     c.save();
@@ -211,6 +215,7 @@ export class Renderer {
       }
       effects?.drawWorld(c);
       this.drawVehicle(world);
+      for (const part of world.damage?.debris || []) this.drawDebris(part, world.character);
       if (world.cargo) {
         this.polygon(
           world.cargo.vertices,
@@ -234,6 +239,7 @@ export class Renderer {
   }
   drawVehicle(world) {
     const c = this.ctx;
+    const lost = world.damage?.lostParts;
     for (const body of world.rider) {
       if (body === world.head) continue;
       const fill =
@@ -302,13 +308,13 @@ export class Renderer {
     c.stroke();
     c.strokeStyle = "#65899a";
     c.lineWidth = 1.7;
-    for (let x = -30; x <= 30; x += 15) {
+    for (let x = -30; !lost?.has("grille") && x <= 30; x += 15) {
       c.beginPath();
       c.moveTo(x, -23);
       c.lineTo(x * 0.85, 19);
       c.stroke();
     }
-    for (let y = -11; y < 20; y += 14) {
+    for (let y = -11; !lost?.has("grille") && y < 20; y += 14) {
       c.beginPath();
       c.moveTo(-43, y);
       c.lineTo(43, y);
@@ -325,12 +331,14 @@ export class Renderer {
     c.moveTo(39, 23);
     c.lineTo(32, 48);
     c.stroke();
-    c.fillStyle = world.character.primaryColor;
-    c.fillRect(-23, 7, 46, 13);
-    c.fillStyle = "#111c24";
-    c.font = "bold 8px Arial";
-    c.textAlign = "center";
-    c.fillText("SANTOR", 0, 17);
+    if (!lost?.has("seat")) {
+      c.fillStyle = world.character.primaryColor;
+      c.fillRect(-23, 7, 46, 13);
+      c.fillStyle = "#111c24";
+      c.font = "bold 8px Arial";
+      c.textAlign = "center";
+      c.fillText("SANTOR", 0, 17);
+    }
     if (world.attached) {
       c.strokeStyle = "#b4ef4b";
       c.lineWidth = 2;
@@ -338,6 +346,26 @@ export class Renderer {
       c.moveTo(-13, -15);
       c.lineTo(13, -15);
       c.stroke();
+    }
+    c.restore();
+  }
+  drawDebris(part, character) {
+    const c = this.ctx;
+    c.save();
+    c.translate(part.position.x, part.position.y);
+    c.rotate(part.angle);
+    if (part.label === "grille") {
+      c.strokeStyle = this.cosmetics.cart || "#adc5d1";
+      c.lineWidth = 2;
+      c.strokeRect(-39, -19, 78, 38);
+      for (let x = -26; x <= 26; x += 13) {
+        c.beginPath(); c.moveTo(x, -19); c.lineTo(x, 19); c.stroke();
+      }
+      c.beginPath(); c.moveTo(-39, 0); c.lineTo(39, 0); c.stroke();
+    } else {
+      c.fillStyle = character.primaryColor;
+      c.fillRect(-23, -6.5, 46, 13);
+      this.label("SANTOR", 0, 3, 8, "#111c24", "center");
     }
     c.restore();
   }

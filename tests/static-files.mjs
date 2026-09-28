@@ -58,10 +58,12 @@ try {
     "js/tricks.js",
     "js/trick-ui.js",
     "js/game.js",
+    "js/replay.js",
     "js/input.js",
     "js/ui.js",
     "js/renderer.js",
     "js/physics.js",
+    "js/carnage.js",
     "js/tournament.js",
     "js/scoring.js",
     "js/characters.js",
@@ -78,9 +80,6 @@ try {
     "js/skill-ui.js",
     "js/tutorial.js",
     "vendor/matter-0.20.0.min.js",
-    "assets/portraits/jake.svg",
-    "assets/portraits/brandon.svg",
-    "assets/portraits/owen.svg",
   ];
   for (const prefix of ["/", "/ragdoll-olympics/", "/Ragdoll-SV/"]) {
     for (const path of paths) {
@@ -100,7 +99,7 @@ try {
     assert.match(await page.text(), /The Santor Vault/);
   }
   assert.equal(
-    (await fetch(origin + "/ragdoll-olympics/assets/portraits/missing.svg"))
+    (await fetch(origin + "/ragdoll-olympics/assets/portraits/missing.webp"))
       .status,
     404,
   );

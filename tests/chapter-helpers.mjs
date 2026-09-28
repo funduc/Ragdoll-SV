@@ -14,8 +14,6 @@ export function chapterControls(world, level, { flip, delay, target } = {}) {
       "icy-ramp": 0.4,
       "wrate-issue": 0.35,
       "heavy-cart": 0.4,
-      "low-gravity": 0.6,
-      "shifting-wind": 0.4,
     },
     brandon: {
       standard: 0.35,
@@ -23,8 +21,6 @@ export function chapterControls(world, level, { flip, delay, target } = {}) {
       "icy-ramp": 0.45,
       "wrate-issue": 0.45,
       "heavy-cart": 0.4,
-      "low-gravity": 1.0,
-      "shifting-wind": 0.5,
     },
     owen: {
       standard: 0.4,
@@ -32,29 +28,20 @@ export function chapterControls(world, level, { flip, delay, target } = {}) {
       "icy-ramp": 0.45,
       "wrate-issue": 0.6,
       "heavy-cart": 0.4,
-      "low-gravity": 1.05,
-      "shifting-wind": 0.4,
     },
   };
   // A short back-tap straight after takeoff jolts the grip loose (No Hands).
   const taps = { jake: 0, brandon: 0.1, owen: 0.25 };
-  // After Hours: low gravity leaves room for a Double Flip; the slab heat
-  // needs a level, fast flight; the chameleon wind is countered, not flipped.
-  const turns = condition === "low-gravity" ? 2 : 1;
   flip ??=
-    condition === "low-gravity" ||
-    (condition !== "tailwind" &&
-      (level.id === "showboating-101" ||
-        level.id === "commit-to-the-bit" ||
-        Boolean(level.stages)));
+    level.id === "showboating-101" ||
+    level.id === "commit-to-the-bit" ||
+    Boolean(level.stages);
   delay ??=
     delays[character][condition || "standard"] ?? delays[character].standard;
   const airTime = world.elapsed - world.launchTime;
   const tapping = flip && world.launched && airTime < taps[character];
   const spinning =
-    flip &&
-    airTime >= delay &&
-    world.cart.angle - world.launchAngle < Math.PI * 2 * turns;
+    flip && airTime >= delay && world.cart.angle - world.launchAngle < Math.PI * 2;
   const value = tapping
     ? -1
     : spinning

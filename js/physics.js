@@ -6,6 +6,7 @@ import { SKILL_CONFIG } from "./skill-config.js";
 import { TrickTracker, trickSample } from "./tricks.js";
 import { trickRotationScale } from "./trick-config.js";
 import { RunEffects } from "./run-effects.js";
+import { CrashDamage } from "./carnage.js";
 export const COURSE = Object.freeze({
   groundY: 520,
   rampStart: 730,
@@ -73,6 +74,7 @@ export class PhysicsWorld {
     this.tricks = new TrickTracker(this.character);
     this.createCourse();
     this.createVehicle();
+    this.damage = new CrashDamage(this);
     this.createCargo();
     this.runEffects?.install(this);
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
@@ -126,30 +128,6 @@ export class PhysicsWorld {
       });
     });
     Composite.add(this.engine.world, this.runwayBumps);
-    // After Hours: an optional, real Concrete+ sponsor slab on the landing
-    // strip. It is ordinary static terrain (concrete, not a crash mat).
-    this.target = null;
-    this.targetHit = false;
-    this.landedOnTarget = false;
-    const target = this.arena.target;
-    if (target) {
-      const start = COURSE.rampEnd + target.startMetres * 40,
-        width = (target.endMetres - target.startMetres) * 40;
-      const bevel = Math.min(target.bevel || 0, width / 3);
-      const points = [
-        { x: start, y: COURSE.groundY },
-        { x: start + bevel, y: COURSE.groundY - target.height },
-        { x: start + width - 8, y: COURSE.groundY - target.height },
-        { x: start + width, y: COURSE.groundY },
-      ];
-      const centre = this.M.Vertices.centre(points);
-      this.target = Bodies.fromVertices(centre.x, centre.y, [points], {
-        ...options,
-        label: "concrete-plus",
-        friction: 0.9,
-      });
-      Composite.add(this.engine.world, this.target);
-    }
   }
   createCargo() {
     const config = this.arena.cargo;
@@ -369,6 +347,7 @@ export class PhysicsWorld {
     this.attached = false;
     this.M.Composite.remove(this.engine.world, this.harness);
     this.events.push("detach");
+    this.damage.ejectionPending = true;
   }
   crash(severe = false, classification = null) {
     if (!this.crashed) {
@@ -387,14 +366,13 @@ export class PhysicsWorld {
       const body = terrain === a ? b : a;
       if (!terrain || body.isStatic) continue;
       const speed = this.preSpeeds?.get(body.id) || { x: 0, y: 0 };
-      if (terrain === this.target && body !== this.cargo) this.targetHit = true;
+      this.damage.contact(body, terrain, speed);
       if (
         this.launched &&
         !this.landed &&
-        (terrain === this.ground || (this.target && terrain === this.target)) &&
-        body !== this.cargo
+        terrain === this.ground &&
+        (body === this.cart || this.wheels.includes(body) || this.rider.includes(body))
       ) {
-        this.landedOnTarget = terrain === this.target;
         // collisionStart runs after integration: this step's rotation happened
         // in the air and must count even though it ends in ground contact.
         this.tricks.land(trickSample(this));
@@ -478,6 +456,7 @@ export class PhysicsWorld {
       this.stopInvalid(safeMetrics);
       return;
     }
+    this.damage.afterStep(STEP_MS / 1000);
     this.updateCargo();
     // Settle the cart's spin on the ramp (takeoff.rampSettle): no wheelie.
     if (

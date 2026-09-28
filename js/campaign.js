@@ -25,10 +25,10 @@ const allowed = {
   [S.MAP]: [S.SELECT, S.READY, S.RESET, S.NEW_RUN],
   [S.RESET]: [S.MAP],
   [S.NEW_RUN]: [S.MAP],
-  [S.UPGRADES]: [S.MAP],
+  [S.UPGRADES]: [S.MAP, S.RESULTS],
   [S.READY]: [S.ACTIVE, S.MAP],
   [S.ACTIVE]: [S.RESULTS, S.READY],
-  [S.RESULTS]: [S.MAP, S.UPGRADES, S.READY],
+  [S.RESULTS]: [S.MAP, S.UPGRADES, S.READY, S.ACTIVE],
 };
 export function campaignFacts(score, world, reachedRamp) {
   const zone = evaluateObjective("landing-zone", score, world);
@@ -60,17 +60,6 @@ export function campaignFacts(score, world, reachedRamp) {
       !score.crashed &&
       ["Clean", "Scrappy"].includes(score.landingQuality),
     runwayCapReached: world.skills.runwayCapReached,
-    // After Hours facts.
-    doubleFlip: score.tricks.details.some(
-      (t) => t.id === "double" && t.points > 0,
-    ),
-    distanceMetres: world.launched ? score.distanceMetres : 0,
-    targetLanding:
-      world.landedOnTarget === true &&
-      !score.crashed &&
-      ["Clean", "Scrappy"].includes(score.landingQuality),
-    sponsorHit: world.targetHit === true,
-    conditionChanges: world.runEffects?.conditionChanges ?? 0,
   });
 }
 // Gauntlet totals sum existing attempt scores. No score weights or per-attempt
@@ -89,8 +78,6 @@ export function combinedFacts(heats) {
     perfectBraces: count("perfectBrace"),
     perfectTakeoffs: count("perfectTakeoff"),
     uniqueTricks: new Set(facts.flatMap((f) => f.trickIds)).size,
-    doubleFlips: count("doubleFlip"),
-    targetLandings: count("targetLanding"),
   });
 }
 export class Campaign {
@@ -111,6 +98,7 @@ export class Campaign {
     this.level = null;
     this.stageIndex = 0;
     this.heats = [];
+    this.retryAfterReward = false;
     this.resetAttemptData();
   }
   get active() {
@@ -157,11 +145,11 @@ export class Campaign {
   isUnlocked(level) {
     return Boolean(
       this.current &&
-      level &&
-      (this.developer ||
-        level.prerequisites.every(
-          (id) => this.save.entry(this.current.id, id).medal >= 1,
-        )),
+        level &&
+        (this.developer ||
+          level.prerequisites.every(
+            (id) => this.save.entry(this.current.id, id).medal >= 1,
+          )),
     );
   }
   startLevel(id) {
@@ -223,12 +211,32 @@ export class Campaign {
   }
   chooseUpgrade(id) {
     if (this.state !== S.UPGRADES || !this.runs.choose(id)) return false;
-    this.transition(S.MAP);
+    this.finishReward();
     return true;
   }
   skipUpgrade() {
     if (this.state !== S.UPGRADES || !this.runs.skipOffer()) return false;
-    this.transition(S.MAP);
+    this.finishReward();
+    return true;
+  }
+  finishReward() {
+    if (this.retryAfterReward) {
+      this.retryAfterReward = false;
+      this.transition(S.RESULTS);
+      this.retryLevel();
+    } else this.transition(S.MAP);
+  }
+  retryLevel() {
+    if (this.state !== S.RESULTS) return false;
+    if (this.runs.run?.pendingLevel) {
+      this.retryAfterReward = true;
+      this.transition(S.UPGRADES);
+      return true;
+    }
+    this.stageIndex = 0;
+    this.heats = [];
+    this.resetAttemptData();
+    this.transition(S.ACTIVE);
     return true;
   }
   get attemptSpec() {
@@ -320,7 +328,7 @@ export class Campaign {
   get complete() {
     return Boolean(
       this.current &&
-      LEVELS.every((l) => this.runs.run?.cleared.includes(l.id)),
+        LEVELS.every((l) => this.runs.run?.cleared.includes(l.id)),
     );
   }
 }
