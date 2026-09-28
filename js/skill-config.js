@@ -1,3 +1,4 @@
+import { DEFAULT_COURSE } from "./course.js";
 // All skill tuning. Seconds use simulation time; x values are world pixels.
 // Speed increments use Matter's standard pixels per 1/60-second frame.
 // Character acceleration scales pushes; there is no random acceleration.
@@ -27,11 +28,9 @@ export const SKILL_CONFIG = Object.freeze({
     followThroughScale: 0.47, // multiplier on the character's existing acceleration
   }),
   takeoff: Object.freeze({
-    armedX: 860, // first push after this line commits the one launch opportunity
-    goodStart: 940,
-    perfectStart: 980,
-    perfectEnd: 1060,
-    goodEnd: 1090,
+    // Zone positions come from the default course (js/course.js):
+    // armedX 860, goodStart 940, perfectStart 980, perfectEnd 1060, goodEnd 1090.
+    ...DEFAULT_COURSE.takeoff,
     meterOvershoot: 40, // show the Late region beyond the Good zone
     baseSpeed: 1.5,
     perfectBonus: 6.0,

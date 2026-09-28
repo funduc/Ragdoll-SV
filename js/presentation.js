@@ -1,7 +1,6 @@
 import { SynthAudio } from "./audio.js";
 import { Effects } from "./effects.js";
 import { State } from "./tournament.js";
-import { COURSE } from "./physics.js";
 import { MusicDirector, MusicPlayer } from "./music.js";
 
 // A read-only observer of game state and Matter collision results. No physics writes.
@@ -91,7 +90,7 @@ export class Presentation {
       this.audio.play("launch");
     }
     if (world.landed && !this.landed)
-      this.effects.burst("dust", world.cart.position.x, COURSE.groundY - 3, 18);
+      this.effects.burst("dust", world.cart.position.x, world.course.groundY - 3, 18);
     for (const pair of world.engine.pairs.collisionStart || []) {
       const a = pair.bodyA.parent,
         b = pair.bodyB.parent;

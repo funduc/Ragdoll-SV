@@ -1,4 +1,4 @@
-import { COURSE } from "./physics.js";
+import { DEFAULT_COURSE, pieceOutline } from "./course.js";
 import { Stadium } from "./stadium.js";
 import { drawRunMarkings } from "./run-renderer.js";
 import { SKILL_CONFIG } from "./skill-config.js";
@@ -51,6 +51,8 @@ export class Renderer {
   }
   draw(world, dt = 1 / 60, effects = null) {
     if (world?.invalid) world = null;
+    // Everything below is drawn from the world's own course data.
+    const course = world?.course || DEFAULT_COURSE;
     const c = this.ctx,
       w = this.width,
       h = this.height;
@@ -60,7 +62,7 @@ export class Renderer {
     const highest = world
       ? Math.min(world.cart.position.y, world.head.position.y)
       : 100;
-    const visibleHeight = Math.max(620, COURSE.groundY - highest + 190);
+    const visibleHeight = Math.max(620, course.groundY - highest + 190);
     // Narrow screens show a closer view; the world itself never resizes.
     const crashWidth = world?.crashed && !world.attached
       ? Math.abs(world.head.position.x - world.cart.position.x) + 400 : 0;
@@ -69,9 +71,9 @@ export class Renderer {
       viewH = h / scale;
     // The left edge stops just behind the run-up start, as it always has.
     const targetX = world
-      ? Math.max(COURSE.startX - 210, (crashWidth ? Math.min(world.cart.position.x, world.head.position.x) : world.cart.position.x) - viewW * 0.32)
+      ? Math.max(course.startX - 210, (crashWidth ? Math.min(world.cart.position.x, world.head.position.x) : world.cart.position.x) - viewW * 0.32)
       : 0;
-    const targetY = COURSE.groundY + 90 - viewH;
+    const targetY = course.groundY + 90 - viewH;
     const factor = this.snap ? 1 : 1 - Math.exp(-dt * 9);
     // A snap lands exactly on target, independent of the previous camera.
     const ease = (from, to) => (this.snap ? to : from + (to - from) * factor);
@@ -90,37 +92,37 @@ export class Renderer {
     const left = this.camera.x,
       right = left + w / this.camera.scale;
     c.fillStyle = "#25343c";
-    c.fillRect(left, COURSE.groundY, right - left, 3000);
+    c.fillRect(left, course.groundY, right - left, 3000);
     c.fillStyle = "#97afba";
-    c.fillRect(left, COURSE.groundY, right - left, 3);
+    c.fillRect(left, course.groundY, right - left, 3);
     c.strokeStyle = "#354954";
     c.lineWidth = 1;
     for (let x = Math.floor(left / 100) * 100; x < right; x += 100) {
       c.beginPath();
-      c.moveTo(x, COURSE.groundY + 5);
-      c.lineTo(x - 40, COURSE.groundY + 90);
+      c.moveTo(x, course.groundY + 5);
+      c.lineTo(x - 40, course.groundY + 90);
       c.stroke();
     }
-    this.stadium.ground(c, left, right, COURSE.groundY, this.label.bind(this));
+    this.stadium.ground(c, left, right, course.groundY, this.label.bind(this));
     c.fillStyle = "#31464e";
-    c.fillRect(COURSE.rampEnd, COURSE.groundY + 4, 12000, 8);
-    for (let x = COURSE.rampEnd; x < right + 200; x += 200) {
+    c.fillRect(course.distanceOrigin, course.groundY + 4, 12000, 8);
+    for (let x = course.distanceOrigin; x < right + 200; x += 200) {
       if (x < left - 50) continue;
       c.fillStyle = "#b4ef4b";
-      c.fillRect(x, COURSE.groundY + 2, 2, 16);
+      c.fillRect(x, course.groundY + 2, 2, 16);
       this.label(
-        `${(x - COURSE.rampEnd) / 40} m`,
+        `${(x - course.distanceOrigin) / 40} m`,
         x + 4,
-        COURSE.groundY + 37,
+        course.groundY + 37,
         12,
         "#b3c79c",
       );
     }
     this.polygon(
       [
-        { x: COURSE.rampStart, y: COURSE.groundY },
-        { x: COURSE.rampEnd, y: COURSE.rampTop },
-        { x: COURSE.rampEnd, y: COURSE.groundY },
+        { x: course.rampStart, y: course.groundY },
+        { x: course.rampEnd, y: course.rampTop },
+        { x: course.rampEnd, y: course.groundY },
       ],
       "#374a56",
       "#73919f",
@@ -128,25 +130,29 @@ export class Renderer {
     );
     c.save();
     c.beginPath();
-    c.moveTo(COURSE.rampStart, COURSE.groundY);
-    c.lineTo(COURSE.rampEnd, COURSE.rampTop);
-    c.lineTo(COURSE.rampEnd, COURSE.groundY);
+    c.moveTo(course.rampStart, course.groundY);
+    c.lineTo(course.rampEnd, course.rampTop);
+    c.lineTo(course.rampEnd, course.groundY);
     c.clip();
     c.strokeStyle = "#e68031";
     c.lineWidth = 7;
-    for (let x = 740; x < 1120; x += 46) {
+    // Hazard stripes, laid out from the ramp's own foot and height.
+    for (let x = course.rampStart + 10; x < course.rampEnd + 40; x += 46) {
       c.beginPath();
-      c.moveTo(x, 520);
-      c.lineTo(x + 110, 360);
+      c.moveTo(x, course.groundY);
+      c.lineTo(x + 110, course.groundY - 160);
       c.stroke();
     }
     c.restore();
     c.beginPath();
-    c.moveTo(COURSE.rampStart, COURSE.groundY - 2);
-    c.lineTo(COURSE.rampEnd, COURSE.rampTop - 2);
+    c.moveTo(course.rampStart, course.groundY - 2);
+    c.lineTo(course.rampEnd, course.rampTop - 2);
     c.strokeStyle = "#a3bcc8";
     c.lineWidth = 7;
     c.stroke();
+    // Optional extra static pieces (bars, walls, second ramps) from course data.
+    for (const piece of course.pieces)
+      this.polygon(pieceOutline(piece), piece.fill, piece.stroke, 2);
     drawRunMarkings(this, world, left, right);
     for (const bump of world?.runwayBumps || [])
       this.polygon(bump.vertices, "#667782", "#ffb84b", 2);
@@ -154,11 +160,11 @@ export class Renderer {
     // Painted ramp strip uses the same cart-centre x windows as skill grading.
     const boost = world?.skills.config.takeoff || SKILL_CONFIG.takeoff;
     const rampY = (x) =>
-      COURSE.groundY -
-      ((x - COURSE.rampStart) * (COURSE.groundY - COURSE.rampTop)) /
-        (COURSE.rampEnd - COURSE.rampStart);
+      course.groundY -
+      ((x - course.rampStart) * (course.groundY - course.rampTop)) /
+        (course.rampEnd - course.rampStart);
     for (const [start, end, color] of [
-      [boost.goodStart, Math.min(boost.goodEnd, COURSE.rampEnd), "#e5b74d"],
+      [boost.goodStart, Math.min(boost.goodEnd, course.rampEnd), "#e5b74d"],
       [boost.perfectStart, boost.perfectEnd, "#b4ef4b"],
     ]) {
       c.beginPath();
@@ -177,29 +183,29 @@ export class Renderer {
       "center",
     );
     c.fillStyle = "#ff852b";
-    c.fillRect(COURSE.rampEnd - 3, COURSE.rampTop - 16, 6, 22);
+    c.fillRect(course.rampEnd - 3, course.rampTop - 16, 6, 22);
     this.label(
       "TAKEOFF",
-      COURSE.rampEnd,
-      COURSE.rampTop - 33,
+      course.rampEnd,
+      course.rampTop - 33,
       12,
       "#ffac6f",
       "center",
     );
     this.label(
       "RUN-UP  →",
-      COURSE.startX + 65,
-      COURSE.groundY + 34,
+      course.startX + 65,
+      course.groundY + 34,
       12,
       "#91a9b6",
     );
     if (world) {
       if (world.landed) {
-        const x = COURSE.rampEnd + world.distancePixels;
+        const x = course.distanceOrigin + world.distancePixels;
         c.setLineDash([5, 6]);
         c.beginPath();
-        c.moveTo(x, COURSE.groundY - 110);
-        c.lineTo(x, COURSE.groundY + 50);
+        c.moveTo(x, course.groundY - 110);
+        c.lineTo(x, course.groundY + 50);
         c.strokeStyle = "#ff9d52";
         c.lineWidth = 2;
         c.stroke();
@@ -207,7 +213,7 @@ export class Renderer {
         this.label(
           "FIRST CONTACT",
           x,
-          COURSE.groundY - 125,
+          course.groundY - 125,
           11,
           "#ffc293",
           "center",

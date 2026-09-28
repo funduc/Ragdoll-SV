@@ -311,7 +311,7 @@ export function trickSample(world) {
     spin: world.M.Body.getAngularVelocity(world.cart) * 60,
     strain,
     attached: world.attached,
-    distance: Math.max(0, world.cart.position.x - world.course.rampEnd),
+    distance: Math.max(0, world.cart.position.x - world.course.distanceOrigin),
   };
 }
 

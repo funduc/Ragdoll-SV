@@ -84,8 +84,8 @@ export function drawRunMarkings(renderer, world, left, right) {
   }
   const objective = OBJECTIVES[effects.objectiveId];
   if (objective?.type === "landing-zone") {
-    const start = world.course.rampEnd + objective.minimum * 40,
-      end = world.course.rampEnd + objective.maximum * 40;
+    const start = world.course.distanceOrigin + objective.minimum * 40,
+      end = world.course.distanceOrigin + objective.maximum * 40;
     c.fillStyle = "#b4ef4b";
     c.fillRect(start, ground - 5, end - start, 9);
     for (const x of [start, end]) {
