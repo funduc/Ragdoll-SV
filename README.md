@@ -28,6 +28,8 @@ On Vault Run results, **RETRY** or **R** starts the same level without the map o
 
 Results in both modes offer **WATCH REPLAY**. Crashes and landings over 55 m replay automatically with slow motion around impact; any key or tap skips to results. Recordings stay in memory for the current attempt (up to 20 seconds). Reduced motion disables automatic playback and slow motion; manual replay remains available.
 
+The run-up is long: a good one takes about six on-beat pushes (roughly 4 seconds). Only Perfect pushes reach top speed, and taps faster than the beat count as Miss. Typical distances: sloppy 20–30 m, solid 40–50 m, excellent 60–70 m. Tuning lives in `SKILL_CONFIG` (`js/skill-config.js`).
+
 Hard crashes can shed wheels, the grille and child seat; severe crashes eject the rider. Crash results show a separate **CARNAGE** score: 150 per lost part, 100 per airborne second after ejection, 75 per bounce, and 10 per metre of rider travel from the ejection point. It never adds to normal points or medals. Party awards **Crash of the Night** across both rounds (first crash wins a tie). Losing two parts and touching down after wheel loss can unlock the existing Theseus and Wheel achievements.
 
 ## Engineering and tests

@@ -38,7 +38,7 @@ export const CONDITIONS = freeze({
     start: 390,
     end: 490,
     speed: 3,
-    cap: 18.5,
+    cap: 28.5, // 3 above the rhythm-push cap
   },
   "wrate-issue": {
     name: "Wrate Issue",
@@ -116,8 +116,8 @@ export const OBJECTIVES = freeze({
   "distance-35": {
     type: "distance",
     name: "Going the Distance",
-    description: "Reach at least 35.0 metres during a finished jump.",
-    metres: 35,
+    description: "Reach at least 50.0 metres during a finished jump.",
+    metres: 50, // the ID predates the longer run-up; saves keep using it
   },
   "front-flip": {
     type: "named-trick",
@@ -146,9 +146,9 @@ export const OBJECTIVES = freeze({
   "landing-zone": {
     type: "landing-zone",
     name: "Reserved Parking",
-    description: "First ground contact must be in the marked 30–45 metre zone.",
-    minimum: 30,
-    maximum: 45,
+    description: "First ground contact must be in the marked 49–64 metre zone.",
+    minimum: 49,
+    maximum: 64,
   },
   "style-factor": {
     type: "style-multiplier",

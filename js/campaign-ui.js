@@ -14,7 +14,7 @@ import {
   upgradeChoices,
   updateRunStatus,
 } from "./run-ui.js";
-import { CONDITIONS, OBJECTIVE_IDS } from "./run-config.js";
+import { CONDITIONS, OBJECTIVES, OBJECTIVE_IDS } from "./run-config.js";
 import { TRICK_CONFIG } from "./trick-config.js";
 
 const action = (label, name, value = "", secondary = false, disabled = false) =>
@@ -204,8 +204,7 @@ export function updateCampaignCoach(world, run) {
         : `CARGO SECURED · ${world.cargoStrainTime > 0 ? "CORD STRAINING — return toward level!" : "Stay near level, then brace. Gold needs a Clean landing."}`;
       break;
     case "wind":
-      text =
-        "CROSSWIND → · aim for the green 30–45 m zone. Gold needs the rider attached. Try Good takeoff if you overshoot.";
+      text = `CROSSWIND → · aim for the green ${OBJECTIVES["landing-zone"].minimum}–${OBJECTIVES["landing-zone"].maximum} m zone. Gold needs the rider attached. Try Good takeoff if you overshoot.`;
       break;
     case "runway":
       text = `${skills.pushCounts.Miss} Misses · ${skills.pushCounts.Good + skills.pushCounts.Perfect} Good-or-better pushes · Use the rhythm meter over the marked concrete repairs.`;

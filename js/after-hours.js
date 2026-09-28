@@ -14,11 +14,11 @@ const john = (introduction, characters, success, failure, gold) => ({
     gold,
   },
 });
-// A real, collidable slab 49–56 m from the ramp edge. Concrete, not foam.
+// A real, collidable slab 71–81 m from the ramp edge. Concrete, not foam.
 // Its leading edge is bevelled so a wheel rolls up instead of tripping.
 export const CONCRETE_SLAB = Object.freeze({
-  startMetres: 49,
-  endMetres: 56,
+  startMetres: 71,
+  endMetres: 81,
   height: 16,
   bevel: 36,
   label: "CONCRETE+",
@@ -76,7 +76,7 @@ export const AFTER_HOURS_LEVELS = [
     bonus: true,
     estimatedMinutes: 3,
     description:
-      "Concrete+ has installed a real 49–56 m demonstration slab. A sponsored leaf blower supplies a tailwind. Softness is sold separately and was not purchased.",
+      "Concrete+ has installed a real 71–81 m demonstration slab. A sponsored leaf blower supplies a tailwind. Softness is sold separately and was not purchased.",
     objective:
       "Build maximum speed, nail the takeoff and ride the tailwind. First contact on the raised slab counts as a landing on it.",
     arena: slabArena,
@@ -85,7 +85,7 @@ export const AFTER_HOURS_LEVELS = [
     upgradeReward: false,
     modifier: coach("slab", "Sponsor Relations"),
     bronze: goal("Take off and complete a landing.", { completedJump: true }),
-    silver: goal("Reach at least 46 m.", { distanceMetres: 46 }),
+    silver: goal("Reach at least 60 m.", { distanceMetres: 60 }),
     gold: goal("Land successfully on the Concrete+ slab.", {
       targetLanding: true,
     }),
@@ -192,25 +192,25 @@ export const AFTER_HOURS_LEVELS = [
       },
     ],
     bronze: goal(
-      "Complete all 3 jumps and bank at least 1,500 combined points.",
-      { completedJumps: 3, combinedScore: 1500 },
+      "Complete all 3 jumps and bank at least 1,800 combined points.",
+      { completedJumps: 3, combinedScore: 1800 },
     ),
     silver: goal(
-      "Bank 2,600 points with 2 successful landings and 2 unique tricks.",
-      { combinedScore: 2600, successfulLandings: 2, uniqueTricks: 2 },
+      "Bank 3,200 points with 2 successful landings and 2 unique tricks.",
+      { combinedScore: 3200, successfulLandings: 2, uniqueTricks: 2 },
     ),
     gold: goal(
-      "Bank 3,300 points, 3 successful landings, a Double Flip and a slab landing.",
+      "Bank 4,050 points, 3 successful landings, a Double Flip and a slab landing.",
       {
-        combinedScore: 3300,
+        combinedScore: 4050,
         successfulLandings: 3,
         doubleFlips: 1,
         targetLandings: 1,
       },
     ),
     santorMedal: goal(
-      "4,000 combined points, 3 Clean landings and 3 Perfect Braces.",
-      { combinedScore: 4000, controlledLandings: 3, perfectBraces: 3 },
+      "4,750 combined points, 3 Clean landings and 3 Perfect Braces.",
+      { combinedScore: 4750, controlledLandings: 3, perfectBraces: 3 },
     ),
     prerequisites: ["karma-chameleon"],
     john: john(

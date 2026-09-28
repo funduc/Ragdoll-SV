@@ -61,7 +61,7 @@ export const CHAPTER_LEVELS = [
     name: "CROSS EXAMINATION",
     estimatedMinutes: 2,
     description:
-      "The arrow tells the truth: a steady crosswind pushes right throughout flight. Choose your launch speed for the marked 30–45 m target.",
+      "The arrow tells the truth: a steady crosswind pushes right throughout flight. Choose your launch speed for the marked 49–64 m target.",
     objective:
       "Land inside the green target zone with the rider still attached. A Good takeoff can help avoid overshooting.",
     arena,
@@ -70,7 +70,7 @@ export const CHAPTER_LEVELS = [
     upgradeReward: false,
     modifier: coach("wind", "Wind & Target Coach"),
     bronze: goal("Take off and complete a landing.", { completedJump: true }),
-    silver: goal("Land inside the 30–45 m target zone.", { targetHit: true }),
+    silver: goal("Land inside the 49–64 m target zone.", { targetHit: true }),
     gold: goal("Hit the target zone with the rider attached at finish.", {
       targetHit: true,
       riderAttached: true,
@@ -329,30 +329,30 @@ export const CHAPTER_LEVELS = [
       },
     ],
     bronze: goal(
-      "Complete all 3 jumps and bank at least 900 combined points.",
-      { completedJumps: 3, combinedScore: 900 },
+      "Complete all 3 jumps and bank at least 1,050 combined points.",
+      { completedJumps: 3, combinedScore: 1050 },
     ),
     silver: goal(
-      "Bank 1,800 points, 2 successful landings, 1 Good-or-better Brace and 1 unique trick.",
+      "Bank 2,250 points, 2 successful landings, 1 Good-or-better Brace and 1 unique trick.",
       {
-        combinedScore: 1800,
+        combinedScore: 2250,
         successfulLandings: 2,
         goodBraces: 1,
         uniqueTricks: 1,
       },
     ),
     gold: goal(
-      "Bank 2,400 points, 3 successful landings, 2 Good-or-better Braces and 2 unique tricks.",
+      "Bank 3,000 points, 3 successful landings, 2 Good-or-better Braces and 2 unique tricks.",
       {
-        combinedScore: 2400,
+        combinedScore: 3000,
         successfulLandings: 3,
         goodBraces: 2,
         uniqueTricks: 2,
       },
     ),
     santorMedal: goal(
-      "3,200 combined points, 3 Clean landings and 3 Perfect Braces.",
-      { combinedScore: 3200, controlledLandings: 3, perfectBraces: 3 },
+      "3,950 combined points, 3 Clean landings and 3 Perfect Braces.",
+      { combinedScore: 3950, controlledLandings: 3, perfectBraces: 3 },
     ),
     prerequisites: ["siemens-certified"],
     john: john(
@@ -403,26 +403,26 @@ export const HARD_GAUNTLET_DATA = {
     },
   ],
   bronze: goal(
-    "Complete 3 jumps, land successfully twice and bank 1,800 points.",
-    { completedJumps: 3, successfulLandings: 2, combinedScore: 1800 },
+    "Complete 3 jumps, land successfully twice and bank 2,250 points.",
+    { completedJumps: 3, successfulLandings: 2, combinedScore: 2250 },
   ),
   silver: goal(
-    "3 successful landings, 2 unique tricks and 2,800 combined points.",
-    { successfulLandings: 3, uniqueTricks: 2, combinedScore: 2800 },
+    "3 successful landings, 2 unique tricks and 3,400 combined points.",
+    { successfulLandings: 3, uniqueTricks: 2, combinedScore: 3400 },
   ),
   gold: goal(
-    "3 successful landings, 3 Perfect Braces, 3 unique tricks and 3,600 points.",
+    "3 successful landings, 3 Perfect Braces, 3 unique tricks and 4,250 points.",
     {
       successfulLandings: 3,
       perfectBraces: 3,
       uniqueTricks: 3,
-      combinedScore: 3600,
+      combinedScore: 4250,
     },
   ),
   santorMedal: goal(
-    "3,900 points, 3 Clean landings, 3 Perfect takeoffs and 3 Perfect Braces.",
+    "4,600 points, 3 Clean landings, 3 Perfect takeoffs and 3 Perfect Braces.",
     {
-      combinedScore: 3900,
+      combinedScore: 4600,
       controlledLandings: 3,
       perfectTakeoffs: 3,
       perfectBraces: 3,

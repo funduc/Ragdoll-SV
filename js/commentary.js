@@ -8,7 +8,7 @@ export const GENERAL_CAPTIONS = Object.freeze({
     "The cart is airborne. Judges, eyes up.",
   ],
   longJump: [
-    "Past thirty metres. A strong jump.",
+    "Past forty-five metres. A strong jump.",
     "That is useful distance on the board.",
   ],
   weakJump: [
@@ -58,7 +58,7 @@ const FINAL_CAPTIONS = {
     "WE HAVE LIFTOFF AND NO APPROVED LANDING PAPERWORK!",
   ],
   longJump: [
-    "THIRTY METRES! THE MEASURING TAPE HAS FILED A COMPLAINT!",
+    "FORTY-FIVE METRES! THE MEASURING TAPE HAS FILED A COMPLAINT!",
     "THAT DISTANCE HAS ESCAPED MY SPREADSHEET!",
   ],
   weakJump: [

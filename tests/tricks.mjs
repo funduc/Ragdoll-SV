@@ -274,8 +274,9 @@ test("Actual physics recognizes controlled flips and recovery tricks without new
   for (const c of CHARACTERS) {
     const w = new PhysicsWorld(c);
     for (let i = 0; i < 2500 && !w.finished; i++) {
+      // Long flights: wait briefly so the flip still finishes near contact.
       const rotate =
-        w.cart.angle - w.launchAngle < tau
+        w.elapsed - w.launchTime >= 0.4 && w.cart.angle - w.launchAngle < tau
           ? 1
           : Math.max(
               -1,

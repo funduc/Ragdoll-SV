@@ -67,14 +67,17 @@ export class Renderer {
     const scale = Math.min(w / Math.max(w < 600 ? 800 : 1200, crashWidth), h / visibleHeight),
       viewW = w / scale,
       viewH = h / scale;
+    // The left edge stops just behind the run-up start, as it always has.
     const targetX = world
-      ? Math.max(0, (crashWidth ? Math.min(world.cart.position.x, world.head.position.x) : world.cart.position.x) - viewW * 0.32)
+      ? Math.max(COURSE.startX - 210, (crashWidth ? Math.min(world.cart.position.x, world.head.position.x) : world.cart.position.x) - viewW * 0.32)
       : 0;
     const targetY = COURSE.groundY + 90 - viewH;
     const factor = this.snap ? 1 : 1 - Math.exp(-dt * 9);
-    this.camera.scale += (scale - this.camera.scale) * factor;
-    this.camera.x += (targetX - this.camera.x) * factor;
-    this.camera.y += (targetY - this.camera.y) * factor;
+    // A snap lands exactly on target, independent of the previous camera.
+    const ease = (from, to) => (this.snap ? to : from + (to - from) * factor);
+    this.camera.scale = ease(this.camera.scale, scale);
+    this.camera.x = ease(this.camera.x, targetX);
+    this.camera.y = ease(this.camera.y, targetY);
     this.snap = false;
     // Shake affects only the Canvas art; HUD, menus, and controls stay still.
     c.save();
@@ -183,7 +186,13 @@ export class Renderer {
       "#ffac6f",
       "center",
     );
-    this.label("RUN-UP  →", 275, COURSE.groundY + 34, 12, "#91a9b6");
+    this.label(
+      "RUN-UP  →",
+      COURSE.startX + 65,
+      COURSE.groundY + 34,
+      12,
+      "#91a9b6",
+    );
     if (world) {
       if (world.landed) {
         const x = COURSE.rampEnd + world.distancePixels;

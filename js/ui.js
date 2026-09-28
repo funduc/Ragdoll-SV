@@ -95,7 +95,7 @@ export class UI {
     }
     for (const [type, eligible] of [
       ["rotation", world.launched && world.airRotation >= Math.PI / 2],
-      ["longJump", world.launched && world.distancePixels >= 1200],
+      ["longJump", world.launched && world.distancePixels >= 1800],
     ]) {
       if (eligible && !this.announced.has(type)) {
         this.announced.add(type);
@@ -213,7 +213,7 @@ export class UI {
             ? "crash"
             : s.landingQuality === "Clean"
               ? "goodLanding"
-              : s.distanceMetres >= 30
+              : s.distanceMetres >= 45
                 ? "longJump"
                 : "weakJump",
           c,
