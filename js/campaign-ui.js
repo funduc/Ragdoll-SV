@@ -6,11 +6,18 @@ import {
   MEDALS,
   meetsThreshold,
 } from "./campaign-levels.js";
-import { escape, portrait, scoreDetails } from "./ui-content.js";
+import {
+  escape,
+  portrait,
+  scoreCard,
+  scoreBreakdown,
+  carnageDetails,
+} from "./ui-content.js";
 import {
   runInventory,
   runNotice,
   challengeMarkup,
+  conditionBadge,
   upgradeChoices,
   updateRunStatus,
 } from "./run-ui.js";
@@ -30,8 +37,52 @@ const goals = (level, facts = null) =>
     .join(
       "",
     )}${level.santorMedal ? `<li${facts ? ` data-met="${Boolean(facts.finished && !facts.invalid && meetsThreshold(level.santorMedal, facts))}"` : ""}><span class="campaign-medal">SANTOR</span><span>${escape(level.santorMedal.label)} (optional)</span>${facts ? `<b>${facts.finished && !facts.invalid && meetsThreshold(level.santorMedal, facts) ? "MET" : "—"}</b>` : ""}</li>` : ""}</ul>`;
-const notice = (save) =>
-  `<p class="tiny campaign-save" role="status">${escape(save.notice || "Saved on this browser · separate progress for each character.")}</p>`;
+// Short medal phrases for the briefing and the results checklist. The full
+// requirement text (each level's label) stays under Details.
+const SHORT_GOALS = {
+  "orientation-day": ["Reach the ramp", "2 good pushes", "Perfect takeoff", "Perfect takeoff, no Misses"],
+  "wheels-down": ["Land it (crashes count)", "Good Brace", "Perfect Brace + Clean landing", "Perfect takeoff + Brace, Clean"],
+  "commit-to-the-bit": ["Pull off 1 trick", "1 trick + land it", "2 different tricks + land", "2 tricks, Clean, Perfect Brace"],
+  "showboating-101": ["Pull off 1 trick", "2 tricks + land", "3 tricks + land", "3 tricks, Clean, Perfect Brace"],
+  "cross-examination": ["Land the jump", "Land in the target zone", "Target zone, rider attached", "Target, Clean, Perfect Brace"],
+  "fragile-cargo": ["Finish the jump", "Keep the mug", "Keep the mug + land Clean", "Mug, Clean, Perfect takeoff + Brace"],
+  "the-mapleton-run": ["Reach the ramp", "2 good pushes, no Misses", "No Misses + land it", "No Misses, Perfect takeoff + Brace, Clean"],
+  "ice-cream-weather": ["Land the jump", "Land with Good Brace", "Perfect Brace + Clean landing", "Perfect everything, no Misses"],
+  "siemens-certified": ["Finish after the pulse", "Recover and land", "Max speed, land attached", "Max speed, Clean, Perfect Brace"],
+  "the-santor-gauntlet": ["3 jumps, 1,050 points", "2,250 points + 2 landings", "3,000 points + 3 landings", "3,950 points, all Clean"],
+  "santor-gauntlet-hard": ["2 landings, 2,250 points", "3 landings, 3,400 points", "3 Perfect Braces, 4,250 points", "4,600 points, all Perfect"],
+};
+const TIERS = [
+  ["bronze", 1, "Bronze"],
+  ["silver", 2, "Silver"],
+  ["gold", 3, "Gold"],
+  ["santorMedal", 4, "Santor"],
+];
+// Letter + colour, so the medal never relies on colour alone.
+const medalIcon = (rank) =>
+  `<span class="medal-icon" data-medal="${rank}" aria-hidden="true">${["–", "B", "S", "G", "★"][rank]}</span>`;
+const LOCK = `<svg class="lock-icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="8" rx="1"/><path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+// "Gold: 2 tricks + land" phrases; with facts, a ticked checklist.
+function goalList(level, facts = null) {
+  const short = SHORT_GOALS[level.id] || [];
+  return `<ul class="goal-list">${TIERS.filter(([key]) => level[key])
+    .map(([key, rank, name]) => {
+      const met = Boolean(
+        facts?.finished && !facts.invalid && meetsThreshold(level[key], facts),
+      );
+      return `<li${facts ? ` data-met="${met}"` : ""}>${facts ? `<span class="goal-tick" role="img" aria-label="${met ? "Met" : "Not met"}">${met ? "✓" : "✗"}</span>` : ""}${medalIcon(rank)}<span><b>${name}${rank === 4 ? " (optional)" : ""}:</b> ${escape(short[rank - 1] || level[key].label)}</span></li>`;
+    })
+    .join("")}</ul>`;
+}
+const firstSentence = (text) => text.match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+const details = (content, label = "Details") =>
+  `<details class="brief-details"><summary>${label}</summary>${content}</details>`;
+// The default save line appears once, on character select; real notices
+// (storage errors, newer saves) show wherever they occur.
+const notice = (save, always = false) =>
+  save.notice || always
+    ? `<p class="tiny campaign-save" role="status">${escape(save.notice || "Saved on this browser · separate progress for each character.")}</p>`
+    : "";
 const progressCount = (save, c) =>
   LEVELS.filter((l) => save.entry(c.id, l.id).medal > 0).length;
 
@@ -43,11 +94,18 @@ function heatLedger(run) {
   const sum = (key) => run.heats.reduce((n, h) => n + h.score[key], 0);
   return `<section class="run-inventory" aria-label="Combined Gauntlet score"><h3>COMBINED SCORE · ${run.combinedScore}</h3><ul>${run.heats.map((h, i) => `<li><b>HEAT ${i + 1} · ${escape(h.name)} · ${h.score.total} POINTS</b><span>${escape(CONDITIONS[h.condition]?.name || "Standard")} · Distance ${h.score.distancePoints} + Style ${h.score.stylePoints} + Landing ${h.score.landingPoints} + Attachment ${h.score.attachedPoints}</span></li>`).join("")}</ul><p class="tiny">TOTAL: Distance ${sum("distancePoints")} + Style ${sum("stylePoints")} + Landing ${sum("landingPoints")} + Attachment ${sum("attachedPoints")} = ${run.combinedScore}. No hidden bonus.</p></section>`;
 }
-function overtimeMarkup(run) {
-  const level = HARD_GAUNTLET,
-    unlocked = run.isUnlocked(level),
+function levelTile(run, level, number, lockedHint) {
+  const unlocked = run.isUnlocked(level),
     best = run.save.entry(run.current.id, level.id);
-  return `<article class="campaign-level${unlocked ? "" : " locked"}" data-level="${level.id}"><h3>OPTIONAL · ${escape(level.name)}</h3>${medal(best.medal)}${best.santor ? '<span class="campaign-medal">SANTOR ✓</span>' : ""}<p>${escape(level.description)}</p>${goals(level)}${seriesMarkup(run, level)}<div class="actions">${action(unlocked ? "Play Gauntlet Overtime" : "Beat the Santor Gauntlet to unlock", "level", level.id, false, !unlocked)}</div></article>`;
+  const status = unlocked
+    ? `${MEDALS[best.medal]}${best.santor ? " + Santor medal" : ""}`
+    : `Locked. ${lockedHint}`;
+  return `<li><button type="button" class="level-tile${unlocked ? "" : " locked"}" data-campaign="level" data-value="${level.id}" data-medal="${best.medal}" aria-label="${escape(`${number} ${level.name}: ${status}`)}" title="${escape(unlocked ? level.name : lockedHint)}"${unlocked ? "" : " disabled"}><span class="tile-number">${number}</span><span class="tile-name">${escape(level.name)}</span><span class="tile-status">${unlocked ? `${medalIcon(best.medal)}${best.santor ? medalIcon(4) : ""}` : LOCK}</span></button></li>`;
+}
+// Bonus levels get their own row. After Hours levels join it if that
+// chapter is ever re-exported by campaign-levels.js.
+function bonusRow(run) {
+  return `<section class="bonus-row" aria-label="Bonus levels"><h3>BONUS</h3><ul class="level-grid">${levelTile(run, HARD_GAUNTLET, "OT", "Beat the Santor Gauntlet to unlock.")}</ul></section>`;
 }
 
 function profile(ui, c, run) {
@@ -55,7 +113,7 @@ function profile(ui, c, run) {
   ui.say(john);
   return `<section class="menu-panel intro-card" style="--person:${c.primaryColor}">
     ${runNotice(run)}<p class="eyebrow">VAULT RUN / CONFIRM YOUR COMPETITOR <span class="intro-countdown">PRESS ENTER WHEN READY.</span></p>
-    <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${run.runs.run?.characterId === c.id ? "Resume your current run and upgrades." : "Start a new run as this competitor. Temporary upgrades and pending rewards from a different character will clear; medals and achievements remain."}</p></div></div>
+    <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${run.runs.run?.characterId === c.id ? "Resume your current run and upgrades." : "Starts a new run. Medals and achievements stay; another character’s upgrades clear."}</p></div></div>
     <p class="intro-bio">${escape(c.biography)}</p>
     ${c.associatedPhrase ? `<p class="tiny intro-phrase">“${escape(c.associatedPhrase)}”</p>` : ""}
     ${c.keepsake?.kind === "censored" ? `<span class="censored-keepsake"><span class="censored-icon" role="img" aria-label="Black-bar-censored novelty item">CENSORED</span><span>${escape(c.keepsake.label)}</span></span>` : ""}
@@ -102,7 +160,7 @@ export function renderCampaign(ui, run) {
   let html = "";
   switch (run.state) {
     case S.SELECT:
-      html = `<section class="menu-panel"><p class="eyebrow">SINGLE PLAYER / TEN LEVELS</p><h2>VAULT RUN</h2><p>Choose your competitor. Earn Bronze to unlock the next lesson. Return for Silver and Gold; every character has a separate record. Aim for 20–30 minutes including practice and retries.</p><div class="campaign-characters">${CHARACTERS.map((character) => `<article style="--person:${character.primaryColor}"><div class="handoff">${portrait(character)}<div><h3>${escape(character.fullName)}</h3><p class="tiny">${escape(character.passive.name)} · ${progressCount(run.save, character)}/${LEVELS.length} levels complete</p></div></div>${action(`Choose ${character.name.split(" ")[0]}`, "select", character.id)}</article>`).join("")}</div>${notice(run.save)}<div class="actions">${action("Main menu", "menu", "", true)}</div></section>`;
+      html = `<section class="menu-panel"><p class="eyebrow">SINGLE PLAYER / TEN LEVELS</p><h2>VAULT RUN</h2><p>Choose your competitor. Each one keeps a separate record.</p><div class="campaign-characters">${CHARACTERS.map((character) => `<article style="--person:${character.primaryColor}"><div class="handoff">${portrait(character)}<div><h3>${escape(character.fullName)}</h3><p class="tiny">${escape(character.passive.name)} · ${progressCount(run.save, character)}/${LEVELS.length} levels complete</p></div></div>${action(`Choose ${character.name.split(" ")[0]}`, "select", character.id)}</article>`).join("")}</div><div class="actions">${action("Main menu", "menu", "", true)}${notice(run.save, true)}</div></section>`;
       ui.say("One competitor. Ten levels. The Vault keeps your place.");
       break;
     case S.PROFILE:
@@ -110,33 +168,49 @@ export function renderCampaign(ui, run) {
       ui.root.dataset.introduction = "true";
       html = profile(ui, c, run);
       break;
-    case S.MAP:
-      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${escape(c.passive.name)}</p>${progressCount(run.save, c) === LEVELS.length ? '<p class="subline">RUN COMPLETE · All ten levels cleared. Gauntlet Overtime is open. Replay levels to upgrade medals.</p>' : '<p class="tiny">Bronze unlocks the next level. Perfect pushes count toward Good-or-better. Replays keep your highest medal. The condition and optional objective stay fixed for this run.</p>'}${runNotice(run)}${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · preserved across new runs.</p><ol class="campaign-map">${LEVELS.map(
-        (l, index) => {
-          const unlocked = run.isUnlocked(l),
-            best = run.save.entry(c.id, l.id);
-          return `<li class="campaign-level${unlocked ? "" : " locked"}" data-level="${l.id}"><div class="campaign-level-heading"><h3><span>${String(index + 1).padStart(2, "0")}</span> ${escape(l.name)}</h3>${medal(best.medal)}${best.santor ? '<span class="campaign-medal">SANTOR ✓</span>' : ""}</div><p>${escape(l.description)}</p><p class="tiny">COACHING: ${escape(l.modifier.name)}${l.upgradeReward ? " · Bronze earns one upgrade choice per run" : ""}</p>${goals(l)}${seriesMarkup(run, l)}${challengeMarkup(run, l)}<div class="actions">${action(unlocked ? (best.medal ? "Replay level" : "Play level") : "Locked", "level", l.id, false, !unlocked)}${!unlocked ? `<span class="tiny">Earn Bronze in ${escape(LEVELS.find((previous) => previous.id === l.prerequisites[0]).name)}.</span>` : ""}</div></li>`;
-        },
+    case S.MAP: {
+      const cleared = progressCount(run.save, c);
+      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime is open.</p>' : ""}${runNotice(run)}${notice(run.save)}<ol class="level-grid">${LEVELS.map(
+        (l, index) =>
+          levelTile(
+            run,
+            l,
+            String(index + 1).padStart(2, "0"),
+            index
+              ? `Earn Bronze in ${LEVELS.find((previous) => previous.id === l.prerequisites[0]).name}.`
+              : "",
+          ),
       ).join(
         "",
-      )}</ol>${overtimeMarkup(run)}${notice(run.save)}<div class="actions">${action("New run", "new-run", "", true)}${action("Change character", "characters", "", true)}${action("Main menu", "menu", "", true)}${action("Reset campaign progress", "reset", "", true)}</div></section>`;
+      )}</ol>${bonusRow(run)}<div class="actions compact">${action("Change character", "characters", "", true)}${action("New run", "new-run", "", true)}${action("Main menu", "menu", "", true)}${action("Reset progress", "reset", "", true)}</div>${details(`${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · kept across new runs.</p><p class="tiny">${escape(c.passive.name)} · replays keep your best medal.</p>`)}</section>`;
       ui.say(
-        progressCount(run.save, c) === LEVELS.length
+        cleared === LEVELS.length
           ? "Ten levels complete. Overtime is optional. John is not taking questions."
           : "Your next lesson is on the board. Bronze opens the next gate.",
       );
       break;
-    case S.READY:
-      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ${level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} OF ${LEVELS.length}`}${run.stage ? ` / HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""}</p><h2>${escape(level.name)}</h2><div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${runNotice(run)}${challengeMarkup(run, level)}${goals(level)}${runInventory(run)}<p class="tiny">Tap SPACE / ↑ or PUSH on the rhythm meter. Release between pushes. One push in the green takeoff zone. LEFT / RIGHT or A / D rotates; DOWN / S or BRACE braces once near landing.</p><p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div></section>`;
+    }
+    case S.READY: {
+      const number = level.bonus
+        ? "BONUS"
+        : `LEVEL ${String(LEVELS.indexOf(level) + 1).padStart(2, "0")} / ${LEVELS.length}`;
+      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${goalList(level)}${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
       ui.say(run.introduction);
       break;
+    }
     case S.RESULTS: {
       const s = run.lastScore,
         result = run.lastMedal;
       const flavor = s.crashed
         ? `${c.crashDescriptions ? `<p class="character-flavor">${escape(c.crashDescriptions[s.quarterTurns % c.crashDescriptions.length])}</p>` : ""}<p class="crash-quote">${escape(c.name.split(" ")[0])}: “${escape(c.crashQuote)}”</p>`
         : "";
-      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ATTEMPT COMPLETE</p><h2>${escape(level.name)}</h2><p>${escape(c.fullName)}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? "NEXT HEAT REQUIRES CONFIRMATION" : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3 · BEST KEPT" : result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${result.medal > 0 && LEVELS.indexOf(level) >= 0 && LEVELS.indexOf(level) < LEVELS.length - 1 ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked` : ""}</p></div>${level.stages ? heatLedger(run) : ""}${result.provisional ? "" : goals(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · GAUNTLET OVERTIME UNLOCKED</p>' : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${runNotice(run)}<p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}${runInventory(run)}${notice(run.save)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div><p class="tiny">R: retry this level immediately${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p></section>`;
+      const next =
+        result.medal > 0 &&
+        LEVELS.indexOf(level) >= 0 &&
+        LEVELS.indexOf(level) < LEVELS.length - 1
+          ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked`
+          : "";
+      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${scoreCard(s)}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · GAUNTLET OVERTIME UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
       ui.say(
         result.provisional
           ? `Heat ${run.stageIndex + 1} banked. ${run.combinedScore} points. ${run.stageIndex ? "THE LEDGER IS GETTING LOUDER." : "Please retain the cart for the next examination."}`
@@ -163,7 +237,9 @@ export function renderCampaign(ui, run) {
       ? ui.overlay.querySelector(
           `[data-campaign="select"][data-value="${run.save.data.selectedCharacter}"]`,
         )
-      : null;
+      : run.state === S.MAP
+        ? ui.overlay.querySelector('.level-tile[data-medal="0"]:not(:disabled)')
+        : null;
   (preferred || ui.overlay.querySelector("button:not(:disabled)"))?.focus({
     preventScroll: true,
   });

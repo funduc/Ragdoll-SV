@@ -85,3 +85,7 @@
     width: 100%;
   }
 }
+.results-panel .achievement-notice {
+  margin-bottom: 8px;
+  padding: 6px 12px;
+}

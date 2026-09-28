@@ -11,7 +11,9 @@ import {
   escape,
   portrait,
   unavailablePortraits,
-  scoreDetails,
+  scoreCard,
+  scoreBreakdown,
+  carnageDetails,
   crashOfNightMarkup,
 } from "./ui-content.js";
 import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
@@ -190,7 +192,7 @@ export class UI {
         this.caption("introduction");
         break;
       case State.READY:
-        html = `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</span><div class="handoff" style="--person:${t.current.primaryColor}">${portrait(t.current)}<div><h2>${escape(t.current.name)}</h2><span class="nickname">“${escape(t.current.nickname)}”</span></div></div><p>Ready, ${t.current.name.split(" ")[0]}? Confirm, then tap <kbd>SPACE</kbd> or <kbd>↑</kbd> on the green rhythm zone. One timed push at takeoff, then <kbd>↓</kbd> / <kbd>S</kbd> to brace before landing.</p><p class="tiny touch-note">Touch: tap PUSH on the beat; hold LEFT / RIGHT to rotate; tap BRACE once near landing.</p><p class="subline">${t.next ? `ON DECK: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "UP NEXT: QUALIFYING RESULTS & ELIMINATION" : "UP NEXT: THE FINAL RESULTS"}</p><p class="tiny"><b>${escape(t.current.passive.name)}</b> · Style ×${t.current.styleMultiplier.toFixed(2)} · Air control ×${t.current.rotationControl.toFixed(2)} · Stability ×${t.current.landingStability.toFixed(2)}</p><p class="tiny">${t.current.statistics
+        html = `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</span><div class="handoff" style="--person:${t.current.primaryColor}">${portrait(t.current)}<div><h2>${escape(t.current.name)}</h2><span class="nickname">“${escape(t.current.nickname)}”</span></div></div><p>Ready, ${t.current.name.split(" ")[0]}?</p><p class="subline">${t.next ? `ON DECK: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "UP NEXT: QUALIFYING RESULTS & ELIMINATION" : "UP NEXT: THE FINAL RESULTS"}</p><p class="tiny"><b>${escape(t.current.passive.name)}</b> · Style ×${t.current.styleMultiplier.toFixed(2)} · Air control ×${t.current.rotationControl.toFixed(2)} · Stability ×${t.current.landingStability.toFixed(2)}</p><p class="tiny">${t.current.statistics
           .slice(3)
           .map(([label, value]) => `${escape(label)}: ${escape(value)}`)
           .join(" · ")}</p>${button("Begin jump")}</section>`;
@@ -219,7 +221,7 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2><p class="subline">${escape(s.reason)} · ${s.landingQuality.toUpperCase()} · ${s.attached ? "RIDER ATTACHED" : "RIDER DETACHED"}</p>${flavor}${scoreDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}. Confirm to hand off the controls.` : t.round === "qualifying" ? "All three qualifying jumps are in. Find out who advances." : "Both championship jumps are in. Time to crown the winner."}</p><div class="actions">${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div></section>`;
+        html = `<section class="menu-panel results-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2>${scoreCard(s)}${flavor}${carnageDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "All three qualifying jumps are in." : "Both championship jumps are in."}</p><div class="actions">${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s)}</section>`;
         break;
       }
       case State.ELIMINATION:
