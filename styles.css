@@ -1093,3 +1093,98 @@ kbd {
   font: bold 14px "Courier New", monospace;
   letter-spacing: 2px;
 }
+/* Results: the scorecard stays compact; details live in the dropdown. */
+.results-panel {
+  padding-block: 18px;
+}
+.results-panel .eyebrow {
+  margin-bottom: 6px;
+}
+/* Crash jokes flow together as one short block. */
+.results-panel .character-flavor,
+.results-panel .crash-quote {
+  display: inline;
+  margin: 0 8px 0 0;
+}
+.results-panel h2 {
+  margin-bottom: 4px;
+}
+.results-panel .score-item {
+  padding: 6px 10px;
+}
+.results-panel .score-item strong {
+  font-size: 22px;
+  margin: 3px 0;
+}
+/* The total sits beside the four score boxes instead of below them. */
+.results-panel .score-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 8px;
+}
+.results-panel .score-card .score-grid {
+  margin: 0;
+}
+.results-panel .score-total {
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+}
+.results-panel .score-total strong {
+  min-width: 110px;
+  min-height: 0;
+  padding: 10px 14px;
+  font-size: 30px;
+}
+.results-panel .actions {
+  margin-top: 8px;
+}
+/* A slim carnage strip: label, score and stats on one or two lines. */
+.results-panel .carnage-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  margin: 8px 0;
+  padding: 6px 12px;
+}
+.results-panel .carnage-card > strong {
+  display: inline;
+  font-size: 22px;
+}
+.results-panel .carnage-card p,
+.results-panel .carnage-card small {
+  margin: 0;
+  font-size: 11px;
+}
+.score-breakdown,
+.brief-details {
+  margin-top: 12px;
+}
+.score-breakdown > summary,
+.brief-details > summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--blue);
+  font:
+    bold 11px "Courier New",
+    monospace;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.score-breakdown[open] > summary,
+.brief-details[open] > summary {
+  margin-bottom: 10px;
+}
+@media (max-width: 800px) {
+  .results-panel .score-card {
+    grid-template-columns: 1fr;
+  }
+  .results-panel .score-total {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}

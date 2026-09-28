@@ -13,12 +13,32 @@ export function runNotice(run) {
     ? `<p class="tiny" role="status">${escape(run.runs.notice)}</p>`
     : "";
 }
-export function challengeMarkup(run, level, result = false) {
-  const plan = run.runs.plan(
+const planFor = (run, level) =>
+  run.runs.plan(
     level.id,
     run.developer,
     run.level === level && run.state !== "campaign-map" ? run.stageIndex : 0,
   );
+// Briefing badge: an icon plus a few words. Full descriptions stay in Details.
+// U+FE0E keeps the symbols as plain text glyphs rather than emoji.
+const CONDITION_BADGES = {
+  crosswind: ["➜", "pushes you right"],
+  "icy-ramp": ["❄", "slippery everywhere"],
+  "heavy-cart": ["⚓", "slower, but steadier"],
+  "boost-strip": ["⚡", "free +3 speed"],
+  "wrate-issue": ["⚠", "forward wobble mid-air"],
+};
+export function conditionBadge(run, level) {
+  const plan = planFor(run, level);
+  if (!plan) return "";
+  const condition = CONDITIONS[plan.condition];
+  const [icon, words] = condition
+    ? CONDITION_BADGES[plan.condition] || ["◆", ""]
+    : ["✓", "no surprises"];
+  return `<p class="condition-badge" data-condition="${escape(plan.condition || "standard")}"><span class="condition-icon" aria-hidden="true">${icon}&#xFE0E;</span><b>${escape(condition?.name || "Standard")}</b>${words ? ` · ${escape(words)}` : ""}</p>`;
+}
+export function challengeMarkup(run, level, result = false) {
+  const plan = planFor(run, level);
   if (!plan) return "";
   const condition = CONDITIONS[plan.condition],
     objective = OBJECTIVES[plan.objective];
@@ -27,7 +47,7 @@ export function challengeMarkup(run, level, result = false) {
   return `<div class="run-challenge"><p><b>CONDITION: ${escape(condition?.name || "Standard")}</b><span>${escape(condition?.description || "No additional forces or traction changes.")}</span></p><p><b>OPTIONAL: ${escape(objective.name)}</b><span>${escape(objective.description)}</span>${result ? `<strong class="objective-outcome" data-objective-result="${run.lastObjective?.passed ? "success" : "failure"}">${run.lastObjective?.passed ? "SUCCESS" : "NOT MET"}</strong><span>${escape(run.lastObjective?.measured || "Attempt not valid")}</span><small>${run.newAchievement ? "NEW ACHIEVEMENT · retained for this character" : earned ? "Previously earned achievement retained" : "Optional objectives do not block medals or unlocks."}</small>` : `<small>${earned ? "Achievement already earned · replay freely" : "Optional achievement · does not block level progression"}</small>`}</p></div>`;
 }
 export function upgradeChoices(run, action) {
-  return `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ONE REWARD</p><h2>CHOOSE AN UPGRADE</h2><p>Pick one. The other offers expire. Replaying this level cannot grant another reward during this run.</p>${runNotice(run)}<div class="upgrade-choices">${run.runs.run.offers
+  return `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ONE REWARD</p><h2>CHOOSE AN UPGRADE</h2><p>Pick one. The others expire.</p>${runNotice(run)}<div class="upgrade-choices">${run.runs.run.offers
     .map((id) => {
       const item = UPGRADES[id],
         count = run.runs.run.upgrades[id];
@@ -35,7 +55,7 @@ export function upgradeChoices(run, action) {
     })
     .join(
       "",
-    )}</div>${runInventory(run)}<div class="actions">${action("Keep factory settings — skip reward", "skip-upgrade")}</div></section>`;
+    )}</div><div class="actions">${action("Keep factory settings — skip reward", "skip-upgrade")}</div><details class="brief-details"><summary>Details</summary><p class="tiny">Replaying this level cannot grant another reward during this run.</p>${runInventory(run)}</details></section>`;
 }
 export function updateRunStatus(world) {
   const node = document.getElementById("run-status");

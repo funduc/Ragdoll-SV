@@ -268,3 +268,284 @@
   min-height: 48px;
   font-size: 20px;
 }
+/* Campaign map: level tiles. Medal icons carry a letter, not only colour. */
+.map-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+}
+.map-head h2 {
+  margin-bottom: 0;
+}
+.map-head p {
+  margin: 0;
+  font-size: 13px;
+}
+.level-grid {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+.level-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 30px 8px 10px;
+  border: 2px solid #50616d;
+  border-left: 4px solid var(--blue);
+  background: linear-gradient(135deg, #26343f, #111c23);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.level-tile:hover:not(:disabled),
+.level-tile:focus-visible {
+  border-color: var(--orange);
+  outline: 2px solid var(--orange);
+  outline-offset: 1px;
+}
+.level-tile.locked {
+  border-left-color: #75828b;
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.tile-number {
+  color: var(--blue);
+  font:
+    bold 12px "Courier New",
+    monospace;
+}
+.tile-name {
+  font:
+    900 14px/1.1 Impact,
+    "Arial Black",
+    Arial,
+    sans-serif;
+  text-transform: uppercase;
+}
+.tile-status {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.medal-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  background: #11181f;
+  color: var(--muted);
+  font:
+    bold 10px "Courier New",
+    monospace;
+}
+.medal-icon[data-medal="1"] {
+  color: #e3a16d;
+}
+.medal-icon[data-medal="2"] {
+  color: #d5e2ea;
+}
+.medal-icon[data-medal="3"] {
+  color: #f8d45e;
+}
+.medal-icon[data-medal="4"] {
+  color: var(--orange);
+}
+.lock-icon {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+.bonus-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 2px dashed var(--orange);
+  background: repeating-linear-gradient(
+    135deg,
+    #2a1d12,
+    #2a1d12 12px,
+    #231810 12px,
+    #231810 24px
+  );
+}
+.bonus-row h3 {
+  margin: 0;
+  color: var(--orange);
+  font:
+    bold 12px "Courier New",
+    monospace;
+  letter-spacing: 2px;
+}
+.bonus-row .level-grid {
+  flex: 1;
+  margin: 0;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.bonus-row .level-tile {
+  min-height: 56px;
+  border-left-color: var(--orange);
+  background: linear-gradient(135deg, #4a2e17, #1d140d);
+}
+.bonus-row .tile-number {
+  color: var(--orange);
+}
+.actions.compact {
+  gap: 8px;
+  margin-top: 12px;
+}
+.actions.compact .btn {
+  padding: 9px 12px;
+  font-size: 11px;
+}
+/* Level briefing */
+.briefing-panel h2 {
+  margin-bottom: 4px;
+}
+.brief-line {
+  margin-bottom: 10px;
+}
+.condition-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--blue);
+  background: #101d25;
+  font:
+    12px "Courier New",
+    monospace !important;
+}
+.condition-badge b {
+  color: var(--blue);
+}
+.condition-icon {
+  font-size: 16px;
+  color: var(--blue);
+}
+.goal-list {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.goal-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.goal-tick {
+  width: 16px;
+  font-weight: bold;
+  color: var(--orange);
+  text-align: center;
+}
+.goal-list li[data-met="true"] .goal-tick {
+  color: var(--green);
+}
+.goal-list li[data-met="false"] {
+  color: var(--muted);
+}
+.briefing-panel .intro-john {
+  font-size: 13px;
+  margin: 10px 0 0;
+}
+.briefing-panel .actions {
+  margin-top: 14px;
+}
+.results-panel .campaign-award {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 14px;
+  padding: 4px 0;
+}
+.results-panel .campaign-award > .campaign-medal {
+  grid-row: span 2;
+}
+.results-panel .campaign-award p {
+  margin: 0;
+}
+.results-panel .goal-list {
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin: 6px 0;
+}
+@media (max-width: 800px) {
+  .level-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .level-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .level-tile {
+    min-height: 60px;
+  }
+  .bonus-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .results-panel .goal-list {
+    grid-template-columns: 1fr;
+  }
+  .goal-list li {
+    font-size: 12px;
+  }
+}
+/* Character select and upgrade offers sit side by side on wider screens. */
+@media (min-width: 801px) {
+  .campaign-characters,
+  .upgrade-choices {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .campaign-characters .handoff {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .upgrade-choices article {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+  }
+  .actions > .campaign-save {
+    margin: 0;
+  }
+  .upgrade-choices article .btn {
+    margin-top: auto;
+  }
+  .upgrade-choices h3 {
+    font-size: 20px;
+  }
+  .upgrade-choices p:not(.tiny) {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .campaign-characters .handoff .portrait {
+    width: 64px;
+    height: 76px;
+    flex-basis: auto;
+  }
+  [data-mode="vault-run"] .intro-card .intro-stats {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
