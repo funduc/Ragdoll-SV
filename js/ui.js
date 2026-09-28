@@ -16,7 +16,7 @@ import {
 } from "./ui-content.js";
 import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
 import { updateRunStatus } from "./run-ui.js";
-import { PARTY_FORMATS } from "./party-config.js";
+import { PARTY_FORMATS, EVENTS } from "./party-config.js";
 import {
   setupMarkup,
   roundIntroMarkup,
@@ -27,6 +27,8 @@ import {
   scoreboardMarkup,
   scoreboardLine,
   finalMarkup,
+  highJumpLine,
+  highJumpResultMarkup,
 } from "./party-ui.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
@@ -58,7 +60,7 @@ export class UI {
     this.resetAttempt();
     this.onClick = (event) => {
       const menu = event.target.closest(
-        "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter], button[data-setup], button[data-party]",
+        "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter], button[data-setup], button[data-party], button[data-event]",
       );
       if (menu && !menu.disabled) {
         onMenu(menu);
@@ -89,6 +91,8 @@ export class UI {
     this.hudName = document.getElementById("hud-name");
     this.hudPhase = document.getElementById("hud-phase");
     this.hudDistance = document.getElementById("hud-distance");
+    this.hudDistanceLabel = document.getElementById("hud-distance-label");
+    this.eventLabel = document.getElementById("event-label");
     this.hudRotation = document.getElementById("hud-rotation");
     this.hudTime = document.getElementById("hud-time");
     this.passiveStatus = document.getElementById("passive-status");
@@ -117,6 +121,10 @@ export class UI {
       );
     for (const event of world.drainEvents()) {
       if (["launch", "crash", "wrateWarning"].includes(event)) queue(event);
+      // High Jump: John reacts the moment the bar falls or a flop goes over.
+      if (event === "fosbury") this.say(highJumpLine("fosbury"));
+      if (event === "barKnocked")
+        this.say(highJumpLine(world.highJump?.face ? "face" : "knocked"));
     }
     for (const [type, eligible] of [
       ["rotation", world.launched && world.airRotation >= Math.PI / 2],
@@ -180,12 +188,16 @@ export class UI {
       return;
     }
     this.root.dataset.mode = t.state === State.TITLE ? "menu" : "party";
+    this.eventLabel.innerHTML =
+      t.state !== State.TITLE && t.highJump
+        ? "<b>02</b> CART HIGH JUMP"
+        : "<b>01</b> SHOPPING-CART LONG JUMP";
     document.getElementById("session-mode").textContent =
       t.state === State.TITLE ? "CHOOSE YOUR MODE" : "LOCAL PASS & PLAY";
     document.getElementById("session-players").textContent =
       t.state === State.TITLE ? "1–6 PLAYERS" : `${t.players.length} PLAYERS`;
     document.getElementById("standings-title").textContent = "THE COMPETITORS";
-    document.getElementById("standings-subtitle").textContent = `${PARTY_FORMATS[t.format].name.toUpperCase()}${t.chaos ? " · CHAOS" : ""}`;
+    document.getElementById("standings-subtitle").textContent = `${t.highJump ? "HIGH JUMP" : PARTY_FORMATS[t.format].name.toUpperCase()}${t.chaos ? " · CHAOS" : ""}`;
     this.roundLabel.textContent = [
       State.TITLE,
       State.SETUP,
@@ -208,11 +220,11 @@ export class UI {
     let html = "";
     switch (t.state) {
       case State.TITLE:
-        html = `<section class="menu-panel title-panel"><p class="eyebrow">EVENT 01 / CHOOSE YOUR MODE</p><h1>RAGDOLL<br><span>OLYMPICS</span></h1><strong class="vault-title">THE SANTOR VAULT</strong><p>One shopping cart with something to prove.<br>A solo campaign or a local pass-and-play tournament.</p>${this.enteredVault ? `<div class="actions mode-choices"><button type="button" class="btn" data-mode="vault">Vault Run <small>1 PLAYER</small></button><button type="button" class="btn secondary" data-mode="party">Party Tournament <small>3 PLAYERS</small></button><button type="button" class="btn secondary" data-achievement="open">Achievement Vault</button></div>` : '<div class="actions"><button type="button" class="btn" data-audio-enter>Enter the Vault <small>ENTER ↵</small></button></div>'}<div class="title-meta"><span>1 DEVICE</span><span>SHOPPING-CART LONG JUMP</span></div></section>`;
+        html = `<section class="menu-panel title-panel"><p class="eyebrow">${t.setup.event === "high-jump" ? "EVENT 02" : "EVENT 01"} / CHOOSE YOUR MODE</p><h1>RAGDOLL<br><span>OLYMPICS</span></h1><strong class="vault-title">THE SANTOR VAULT</strong><p>One shopping cart with something to prove.<br>A solo campaign or a local pass-and-play tournament.</p>${this.enteredVault ? `<div class="event-picker" role="group" aria-label="Event"><span>EVENT</span>${Object.entries(EVENTS).map(([id, e]) => `<button type="button" class="btn secondary" data-event="${id}" aria-pressed="${t.setup.event === id}">${escape(e.name)}</button>`).join("")}</div><div class="actions mode-choices"><button type="button" class="btn" data-mode="vault">Vault Run <small>1 PLAYER${t.setup.event === "high-jump" ? " · LONG JUMP" : ""}</small></button><button type="button" class="btn secondary" data-mode="party">Party Tournament <small>2–6 PLAYERS</small></button><button type="button" class="btn secondary" data-achievement="open">Achievement Vault</button></div>` : '<div class="actions"><button type="button" class="btn" data-audio-enter>Enter the Vault <small>ENTER ↵</small></button></div>'}<div class="title-meta"><span>1 DEVICE</span><span>${t.setup.event === "high-jump" ? "CART HIGH JUMP" : "SHOPPING-CART LONG JUMP"}</span></div></section>`;
         this.say("John Santor, live from The Santor Vault. Choose your event.");
         break;
       case State.INSTRUCTIONS:
-        html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Tap <kbd>SPACE</kbd> or <kbd>↑</kbd> at the green centre of the rhythm meter. Release each time; holding gives one push. Spam adds wobble.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down. Tap <kbd>↓</kbd> / <kbd>S</kbd> once just before contact to brace. Too early reduces air control; too late gives no benefit.</p><p>At TAKEOFF, wait for the cart marker in the green boost zone and tap once. Early spends the bonus; Late pitches forward. Touch: tap PUSH / BRACE; hold LEFT / RIGHT.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> Complete flips and controlled-flight tricks build unique-trick combos. Repeats pay ${TRICK_CONFIG.repeatFactors.map((f) => `${Math.round(f * 100)}%`).join(", ")}. Clean landings multiply trick style ×${TRICK_CONFIG.landingFactors.Clean.toFixed(2)}; crashes retain ×${TRICK_CONFIG.landingFactors.Crash.toFixed(2)}. Partial spins earn no trick points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny"><b>${escape(PARTY_FORMATS[t.format].name)}:</b> ${escape(PARTY_FORMATS[t.format].summary)}${t.chaos ? " <b>Chaos:</b> each round rolls a random condition." : ""} Ties go to the better single jump.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${tutorialMarkup()}${button("To round 1")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Tap <kbd>SPACE</kbd> or <kbd>↑</kbd> at the green centre of the rhythm meter. Release each time; holding gives one push. Spam adds wobble.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down. Tap <kbd>↓</kbd> / <kbd>S</kbd> once just before contact to brace. Too early reduces air control; too late gives no benefit.</p><p>At TAKEOFF, wait for the cart marker in the green boost zone and tap once. Early spends the bonus; Late pitches forward. Touch: tap PUSH / BRACE; hold LEFT / RIGHT.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> Complete flips and controlled-flight tricks build unique-trick combos. Repeats pay ${TRICK_CONFIG.repeatFactors.map((f) => `${Math.round(f * 100)}%`).join(", ")}. Clean landings multiply trick style ×${TRICK_CONFIG.landingFactors.Clean.toFixed(2)}; crashes retain ×${TRICK_CONFIG.landingFactors.Crash.toFixed(2)}. Partial spins earn no trick points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny"><b>${escape(t.highJump ? EVENTS["high-jump"].name : PARTY_FORMATS[t.format].name)}:</b> ${escape(t.highJump ? EVENTS["high-jump"].summary : PARTY_FORMATS[t.format].summary)}${t.highJump ? " Clear it upside down for a Fosbury style bonus." : ""}${t.chaos ? " <b>Chaos:</b> each round rolls a random condition." : ""} Ties go to the better single jump.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${tutorialMarkup()}${button("To round 1")}</section>`;
         break;
       case State.SETUP:
         html = setupMarkup(t);
@@ -250,7 +262,19 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel results-panel"><p class="eyebrow">${roundLabel(t)} / ATTEMPT COMPLETE</p><h2>${escape(p.name.toUpperCase())}</h2>${scoreCard(s)}${flavor}${carnageDetails(s)}<p class="tiny">${escape(p.name)}'s total: ${t.totalFor(p.id)}${t.nextPlayer ? ` · Next: ${escape(t.nextPlayer.name)}` : " · Round complete."}</p><div class="actions">${button(resultsAction(t))}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s)}</section>`;
+        if (t.highJump)
+          this.say(
+            highJumpLine(
+              s.highJump.fosbury
+                ? "fosbury"
+                : s.highJump.cleared
+                  ? "cleared"
+                  : s.highJump.face
+                    ? "face"
+                    : s.highJump.result,
+            ),
+          );
+        html = `<section class="menu-panel results-panel"><p class="eyebrow">${roundLabel(t)} / ATTEMPT COMPLETE</p><h2>${escape(p.name.toUpperCase())}</h2>${t.highJump ? highJumpResultMarkup(t) : scoreCard(s)}${flavor}${carnageDetails(s)}<p class="tiny">${t.highJump ? `${escape(p.name)}'s best: ${t.bestHeightFor(p.id) ? `${t.bestHeightFor(p.id).toFixed(2)} m` : "—"}` : `${escape(p.name)}'s total: ${t.totalFor(p.id)}`}${t.nextPlayer ? ` · Next: ${escape(t.nextPlayer.name)}` : " · Round complete."}</p><div class="actions">${button(resultsAction(t))}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s)}</section>`;
         break;
       }
       case State.SCOREBOARD:
@@ -290,7 +314,7 @@ export class UI {
               t.state,
             ) && t.currentPlayer.id === p.id,
           winner = t.state === State.FINAL && t.winners.includes(p);
-        return `<article class="competitor ${current ? "current" : ""} ${out ? "out" : ""}" style="--person:${c.primaryColor}">${portrait(c)}<div class="person-info"><div class="person-name">${escape(p.name)}</div><div class="person-nick">${escape(c.name)} “${escape(c.nickname)}”</div><div class="score-line"><span>TOTAL <b>${playing ? t.totalFor(p.id) : "—"}</b></span><span>BEST <b>${playing ? (t.bestJumpFor(p.id)?.score.total ?? "—") : "—"}</b></span></div></div>${out ? '<span class="person-status">ELIMINATED</span>' : current ? '<span class="person-status">CURRENT TURN</span>' : winner ? '<span class="person-status">CHAMPION</span>' : ""}</article>`;
+        return `<article class="competitor ${current ? "current" : ""} ${out ? "out" : ""}" style="--person:${c.primaryColor}">${portrait(c)}<div class="person-info"><div class="person-name">${escape(p.name)}</div><div class="person-nick">${escape(c.name)} “${escape(c.nickname)}”</div><div class="score-line">${t.highJump ? `<span>BEST <b>${playing && t.bestHeightFor(p.id) ? `${t.bestHeightFor(p.id).toFixed(2)} m` : "—"}</b></span><span>MISSES <b>${playing ? t.missesFor(p.id) : "—"}</b></span>` : `<span>TOTAL <b>${playing ? t.totalFor(p.id) : "—"}</b></span><span>BEST <b>${playing ? (t.bestJumpFor(p.id)?.score.total ?? "—") : "—"}</b></span>`}</div></div>${out ? '<span class="person-status">ELIMINATED</span>' : current ? '<span class="person-status">CURRENT TURN</span>' : winner ? '<span class="person-status">CHAMPION</span>' : ""}</article>`;
       })
       .join("");
   }
@@ -306,7 +330,17 @@ export class UI {
       : world.launched
         ? "AIRBORNE"
         : "RUN-UP";
-    this.hudDistance.innerHTML = `${(world.distancePixels / 40).toFixed(1)} <small>m</small>`;
+    // High Jump shows the live clearance height instead of distance.
+    const height = world.highJump
+      ? Math.max(
+          0,
+          (world.course.groundY -
+            Math.max(...world.dynamic.map((b) => b.bounds.max.y))) /
+            40,
+        )
+      : null;
+    this.hudDistanceLabel.textContent = height === null ? "DISTANCE" : "HEIGHT";
+    this.hudDistance.innerHTML = `${(height ?? world.distancePixels / 40).toFixed(1)} <small>m</small>`;
     this.hudRotation.textContent = `${Math.round((world.airRotation * 180) / Math.PI)}°`;
     this.hudTime.innerHTML = `${Math.max(0, (world.launched ? ATTEMPT_LIMIT : 12) - world.elapsed).toFixed(1)} <small>s</small>`;
     this.hint.textContent = world.landed

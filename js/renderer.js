@@ -105,8 +105,13 @@ export class Renderer {
     }
     this.stadium.ground(c, left, right, course.groundY, this.label.bind(this));
     c.fillStyle = "#31464e";
-    c.fillRect(course.distanceOrigin, course.groundY + 4, 12000, 8);
-    for (let x = course.distanceOrigin; x < right + 200; x += 200) {
+    if (course.distanceMarkers)
+      c.fillRect(course.distanceOrigin, course.groundY + 4, 12000, 8);
+    for (
+      let x = course.distanceOrigin;
+      course.distanceMarkers && x < right + 200;
+      x += 200
+    ) {
       if (x < left - 50) continue;
       c.fillStyle = "#b4ef4b";
       c.fillRect(x, course.groundY + 2, 2, 16);
@@ -151,8 +156,11 @@ export class Renderer {
     c.lineWidth = 7;
     c.stroke();
     // Optional extra static pieces (bars, walls, second ramps) from course data.
-    for (const piece of course.pieces)
+    for (const piece of course.pieces) {
       this.polygon(pieceOutline(piece), piece.fill, piece.stroke, 2);
+      if (piece.sign) this.pieceSign(piece);
+    }
+    if (world?.highJump) this.drawHighJump(world, course);
     drawRunMarkings(this, world, left, right);
     for (const bump of world?.runwayBumps || [])
       this.polygon(bump.vertices, "#667782", "#ffb84b", 2);
@@ -200,7 +208,7 @@ export class Renderer {
       "#91a9b6",
     );
     if (world) {
-      if (world.landed) {
+      if (world.landed && course.distanceMarkers) {
         const x = course.distanceOrigin + world.distancePixels;
         c.setLineDash([5, 6]);
         c.beginPath();
@@ -242,6 +250,51 @@ export class Renderer {
     c.restore();
     effects?.drawScreen(c, w, h);
     c.restore();
+  }
+  // Painted sponsor text on a course piece (e.g. the high-jump pit mat).
+  pieceSign(piece) {
+    const outline = pieceOutline(piece);
+    const xs = outline.map((p) => p.x),
+      ys = outline.map((p) => p.y);
+    const x = (Math.min(...xs) + Math.max(...xs)) / 2,
+      y = (Math.min(...ys) + Math.max(...ys)) / 2 + 5;
+    this.label(piece.sign, x, y, 14, "#eaf6ff", "center");
+  }
+  // CART HIGH JUMP: upright with height marks, the peg, and the real bar.
+  drawHighJump(world, course) {
+    const c = this.ctx,
+      hj = world.highJump,
+      x = course.bar.x,
+      ground = course.groundY;
+    const poleTop = Math.min(hj.barTop - 70, ground - 12 * 40);
+    c.fillStyle = "#1c262d";
+    c.fillRect(x - 26, ground - 8, 52, 8);
+    c.fillStyle = "#dfe8ee";
+    c.fillRect(x - 5, poleTop, 10, ground - poleTop);
+    c.strokeStyle = "#0b1216";
+    c.lineWidth = 2;
+    c.strokeRect(x - 5, poleTop, 10, ground - poleTop);
+    // Metre marks up the pole, arcade scoreboard style.
+    for (let m = 1; ground - m * 40 > poleTop + 10; m++) {
+      const y = ground - m * 40;
+      c.fillStyle = m % 2 ? "#ff852b" : "#b4ef4b";
+      c.fillRect(x - 12, y - 1, 7, 3);
+      if (m % 2 === 0) this.label(`${m} m`, x - 16, y + 4, 10, "#91a9b6", "right");
+    }
+    c.fillStyle = "#ff852b";
+    c.fillRect(x - 7, hj.barTop + course.bar.thickness, 14, 6);
+    this.label(
+      `BAR ${hj.height.toFixed(2)} m`,
+      x + 16,
+      hj.barTop - 10,
+      13,
+      hj.knocked ? "#ff9d52" : "#b4ef4b",
+    );
+    if (world.bar) {
+      this.polygon(world.bar.vertices, hj.knocked ? "#ff852b" : "#ff5a4f", "#fff1e6", 2);
+      c.fillStyle = "#fff1e6";
+      c.fillRect(world.bar.position.x - 5, world.bar.position.y - 1.5, 10, 3);
+    }
   }
   drawVehicle(world) {
     const c = this.ctx;

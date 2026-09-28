@@ -20,6 +20,43 @@ export const PARTY_FORMATS = Object.freeze({
   }),
 });
 export const FORMAT_IDS = Object.freeze(Object.keys(PARTY_FORMATS));
+// Events. Party can play either; Vault Run stays long jump for now.
+export const EVENTS = Object.freeze({
+  "long-jump": Object.freeze({ name: "Long Jump", course: "long-jump" }),
+  "high-jump": Object.freeze({
+    name: "High Jump",
+    course: "high-jump",
+    summary:
+      "The bar rises each round. Three tries per height; miss all three and you're out. Best cleared height wins.",
+  }),
+});
+export const EVENT_IDS = Object.freeze(Object.keys(EVENTS));
+// Bar heights in metres, one per round. Tuned so the opening height suits
+// any player and all-Perfect pushes top out around 8 m for every character.
+export const HIGH_JUMP_HEIGHTS = Object.freeze([
+  1.0, 2.5, 4.0, 5.0, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0,
+]);
+export const HIGH_JUMP_TRIES = 3;
+export const HIGH_JUMP_LINES = Object.freeze({
+  cleared: [
+    "Over! The bar did not even notice.",
+    "Clean clearance. The bar remains employed.",
+    "Up, over, and into the Squishco. Textbook.",
+  ],
+  fosbury: [
+    "THE FOSBURY! Upside down over the bar! Dick Fosbury is applauding from the history books!",
+    "A FLOP! A GENUINE FLOP! The cart went over backwards and the bar stayed put!",
+  ],
+  knocked: [
+    "The bar is on the floor. The bar would like a word.",
+    "Bar down! Physics has filed a complaint.",
+  ],
+  face: [
+    "That bar was removed WITH A FACE. The judges are wincing in unison.",
+  ],
+  under: ["That was a limbo entry. Wrong event."],
+  short: ["The bar was waiting. The bar is still waiting."],
+});
 // Chaos rolls from every condition, including the Party-only ones.
 export const CHAOS_CONDITIONS = ALL_CONDITION_IDS;
 export const CHAOS_LINES = Object.freeze({
@@ -53,6 +90,7 @@ export const DEFAULT_SETUP = Object.freeze({
   ),
   format: "quick",
   chaos: false,
+  event: "long-jump",
 });
 
 const cleanName = (value) =>
@@ -80,6 +118,7 @@ export function normalizeSetup(raw) {
     players,
     format: FORMAT_IDS.includes(raw?.format) ? raw.format : "quick",
     chaos: raw?.chaos === true,
+    event: EVENT_IDS.includes(raw?.event) ? raw.event : "long-jump",
   };
 }
 export const displayName = (name, index) =>

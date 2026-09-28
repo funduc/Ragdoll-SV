@@ -124,6 +124,9 @@ const booleanFields = [
   "styleMajority",
   "runComplete",
   "riderAttached",
+  "hjCleared",
+  "hjFosbury",
+  "hjFace",
 ];
 const stringFields = [
   "levelId",

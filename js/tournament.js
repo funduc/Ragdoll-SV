@@ -8,6 +8,8 @@ import {
   normalizeSetup,
   displayName,
   DEFAULT_SETUP,
+  HIGH_JUMP_HEIGHTS,
+  HIGH_JUMP_TRIES,
 } from "./party-config.js";
 
 export const State = Object.freeze({
@@ -56,11 +58,13 @@ export class Tournament {
     }));
     this.format = this.setup.format;
     this.chaos = this.setup.chaos;
+    this.event = this.setup.event;
     this.seed = this.seedFactory() >>> 0;
     this.chaosBag = seededShuffle(CHAOS_CONDITIONS, this.seed, "party-chaos");
     this.alive = this.players.map((p) => p.id);
     this.eliminated = [];
     this.lastEliminated = null;
+    this.lastEliminatedAll = [];
     this.rounds = [];
     this.roundIndex = 0;
     this.turn = 0;
@@ -68,6 +72,9 @@ export class Tournament {
     this.winners = [];
     this.awards = null;
     this.createRound();
+  }
+  get highJump() {
+    return this.event === "high-jump";
   }
   createRound() {
     const index = this.rounds.length;
@@ -77,8 +84,12 @@ export class Tournament {
       condition: this.chaos
         ? this.chaosBag[index % this.chaosBag.length]
         : null,
+      // High Jump: `order` is the attempt queue for this height. A missed
+      // try sends the player to the back until their third try.
       order: [...this.alive],
       scores: {},
+      height: this.highJump ? HIGH_JUMP_HEIGHTS[index] : null,
+      attempts: [],
     });
     this.roundIndex = index;
     this.turn = 0;
@@ -120,6 +131,13 @@ export class Tournament {
     this.setup = { ...this.setup, players };
     return true;
   }
+  // The event is picked on the title screen and remembered with the setup.
+  setEvent(event) {
+    if (![State.TITLE, State.SETUP].includes(this.state)) return false;
+    this.setup = normalizeSetup({ ...this.setup, event });
+    this.resetScores();
+    return this.setup.event === event;
+  }
   // --- Queries ---
   get active() {
     return this.state === State.ACTIVE;
@@ -128,6 +146,7 @@ export class Tournament {
     return this.rounds[this.roundIndex];
   }
   get totalRounds() {
+    if (this.highJump) return HIGH_JUMP_HEIGHTS.length;
     return this.format === "quick"
       ? 1
       : this.format === "best-of-3"
@@ -135,12 +154,18 @@ export class Tournament {
         : this.players.length - 1;
   }
   get isFinalRound() {
+    if (this.highJump) return this.roundIndex >= this.totalRounds - 1;
     return this.format === "elimination"
       ? this.currentRound.order.length <= 2
       : this.roundIndex >= this.totalRounds - 1;
   }
   // Commentary and music keep their two moods: early rounds and the final.
   get round() {
+    // High Jump: the final mood kicks in once two or fewer players remain.
+    if (this.highJump)
+      return this.players.length > 2 && this.alive.length <= 2
+        ? "championship"
+        : "qualifying";
     return this.format !== "quick" && this.isFinalRound
       ? "championship"
       : "qualifying";
@@ -166,6 +191,17 @@ export class Tournament {
   }
   // Every recorded jump, in the order it happened.
   get jumps() {
+    if (this.highJump)
+      return this.rounds.flatMap((round) =>
+        round.attempts.map((a) => ({
+          player: this.player(a.playerId),
+          round: round.number,
+          condition: round.condition,
+          score: a.score,
+          highJump: a.highJump,
+          attempt: a.attempt,
+        })),
+      );
     return this.rounds.flatMap((round) =>
       round.order
         .filter((id) => round.scores[id])
@@ -190,8 +226,46 @@ export class Tournament {
       null,
     );
   }
+  // --- High Jump queries ---
+  // Tries so far at this height for a player (the current try is this + 1).
+  triesAt(round, id) {
+    return round.attempts.filter((a) => a.playerId === id).length;
+  }
+  get attemptNumber() {
+    return this.triesAt(this.currentRound, this.currentPlayer.id) + 1;
+  }
+  bestHeightFor(id) {
+    return this.jumpsFor(id).reduce(
+      (best, j) => (j.highJump?.cleared ? Math.max(best, j.highJump.height) : best),
+      0,
+    );
+  }
+  missesFor(id) {
+    return this.jumpsFor(id).filter((j) => !j.highJump?.cleared).length;
+  }
+  missesAtBestFor(id) {
+    const best = this.bestHeightFor(id);
+    return this.jumpsFor(id).filter(
+      (j) => j.highJump && !j.highJump.cleared && j.highJump.height === best,
+    ).length;
+  }
+  fosburysFor(id) {
+    return this.jumpsFor(id).filter((j) => j.highJump?.fosbury).length;
+  }
+  // Best height, then fewer misses at it, then fewer misses overall, then
+  // more Fosburys (the style bonus), then roster order.
+  compareHighJump(a, b, rosterOrder = true) {
+    return (
+      this.bestHeightFor(b.id) - this.bestHeightFor(a.id) ||
+      this.missesAtBestFor(a.id) - this.missesAtBestFor(b.id) ||
+      this.missesFor(a.id) - this.missesFor(b.id) ||
+      this.fosburysFor(b.id) - this.fosburysFor(a.id) ||
+      (rosterOrder ? a.index - b.index : 0)
+    );
+  }
   // Higher total first, then the better single jump, then roster order.
   compare(a, b) {
+    if (this.highJump) return this.compareHighJump(a, b);
     const bestA = this.bestJumpFor(a.id)?.score,
       bestB = this.bestJumpFor(b.id)?.score;
     return (
@@ -207,12 +281,19 @@ export class Tournament {
       .map((id) => this.player(id))
       .sort((a, b) => this.compare(a, b));
     const out = [...this.eliminated].reverse().map((entry) => entry.player);
-    return [...alive, ...out].map((player) => ({
+    // High Jump ranks everyone on height and count-back, in or out.
+    const ranked = this.highJump
+      ? [...this.players].sort((a, b) => this.compare(a, b))
+      : [...alive, ...out];
+    return ranked.map((player) => ({
       player,
       total: this.totalFor(player.id),
       best: this.bestJumpFor(player.id),
       jumps: this.jumpsFor(player.id).length,
       out: this.eliminated.find((entry) => entry.player === player) || null,
+      height: this.bestHeightFor(player.id),
+      misses: this.missesFor(player.id),
+      fosburys: this.fosburysFor(player.id),
     }));
   }
   get crashOfNight() {
@@ -231,6 +312,7 @@ export class Tournament {
   }
   // Fun awards for the end screen. Ties go to whoever did it first.
   computeAwards() {
+    if (this.highJump) return this.computeHighJumpAwards();
     const top = (value, minimum = -Infinity) => {
       let best = null;
       for (const jump of this.jumps) {
@@ -259,6 +341,32 @@ export class Tournament {
       bestStyle: top((s) => s.stylePoints, 0),
       crashOfNight: this.crashOfNight,
       mostConsistent: consistent,
+    };
+  }
+  computeHighJumpAwards() {
+    const most = (count, minimum = 1) => {
+      let best = null;
+      for (const player of this.players) {
+        const value = count(player.id);
+        if (value >= minimum && (!best || value > best.value))
+          best = { player, value };
+      }
+      return best;
+    };
+    let clean = null;
+    for (const player of this.players) {
+      const clears = this.jumpsFor(player.id).filter((j) => j.highJump?.cleared).length;
+      if (clears < 2) continue;
+      const misses = this.missesFor(player.id);
+      if (!clean || misses < clean.misses) clean = { player, misses, clears };
+    }
+    return {
+      fosburyKing: most((id) => this.fosburysFor(id)),
+      crashOfNight: this.crashOfNight,
+      cleanSheet: clean,
+      barBreaker: most(
+        (id) => this.jumpsFor(id).filter((j) => j.highJump?.result === "knocked").length,
+      ),
     };
   }
   // --- Flow ---
@@ -306,6 +414,7 @@ export class Tournament {
         break;
       case State.SCOREBOARD:
         this.lastEliminated = null;
+        this.lastEliminatedAll = [];
         this.createRound();
         this.transition(State.ROUND_INTRO);
         break;
@@ -318,6 +427,7 @@ export class Tournament {
     return this.state;
   }
   finishRound() {
+    if (this.highJump) return this.finishHighJumpRound();
     if (this.format === "elimination") {
       const ranked = this.alive
         .map((id) => this.player(id))
@@ -337,6 +447,27 @@ export class Tournament {
     const best = Math.max(...this.players.map((p) => this.totalFor(p.id)));
     this.finish(this.players.filter((p) => this.totalFor(p.id) === best));
   }
+  // Anyone who did not clear this height after three tries is out. The bar
+  // keeps rising while anyone is still in (or until the last height).
+  finishHighJumpRound() {
+    const round = this.currentRound;
+    const out = this.alive.filter(
+      (id) => !round.attempts.some((a) => a.playerId === id && a.highJump.cleared),
+    );
+    for (const id of out)
+      this.eliminated.push({ player: this.player(id), round: round.number, height: round.height });
+    this.alive = this.alive.filter((id) => !out.includes(id));
+    this.lastEliminated = out.length ? this.player(out.at(-1)) : null;
+    this.lastEliminatedAll = out.map((id) => this.player(id));
+    if (!this.alive.length || this.isFinalRound) {
+      const ranked = [...this.players].sort((a, b) => this.compare(a, b));
+      // Players level on every count-back share the win.
+      return this.finish(
+        ranked.filter((p) => this.compareHighJump(p, ranked[0], false) === 0),
+      );
+    }
+    this.transition(State.SCOREBOARD);
+  }
   finish(winners) {
     this.winners = winners;
     this.awards = this.computeAwards();
@@ -345,10 +476,26 @@ export class Tournament {
   record(score) {
     if (!this.active) return false;
     assertScore(score);
+    if (this.highJump) return this.recordHighJump(score);
     const scores = this.currentRound.scores;
     if (scores[this.currentPlayer.id]) return false;
     const saved = Object.freeze({ ...score });
     scores[this.currentPlayer.id] = saved;
+    this.lastScore = saved;
+    this.transition(State.RESULTS);
+    return true;
+  }
+  recordHighJump(score) {
+    const hj = score.highJump;
+    if (!hj || !Number.isFinite(hj.height)) throw new TypeError("A High Jump attempt needs a bar result.");
+    const round = this.currentRound,
+      player = this.currentPlayer;
+    if (round.attempts.length > this.turn) return false; // this try is already banked
+    const attempt = this.triesAt(round, player.id) + 1;
+    const saved = Object.freeze({ ...score, highJump: Object.freeze({ ...hj }) });
+    round.attempts.push({ playerId: player.id, attempt, score: saved, highJump: saved.highJump });
+    // A miss with tries left goes to the back of the queue for this height.
+    if (!hj.cleared && attempt < HIGH_JUMP_TRIES) round.order.push(player.id);
     this.lastScore = saved;
     this.transition(State.RESULTS);
     return true;

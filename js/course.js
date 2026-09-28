@@ -45,7 +45,7 @@ export function pieceOutline(piece) {
 // Extra static pieces: { type: "rect", x, y, width, height, angle? } (x, y is
 // the centre) or { type: "polygon", points: [{x, y}, …] }. Optional: label,
 // friction, restitution, landing (true = counts as a landing surface, like the
-// ground), fill and stroke colours.
+// ground), fill and stroke colours, and sign (text painted on the piece).
 function definePiece(raw, index) {
   const common = {
     label: String(raw.label || `course piece ${index + 1}`),
@@ -54,6 +54,7 @@ function definePiece(raw, index) {
     landing: raw.landing === true,
     fill: String(raw.fill || "#44565f"),
     stroke: String(raw.stroke || "#9bb3bf"),
+    sign: raw.sign ? String(raw.sign) : null, // optional painted text
   };
   if (raw.type === "polygon") {
     if (!Array.isArray(raw.points) || raw.points.length < 3)
@@ -120,7 +121,17 @@ export function defineCourse(raw) {
     groundRight: Number.isFinite(raw.groundRight) ? raw.groundRight : endX + 500,
     wallX: Number.isFinite(raw.wallX) ? raw.wallX : startX - 310,
     takeoff,
+    // Long-jump distance markings along the landing strip.
+    distanceMarkers: raw.distanceMarkers !== false,
     pieces: (raw.pieces || []).map(definePiece),
+    // Optional high-jump bar: x is its centre; its height is set per attempt.
+    bar: raw.bar
+      ? {
+          x: number(raw.bar.x, "bar.x"),
+          width: Number.isFinite(raw.bar.width) ? raw.bar.width : 44,
+          thickness: Number.isFinite(raw.bar.thickness) ? raw.bar.thickness : 8,
+        }
+      : null,
   });
 }
 
@@ -135,6 +146,37 @@ export const COURSES = freeze({
     startX: -3000, // long run-up: about six on-beat pushes before the ramp
     endX: 10500,
     groundRight: 11000,
+  }),
+  // CART HIGH JUMP: a short run-up into a steep kicker, a bar on pegs, then
+  // a landing pit. The bar itself is added per attempt (see `bar`).
+  "high-jump": defineCourse({
+    id: "high-jump",
+    name: "High Jump",
+    groundY: 520,
+    rampStart: 930,
+    rampEnd: 1080,
+    rampTop: 430, // a 2.25 m kicker lip
+    startX: -900, // about three pushes of run-up
+    endX: 3600,
+    groundRight: 4200,
+    bar: { x: 1550, width: 44, thickness: 8 },
+    distanceMarkers: false,
+    pieces: [
+      {
+        type: "rect",
+        label: "landing pit",
+        x: 2600,
+        y: 508,
+        width: 1900,
+        height: 24,
+        friction: 0.9,
+        restitution: 0,
+        landing: true,
+        fill: "#2f5e9e",
+        stroke: "#8fd0ff",
+        sign: "SQUISHCO · THE FLOOR IS SOFTER HERE",
+      },
+    ],
   }),
 });
 export const DEFAULT_COURSE = COURSES["long-jump"];

@@ -204,8 +204,10 @@ test("Setup accepts 2–6 named players with duplicate characters and sanitizes 
   // Saved settings round-trip; corrupt or denied storage falls back to defaults.
   const store = new Map();
   const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
-  assert.ok(savePartySetup(storage, { players: [{ name: "Ana", characterId: "brandon" }, { name: "Bo", characterId: "brandon" }], format: "elimination", chaos: true }));
-  assert.deepEqual(loadPartySetup(storage), { players: [{ name: "Ana", characterId: "brandon" }, { name: "Bo", characterId: "brandon" }], format: "elimination", chaos: true });
+  assert.ok(savePartySetup(storage, { players: [{ name: "Ana", characterId: "brandon" }, { name: "Bo", characterId: "brandon" }], format: "elimination", chaos: true, event: "high-jump" }));
+  assert.deepEqual(loadPartySetup(storage), { players: [{ name: "Ana", characterId: "brandon" }, { name: "Bo", characterId: "brandon" }], format: "elimination", chaos: true, event: "high-jump" });
+  store.set(PARTY_SETUP_KEY, JSON.stringify({ players: [], event: "pole-vault" }));
+  assert.equal(loadPartySetup(storage).event, "long-jump", "an unknown event falls back to Long Jump");
   store.set(PARTY_SETUP_KEY, "{broken");
   assert.equal(loadPartySetup(storage).players.length, 3);
   assert.equal(loadPartySetup({ getItem() { throw new Error("denied"); } }).format, "quick");

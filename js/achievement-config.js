@@ -445,6 +445,27 @@ export const ACHIEVEMENTS = freeze([
     target: 1,
   },
   attempt(
+    "hj-first-clear",
+    "Over the Top",
+    "High Jump",
+    "Clear the bar in Cart High Jump.",
+    [["hjCleared", "eq", true]],
+  ),
+  attempt(
+    "hj-fosbury",
+    "The Fosbury Flop",
+    "High Jump",
+    "Clear the High Jump bar upside down.",
+    [["hjFosbury", "eq", true]],
+  ),
+  attempt(
+    "hj-face",
+    "Bar Examination",
+    "High Jump",
+    "Knock the High Jump bar off with your face. The bar has filed a complaint.",
+    [["hjFace", "eq", true]],
+  ),
+  attempt(
     "wheel",
     "The Wheel Was Never Essential",
     "Hidden",
