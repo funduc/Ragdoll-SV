@@ -1,7 +1,6 @@
 import { CHARACTERS } from "./characters.js";
 import { State } from "./tournament.js";
 import { ATTEMPT_LIMIT } from "./physics.js";
-import { rankQualifiers } from "./scoring.js";
 import { Commentator } from "./commentary.js";
 import { SkillMeter, worldSkillView } from "./skill-ui.js";
 import { tutorialMarkup } from "./tutorial.js";
@@ -14,16 +13,31 @@ import {
   scoreCard,
   scoreBreakdown,
   carnageDetails,
-  crashOfNightMarkup,
 } from "./ui-content.js";
 import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
+import { updateRunStatus } from "./run-ui.js";
+import { PARTY_FORMATS } from "./party-config.js";
+import {
+  setupMarkup,
+  roundIntroMarkup,
+  roundLine,
+  roundLabel,
+  handoffMarkup,
+  resultsAction,
+  scoreboardMarkup,
+  scoreboardLine,
+  finalMarkup,
+} from "./party-ui.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
-const roster = (characters) =>
-  `<div class="roster-strip">${characters.map((c) => `<div class="roster-person" style="--person:${c.primaryColor}">${portrait(c)}<div><strong>${escape(c.name)}</strong><small>“${escape(c.nickname)}”</small></div></div>`).join("")}</div>`;
 
 export class UI {
-  constructor(onConfirm, onPractice = () => {}, onMenu = () => {}) {
+  constructor(
+    onConfirm,
+    onPractice = () => {},
+    onMenu = () => {},
+    onSetupField = () => {},
+  ) {
     this.enteredVault = false;
     this.root = document.getElementById("game");
     this.overlay = document.getElementById("overlay");
@@ -44,7 +58,7 @@ export class UI {
     this.resetAttempt();
     this.onClick = (event) => {
       const menu = event.target.closest(
-        "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
+        "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter], button[data-setup], button[data-party]",
       );
       if (menu && !menu.disabled) {
         onMenu(menu);
@@ -55,6 +69,15 @@ export class UI {
       if (practice) onPractice(practice.dataset.practice);
     };
     this.overlay.addEventListener("click", this.onClick);
+    // Party setup fields update the setup in place; no re-render while typing.
+    this.onField = (event) => {
+      const field = event.target.closest?.(
+        'input[data-setup="name"], input[data-setup="character"], input[data-setup="format"], input[data-setup="chaos"]',
+      );
+      if (field) onSetupField(field);
+    };
+    this.overlay.addEventListener("input", this.onField);
+    this.overlay.addEventListener("change", this.onField);
     // Capture once; an absent replacement portrait leaves labeled initials underneath.
     this.onImageError = (event) => {
       if (event.target.tagName === "IMG") {
@@ -117,7 +140,7 @@ export class UI {
         : "";
     this.overlay.innerHTML = `<section class="menu-panel intro-card" style="--person:${c.primaryColor}" aria-label="Character introduction">
       <p class="eyebrow">MEET THE COMPETITOR <span class="intro-countdown">PRESS ENTER WHEN READY.</span></p>
-      <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</p></div></div>
+      <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${escape(t.currentPlayer.name.toUpperCase())} JUMPS AS ${escape(c.name.split(" ")[0].toUpperCase())} · ${roundLabel(t)}</p></div></div>
       <p class="intro-bio">${escape(c.biography)}</p>
       ${c.associatedPhrase ? `<p class="tiny intro-phrase">“${escape(c.associatedPhrase)}”</p>` : ""}
       ${keepsake}
@@ -160,17 +183,21 @@ export class UI {
     document.getElementById("session-mode").textContent =
       t.state === State.TITLE ? "CHOOSE YOUR MODE" : "LOCAL PASS & PLAY";
     document.getElementById("session-players").textContent =
-      t.state === State.TITLE ? "1–3 PLAYERS" : "3 PLAYERS";
+      t.state === State.TITLE ? "1–6 PLAYERS" : `${t.players.length} PLAYERS`;
     document.getElementById("standings-title").textContent = "THE COMPETITORS";
-    document.getElementById("standings-subtitle").textContent =
-      "QUALIFYING → TOP TWO → CHAMPIONSHIP";
-    this.roundLabel.textContent = [State.TITLE, State.INSTRUCTIONS].includes(
-      t.state,
-    )
+    document.getElementById("standings-subtitle").textContent = `${PARTY_FORMATS[t.format].name.toUpperCase()}${t.chaos ? " · CHAOS" : ""}`;
+    this.roundLabel.textContent = [
+      State.TITLE,
+      State.SETUP,
+      State.INSTRUCTIONS,
+    ].includes(t.state)
       ? "TOURNAMENT STANDBY"
       : t.state === State.FINAL
         ? "TOURNAMENT COMPLETE"
-        : `${t.round.toUpperCase()} · ${t.turn + 1} / ${t.roster.length}`;
+        : `${roundLabel(t)} · ${t.turn + 1} / ${t.roster.length}`;
+    document.getElementById("run-status").hidden = !(
+      t.active && t.currentRound.condition
+    );
     this.renderStandings(t);
     if (t.active) {
       this.hudName.textContent = t.current.name.toUpperCase();
@@ -185,24 +212,26 @@ export class UI {
         this.say("John Santor, live from The Santor Vault. Choose your event.");
         break;
       case State.INSTRUCTIONS:
-        html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Tap <kbd>SPACE</kbd> or <kbd>↑</kbd> at the green centre of the rhythm meter. Release each time; holding gives one push. Spam adds wobble.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down. Tap <kbd>↓</kbd> / <kbd>S</kbd> once just before contact to brace. Too early reduces air control; too late gives no benefit.</p><p>At TAKEOFF, wait for the cart marker in the green boost zone and tap once. Early spends the bonus; Late pitches forward. Touch: tap PUSH / BRACE; hold LEFT / RIGHT.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> Complete flips and controlled-flight tricks build unique-trick combos. Repeats pay ${TRICK_CONFIG.repeatFactors.map((f) => `${Math.round(f * 100)}%`).join(", ")}. Clean landings multiply trick style ×${TRICK_CONFIG.landingFactors.Clean.toFixed(2)}; crashes retain ×${TRICK_CONFIG.landingFactors.Crash.toFixed(2)}. Partial spins earn no trick points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny">One qualifying jump each; the lowest score is out. Qualifying ties use distance, then roster order. The top two get one fresh championship jump; tied championship scores share the win. Qualifying scores do not carry over.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${tutorialMarkup()}${button("Meet the competitors")}</section>`;
+        html = `<section class="menu-panel"><p class="eyebrow">BEFORE YOU SEND IT</p><h2>THE RULES OF THE VAULT</h2><div class="rules-grid"><div class="rule-box"><h3>01 / DRIVE & FLY</h3><p>Tap <kbd>SPACE</kbd> or <kbd>↑</kbd> at the green centre of the rhythm meter. Release each time; holding gives one push. Spam adds wobble.</p><p>In the air, use <kbd>←</kbd> / <kbd>A</kbd> to lean back, <kbd>→</kbd> / <kbd>D</kbd> to lean forward. Aim for wheels down. Tap <kbd>↓</kbd> / <kbd>S</kbd> once just before contact to brace. Too early reduces air control; too late gives no benefit.</p><p>At TAKEOFF, wait for the cart marker in the green boost zone and tap once. Early spends the bonus; Late pitches forward. Touch: tap PUSH / BRACE; hold LEFT / RIGHT.</p><p><kbd>R</kbd> returns to Ready before takeoff. Once airborne, your attempt counts.</p></div><div class="rule-box"><h3>02 / MAKE IT COUNT</h3><p><b>Distance:</b> 10 points per metre from ramp edge to cart centre at first ground contact.</p><p><b>Landing:</b> clean 150 · scrappy 75 · rough / crash 0.</p><p><b>Style:</b> Complete flips and controlled-flight tricks build unique-trick combos. Repeats pay ${TRICK_CONFIG.repeatFactors.map((f) => `${Math.round(f * 100)}%`).join(", ")}. Clean landings multiply trick style ×${TRICK_CONFIG.landingFactors.Clean.toFixed(2)}; crashes retain ×${TRICK_CONFIG.landingFactors.Crash.toFixed(2)}. Partial spins earn no trick points.</p><p><b>Attached:</b> 100 if the rider stays attached through a completed landing.</p></div></div><p class="tiny"><b>${escape(PARTY_FORMATS[t.format].name)}:</b> ${escape(PARTY_FORMATS[t.format].summary)}${t.chaos ? " <b>Chaos:</b> each round rolls a random condition." : ""} Ties go to the better single jump.</p><p class="tiny">A jump ends at rest or after 20 active seconds (12 seconds without takeoff). Switching tabs pauses play. Keyboard or on-screen touch controls.</p>${tutorialMarkup()}${button("To round 1")}</section>`;
         break;
-      case State.QUALIFYING_INTRO:
-        html = `<section class="menu-panel"><p class="eyebrow">ROUND 01 / THREE IN, TWO THROUGH</p><h2>QUALIFYING</h2><p>One jump each. Pass the controls in this order.</p>${roster(CHARACTERS)}<p class="tiny">Lowest total is eliminated. Tied totals use distance, then the order above.</p>${button("Go to first hand-off")}</section>`;
-        this.caption("introduction");
+      case State.SETUP:
+        html = setupMarkup(t);
+        this.say("Names on the board. Pick a cart pilot. Duplicates are legally fine.");
+        break;
+      case State.ROUND_INTRO:
+        html = roundIntroMarkup(t);
+        this.say(roundLine(t));
         break;
       case State.READY:
-        html = `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${t.round.toUpperCase()} · JUMP ${t.turn + 1} OF ${t.roster.length}</span><div class="handoff" style="--person:${t.current.primaryColor}">${portrait(t.current)}<div><h2>${escape(t.current.name)}</h2><span class="nickname">“${escape(t.current.nickname)}”</span></div></div><p>Ready, ${t.current.name.split(" ")[0]}?</p><p class="subline">${t.next ? `ON DECK: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "UP NEXT: QUALIFYING RESULTS & ELIMINATION" : "UP NEXT: THE FINAL RESULTS"}</p><p class="tiny"><b>${escape(t.current.passive.name)}</b> · Style ×${t.current.styleMultiplier.toFixed(2)} · Air control ×${t.current.rotationControl.toFixed(2)} · Stability ×${t.current.landingStability.toFixed(2)}</p><p class="tiny">${t.current.statistics
-          .slice(3)
-          .map(([label, value]) => `${escape(label)}: ${escape(value)}`)
-          .join(" · ")}</p>${button("Begin jump")}</section>`;
+        html = handoffMarkup(t);
         this.say(
-          `${t.current.name.split(" ")[0]}, the runway is yours. When you are ready.`,
+          `${t.currentPlayer.name}, the runway is yours. When you are ready.`,
         );
         break;
       case State.RESULTS: {
         const s = t.lastScore;
-        const c = t.current;
+        const c = t.current,
+          p = t.currentPlayer;
         const literary =
           s.crashed && c.crashDescriptions
             ? c.crashDescriptions[s.quarterTurns % c.crashDescriptions.length]
@@ -221,21 +250,20 @@ export class UI {
           c,
           t.round,
         );
-        html = `<section class="menu-panel results-panel"><p class="eyebrow">${t.round.toUpperCase()} / ATTEMPT COMPLETE</p><h2>${escape(t.current.name.toUpperCase())}</h2>${scoreCard(s)}${flavor}${carnageDetails(s)}<p class="tiny">${t.next ? `Next: ${escape(t.next.fullName)}` : t.round === "qualifying" ? "All three qualifying jumps are in." : "Both championship jumps are in."}</p><div class="actions">${button(t.next ? "Next competitor" : t.round === "qualifying" ? "Qualifying results" : "Crown the champion")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s)}</section>`;
+        html = `<section class="menu-panel results-panel"><p class="eyebrow">${roundLabel(t)} / ATTEMPT COMPLETE</p><h2>${escape(p.name.toUpperCase())}</h2>${scoreCard(s)}${flavor}${carnageDetails(s)}<p class="tiny">${escape(p.name)}'s total: ${t.totalFor(p.id)}${t.nextPlayer ? ` · Next: ${escape(t.nextPlayer.name)}` : " · Round complete."}</p><div class="actions">${button(resultsAction(t))}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s)}</section>`;
         break;
       }
-      case State.ELIMINATION:
-        html = `<section class="menu-panel"><p class="eyebrow orange">THE CUT / QUALIFYING RESULTS</p><h2>${escape(t.eliminated.name.toUpperCase())} IS OUT</h2>${this.table(CHARACTERS, t.qualifying, t.eliminated.id)}<p>${escape(t.finalists[0].name)} and ${escape(t.finalists[1].name)} advance. All championship scores start from zero.</p><p class="tiny">Ties resolve by distance, then roster order. Runner-up jumps first; the top qualifier jumps last.</p>${button("To the championship")}</section>`;
-        this.caption("elimination", t.eliminated, t.round);
-        break;
-      case State.CHAMPIONSHIP_INTRO:
-        html = `<section class="menu-panel championship-panel"><div class="championship-ribbon" aria-hidden="true">MAXIMUM RETAIL GLORY</div><p class="eyebrow orange">ROUND 02 / WINNER TAKES THE CART</p><h2>THE CHAMPIONSHIP</h2><p>Two competitors. One new jump each. Highest championship score wins.</p>${roster(t.finalists)}<p class="tiny">Qualifying scores do not carry over. Tied championship scores share the title.</p>${button("Go to championship hand-off")}</section>`;
-        this.caption("championship", null, t.round);
+      case State.SCOREBOARD:
+        html = scoreboardMarkup(t);
+        this.say(scoreboardLine(t));
         break;
       case State.FINAL: {
-        const tie = t.winners.length > 1;
-        html = `<section class="menu-panel championship-panel winner-panel"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">THE SANTOR VAULT / FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${escape(t.winners[0].name.toUpperCase())} WINS!`}</h2><p>${tie ? t.winners.map((c) => escape(c.fullName)).join(" & ") : escape(t.winners[0].fullName)}${tie ? " finish level on points." : " takes the championship."}</p>${this.table(t.finalists, t.championship)}<p class="tiny">Eliminated in qualifying: ${escape(t.eliminated.fullName)} · ${t.qualifying[t.eliminated.id].total} points.</p>${crashOfNightMarkup(t.crashOfNight)}${button("Restart tournament")}</section>`;
-        this.caption(tie ? "tie" : "victory", t.winners[0], t.round);
+        html = finalMarkup(t);
+        this.caption(
+          t.winners.length > 1 ? "tie" : "victory",
+          t.winners[0].character,
+          t.round,
+        );
         break;
       }
     }
@@ -244,33 +272,31 @@ export class UI {
       .querySelector('[data-action="confirm"], [data-audio-enter], [data-mode]')
       ?.focus({ preventScroll: true });
   }
-  table(characters, scores, eliminatedId = null) {
-    const ordered = eliminatedId
-      ? rankQualifiers(characters, scores)
-      : [...characters].sort((a, b) => scores[b.id].total - scores[a.id].total);
-    return `<table class="results-table"><thead><tr><th>COMPETITOR</th><th>DISTANCE</th><th>POINTS</th></tr></thead><tbody>${ordered
-      .map(
-        (c) =>
-          `<tr class="${c.id === eliminatedId ? "eliminated" : ""}"><td>${escape(c.name)}${c.id === eliminatedId ? '<span class="status-chip">OUT</span>' : ""}</td><td>${scores[c.id].distanceMetres.toFixed(1)} m</td><td>${scores[c.id].total}</td></tr>`,
-      )
-      .join("")}</tbody></table>`;
-  }
   renderStandings(t) {
-    this.standings.innerHTML = CHARACTERS.map((c) => {
-      const current =
-        ![
-          State.TITLE,
-          State.INSTRUCTIONS,
-          State.QUALIFYING_INTRO,
-          State.ELIMINATION,
-          State.CHAMPIONSHIP_INTRO,
-          State.FINAL,
-        ].includes(t.state) && t.current.id === c.id;
-      return `<article class="competitor ${current ? "current" : ""} ${t.eliminated?.id === c.id ? "out" : ""}" style="--person:${c.primaryColor}">${portrait(c)}<div class="person-info"><div class="person-name">${escape(c.name)}</div><div class="person-nick">“${escape(c.nickname)}”</div><div class="score-line"><span>QUAL <b>${t.qualifying[c.id]?.total ?? "—"}</b></span><span>FINAL <b>${t.championship[c.id]?.total ?? "—"}</b></span></div></div>${t.eliminated?.id === c.id ? '<span class="person-status">ELIMINATED</span>' : current ? '<span class="person-status">CURRENT TURN</span>' : t.winners.includes(c) ? '<span class="person-status">CHAMPION</span>' : ""}</article>`;
-    }).join("");
+    const playing = ![State.TITLE, State.SETUP].includes(t.state);
+    const rows = playing
+      ? t.players
+      : t.setup.players.map((p, i) => ({
+          id: `p${i + 1}`,
+          name: p.name || `Player ${i + 1}`,
+          character: CHARACTERS.find((c) => c.id === p.characterId),
+        }));
+    this.standings.innerHTML = rows
+      .map((p) => {
+        const c = p.character,
+          out = playing && t.eliminated.some((e) => e.player.id === p.id),
+          current =
+            [State.ROUND_INTRO, State.READY, State.ACTIVE, State.RESULTS].includes(
+              t.state,
+            ) && t.currentPlayer.id === p.id,
+          winner = t.state === State.FINAL && t.winners.includes(p);
+        return `<article class="competitor ${current ? "current" : ""} ${out ? "out" : ""}" style="--person:${c.primaryColor}">${portrait(c)}<div class="person-info"><div class="person-name">${escape(p.name)}</div><div class="person-nick">${escape(c.name)} “${escape(c.nickname)}”</div><div class="score-line"><span>TOTAL <b>${playing ? t.totalFor(p.id) : "—"}</b></span><span>BEST <b>${playing ? (t.bestJumpFor(p.id)?.score.total ?? "—") : "—"}</b></span></div></div>${out ? '<span class="person-status">ELIMINATED</span>' : current ? '<span class="person-status">CURRENT TURN</span>' : winner ? '<span class="person-status">CHAMPION</span>' : ""}</article>`;
+      })
+      .join("");
   }
   update(world) {
     updateCampaignCoach(world, this.campaignSession);
+    if (!this.campaignSession && world.runEffects) updateRunStatus(world);
     this.skillMeter.update(worldSkillView(world));
     if (this.passiveStatus.textContent !== world.passiveStatus)
       this.passiveStatus.textContent = world.passiveStatus;
@@ -300,6 +326,8 @@ export class UI {
   }
   destroy() {
     this.overlay.removeEventListener("click", this.onClick);
+    this.overlay.removeEventListener("input", this.onField);
+    this.overlay.removeEventListener("change", this.onField);
     this.root.removeEventListener("error", this.onImageError, true);
   }
 }

@@ -11,6 +11,7 @@ import { JSDOM } from "../.qa/node_modules/jsdom/lib/api.js";
 import { CHARACTERS } from "../js/characters.js";
 import { LEVELS, HARD_GAUNTLET } from "../js/campaign-levels.js";
 import { CAMPAIGN_SAVE_KEY as SAVE } from "../js/campaign-save.js";
+import { PARTY_SETUP_KEY } from "../js/party-config.js";
 import { RUN_SAVE_KEY, ACHIEVEMENT_SAVE_KEY } from "../js/run-save.js";
 import {
   UPGRADES,
@@ -759,9 +760,10 @@ if (process.env.SYNC_TEST) {
   evidence.modeSwitches++;
   assert.equal(game.state(), "title");
   game.click('button[data-mode="party"]');
-  assert.equal(game.state(), "instructions");
+  assert.equal(game.state(), "party-setup");
   for (const expected of [
-    "qualifying-intro",
+    "instructions",
+    "round-intro",
     "ready",
     "ready",
     "active-attempt",
@@ -774,8 +776,10 @@ if (process.env.SYNC_TEST) {
   assert.equal(game.$("#run-status").hidden, true);
   assert.equal(game.world.runEffects, null);
   assert.equal(game.world.skills.config.takeoff.perfectStart, 980);
+  const { [PARTY_SETUP_KEY]: partySetup, ...afterParty } = game.savedData();
+  assert.ok(partySetup, "Party remembers its own setup");
   assert.deepEqual(
-    game.savedData(),
+    afterParty,
     beforeReset,
     "Party never writes campaign progress",
   );

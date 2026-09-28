@@ -29,7 +29,7 @@ export class MusicDirector {
       return "menu";
     const key = campaign
       ? `vault:${session.runs?.run?.seed}:${session.current?.id}:${session.level.id}`
-      : `party:${session.round}:${session.turn}:${session.current?.id}`;
+      : `party:${session.roundIndex ?? session.round}:${session.turn}:${session.current?.id}`;
     if (session.active && key !== this.levelKey) {
       this.levelKey = key;
       if (campaign && session.level.stages) this.levelTrack = "championship";

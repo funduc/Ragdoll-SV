@@ -300,9 +300,12 @@ test("Party victory needs Brandon, an outright win and a style majority", () => 
   ])
     m.send("tournament-won", facts);
   assert.equal(record(m, "poetic-license").unlocked, false);
+  // Party winners are players; their best jump is the winning jump.
+  const player = { id: "p2", character: CHARACTERS[1] };
   const t = {
-    winners: [CHARACTERS[1]],
-    championship: { brandon: { stylePoints: 501, total: 1000 } },
+    winners: [player],
+    bestJumpFor: (id) =>
+      id === "p2" ? { score: { stylePoints: 501, total: 1000 } } : null,
   };
   m.send("tournament-won", tournamentAchievementFacts(t)[0]);
   assert.equal(record(m, "poetic-license").unlocked, true);

@@ -7,9 +7,15 @@ import { Input } from "../js/input.js";
 import { Renderer } from "../js/renderer.js";
 import { PhysicsWorld } from "../js/physics.js";
 import { CHARACTERS } from "../js/characters.js";
-import { scoreAttempt, rankQualifiers } from "../js/scoring.js";
+import { scoreAttempt } from "../js/scoring.js";
 import { Tournament } from "../js/tournament.js";
-import { UI } from "../js/ui.js";
+import {
+  setupMarkup,
+  roundIntroMarkup,
+  scoreboardMarkup,
+  finalMarkup,
+} from "../js/party-ui.js";
+import { CONDITIONS } from "../js/run-config.js";
 
 runInThisContext(
   readFileSync(
@@ -212,28 +218,70 @@ check(
   "Invalid score records are rejected before tournament state changes",
   () => {
     const t = new Tournament();
-    for (let i = 0; i < 4; i++) t.confirm();
+    for (let i = 0; i < 5; i++) t.confirm();
     const state = t.state;
     assert.throws(() => t.record({ total: NaN, distanceMetres: NaN }));
     assert.equal(t.state, state);
-    assert.equal(Object.keys(t.qualifying).length, 0);
+    assert.equal(t.jumps.length, 0);
   },
 );
 
 check(
-  "Qualifying table follows the same distance tie-break as selection",
+  "Party screens rank players like the tournament and escape typed names",
   () => {
-    const scores = {
-      jake: { total: 100, distanceMetres: 1 },
-      brandon: { total: 100, distanceMetres: 2 },
-      owen: { total: 200, distanceMetres: 3 },
-    };
-    const expected = rankQualifiers(CHARACTERS, scores).map((c) => c.name);
-    const table = UI.prototype.table(CHARACTERS, scores, "jake");
-    const actual = [...table.matchAll(/<tr class="[^"]*"><td>([^<]+)/g)].map(
-      (match) => match[1],
+    const t = new Tournament(
+      {
+        players: [
+          { name: "<b>Ana</b>", characterId: "jake" },
+          { name: "Bo", characterId: "jake" },
+          { name: "Cy", characterId: "owen" },
+        ],
+        format: "best-of-3",
+        chaos: true,
+      },
+      { seedFactory: () => 3 },
     );
-    assert.deepEqual(actual, expected);
+    t.confirm();
+    assert.match(setupMarkup(t), /&lt;b&gt;Ana&lt;\/b&gt;/);
+    assert.doesNotMatch(setupMarkup(t), /<b>Ana<\/b>/);
+    t.confirm();
+    t.confirm();
+    const condition = t.currentRound.condition;
+    assert.ok(condition);
+    assert.ok(roundIntroMarkup(t).includes(CONDITIONS[condition].name));
+    assert.ok(roundIntroMarkup(t).includes("JOHN SANTOR"));
+    const score = (total, distanceMetres) => ({
+      total, distanceMetres, distancePoints: total, stylePoints: 0,
+      landingPoints: 0, attachedPoints: 0, quarterTurns: 0, airDegrees: 0, landingAngle: 0,
+    });
+    const plan = [score(100, 1), score(100, 2), score(200, 3)];
+    for (const s of plan) {
+      t.confirm();
+      t.confirm();
+      t.record(s);
+    }
+    t.confirm();
+    const expected = t.standings.map((row) => row.player.name);
+    assert.deepEqual(expected, ["Cy", "Bo", "<b>Ana</b>"]);
+    const table = scoreboardMarkup(t);
+    const actual = [...table.matchAll(/<td>\d+<\/td><td><b>([^<]+)/g)].map(
+      (match) => match[1].replaceAll("&lt;", "<").replaceAll("&gt;", ">"),
+    );
+    assert.deepEqual(actual.slice(0, 2), ["Cy", "Bo"]);
+    assert.match(table, /SCOREBOARD/);
+    for (let round = 2; round <= 3; round++) {
+      t.confirm(); // scoreboard → round intro
+      for (let i = 0; i < 3; i++) {
+        t.confirm();
+        t.confirm();
+        t.record(score(0, 0));
+      }
+      t.confirm();
+    }
+    assert.equal(t.state, "final-results");
+    assert.match(finalMarkup(t), /CY WINS!/);
+    assert.match(finalMarkup(t), /LONGEST JUMP/);
+    assert.doesNotMatch(finalMarkup(t), /CRASH OF THE NIGHT/, "no crash, no award");
   },
 );
 

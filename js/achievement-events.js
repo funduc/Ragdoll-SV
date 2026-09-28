@@ -88,13 +88,14 @@ export function campaignAchievementFacts(campaign) {
     ),
   };
 }
+// Party winners are players; the "winning jump" is each winner's best jump.
 export function tournamentAchievementFacts(tournament) {
-  return tournament.winners.map((character) => {
-    const score = tournament.championship[character.id];
+  return tournament.winners.map((player) => {
+    const score = tournament.bestJumpFor(player.id)?.score;
     return {
-      characterId: character.id,
+      characterId: player.character.id,
       soleWinner: tournament.winners.length === 1,
-      styleMajority: score.stylePoints > score.total / 2,
+      styleMajority: Boolean(score && score.stylePoints > score.total / 2),
     };
   });
 }

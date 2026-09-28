@@ -6,6 +6,59 @@ export function drawRunMarkings(renderer, world, left, right) {
   if (!effects) return;
   const c = renderer.ctx,
     ground = world.course.groundY;
+  if (effects.conditionId === "low-gravity") {
+    // Slow-drifting motes sell the reduced gravity; pure decoration.
+    const t = world.elapsed;
+    c.fillStyle = "#b48cff66";
+    for (let i = 0; i < 26; i++) {
+      const x = left + ((i * 157 + t * 18) % Math.max(1, right - left));
+      const y = ground - 40 - ((i * 83 + t * (12 + (i % 5) * 4)) % 420);
+      c.fillRect(x, y, 3, 3);
+    }
+    renderer.label(
+      "LOW-G ZONE",
+      world.course.rampEnd + 160,
+      ground - 250,
+      14,
+      "#b48cff",
+      "center",
+    );
+  }
+  if (
+    effects.conditionId === "tailwind" ||
+    effects.conditionId === "shifting-wind"
+  ) {
+    const air = world.launched && !world.landed;
+    const dir =
+      effects.conditionId === "tailwind"
+        ? 1
+        : effects.shiftingDirection(world) || 1;
+    // Trail the arrows beside the cart (upwind side) so they never cover the HUD.
+    const x = world.cart.position.x - dir * 60,
+      y = world.cart.position.y - 30;
+    c.strokeStyle = air ? (dir > 0 ? "#52cefa" : "#ff852b") : "#52cefa55";
+    c.lineWidth = 4;
+    for (let i = -1; i <= 1; i++) {
+      const ox = x - dir * 70 + i * 26 * dir,
+        oy = y + i * 18;
+      c.beginPath();
+      c.moveTo(ox - dir * 26, oy);
+      c.lineTo(ox + dir * 26, oy);
+      c.lineTo(ox + dir * 14, oy - 9);
+      c.moveTo(ox + dir * 26, oy);
+      c.lineTo(ox + dir * 14, oy + 9);
+      c.stroke();
+    }
+    if (air && effects.conditionId === "shifting-wind")
+      renderer.label(
+        dir > 0 ? "GUST →" : "← GUST",
+        x - dir * 70,
+        y - 34,
+        14,
+        dir > 0 ? "#75dfff" : "#ffad72",
+        "center",
+      );
+  }
   if (effects.conditionId === "boost-strip") {
     const strip = CONDITIONS["boost-strip"];
     c.fillStyle = effects.boostUsed ? "#267792" : "#52cefa";

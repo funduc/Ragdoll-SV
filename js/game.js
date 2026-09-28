@@ -30,10 +30,10 @@ import {
 import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
 import { ReplayRecording, ReplayPlayer, ReplayControls } from "./replay.js";
+import { loadPartySetup, savePartySetup } from "./party-config.js";
 
 class Game {
   constructor() {
-    this.tournament = new Tournament();
     this.developerRun = readRunDeveloperSettings(window.location.search);
     this.forceSync =
       SYNC_CONFIG.force ||
@@ -46,6 +46,10 @@ class Game {
       this.developerRun = { seed: 1, upgrades: {} };
     this.campaign = new Campaign(undefined, { developer: this.developerRun });
     this.syncSave = new SyncSave(this.campaign.save.storage);
+    // Party setup (names, characters, format, chaos) is remembered per browser.
+    this.tournament = new Tournament(
+      loadPartySetup(this.campaign.save.storage),
+    );
     this.syncSequence = null;
     this.syncUI = new SyncUI((lane) => this.hitSync(lane));
     this.achievements = this.campaign.runs.manager;
@@ -61,6 +65,7 @@ class Game {
       () => this.confirm(),
       (action) => this.practiceAction(action),
       (button) => this.menuAction(button),
+      (field) => this.setupField(field),
     );
     this.renderer = new Renderer(document.getElementById("game-canvas"));
     this.world = new PhysicsWorld(CHARACTERS[0]);
@@ -92,7 +97,7 @@ class Game {
       onExclusiveKey: (event) => this.exclusiveKey(event),
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
-          "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter]",
+          "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter], button[data-setup], button[data-party]",
         );
         if (menu) {
           this.menuAction(menu);
@@ -136,10 +141,19 @@ class Game {
     this.clearSync();
     this.touch?.clear();
     this.world?.dispose();
+    // Party Chaos: the round's condition applies to each hand-off's world.
+    const chaos =
+      this.mode === "party" &&
+      this.tournament.state === State.READY &&
+      this.tournament.currentRound.condition;
     this.world = new PhysicsWorld(
       character,
       this.mode === "vault" ? this.campaign.attemptArena : undefined,
-      this.mode === "vault" ? this.campaign.attemptSpec : null,
+      this.mode === "vault"
+        ? this.campaign.attemptSpec
+        : chaos
+          ? { condition: chaos }
+          : null,
     );
     this.presentation.replaceWorld(this.world);
     this.recording = new ReplayRecording(this.world);
@@ -206,6 +220,8 @@ class Game {
       return;
     }
     const previous = this.tournament.state;
+    if (previous === State.SETUP)
+      savePartySetup(this.campaign.save.storage, this.tournament.setup);
     this.tournament.confirm();
     if (this.tournament.state === State.FINAL && previous !== State.FINAL)
       for (const facts of tournamentAchievementFacts(this.tournament))
@@ -263,8 +279,12 @@ class Game {
     }
     if (this.tournament.state === State.READY) {
       this.ui.resetAttempt();
-      this.introduction.start();
-      this.ui.showIntroduction(this.tournament);
+      // John's full character intro plays before each player's first jump.
+      const t = this.tournament;
+      if (!t.jumpsFor(t.currentPlayer.id).length) {
+        this.introduction.start();
+        this.ui.showIntroduction(t);
+      }
     }
   }
   dismissIntroduction() {
@@ -327,6 +347,10 @@ class Game {
     }
     if (button.dataset.achievement) {
       this.achievementAction(button);
+      return;
+    }
+    if (button.dataset.setup || button.dataset.party) {
+      this.partyAction(button);
       return;
     }
     if (this.vaultOpen) return;
@@ -491,6 +515,45 @@ class Game {
       this.lastTime = null;
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
+  }
+  partyAction(button) {
+    if (this.mode !== "party" || this.vaultOpen) return;
+    const t = this.tournament,
+      index = Number(button.dataset.index);
+    this.clearControls();
+    this.presentation.audio.play("click");
+    switch (button.dataset.setup || button.dataset.party) {
+      case "add":
+        if (!t.editSetup({ type: "add" })) return;
+        this.renderState();
+        document
+          .querySelectorAll('#overlay input[data-setup="name"]')
+          [t.setup.players.length - 1]?.focus({ preventScroll: true });
+        return;
+      case "remove":
+        if (!t.editSetup({ type: "remove", index })) return;
+        this.renderState();
+        return;
+      case "back":
+        if (t.back()) this.renderState();
+        return;
+      case "rematch":
+        if (t.rematch()) {
+          this.replaceWorld(CHARACTERS[0]);
+          this.renderState();
+        }
+        return;
+    }
+  }
+  setupField(field) {
+    if (this.mode !== "party") return;
+    const type = field.dataset.setup;
+    const changed = this.tournament.editSetup({
+      type,
+      index: Number(field.dataset.index),
+      value: type === "chaos" ? field.checked : field.value,
+    });
+    if (changed && type !== "name") this.ui.renderStandings(this.tournament);
   }
   clearControls() {
     this.input.clear();

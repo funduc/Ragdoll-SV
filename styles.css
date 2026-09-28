@@ -1188,3 +1188,279 @@ kbd {
     justify-content: space-between;
   }
 }
+/* Party Tournament: game-night setup, rounds, scoreboard and awards. */
+.party-setup h2 {
+  margin-bottom: 2px;
+}
+.setup-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.setup-head p {
+  margin: 0;
+}
+.setup-players {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.setup-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid #394650;
+  background: #10191f;
+}
+.player-number {
+  color: var(--blue);
+  font:
+    bold 11px "Courier New",
+    monospace;
+}
+.setup-player input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #53626d;
+  background: #0b1216;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.setup-player input[type="text"]:focus-visible,
+.pick:focus-within,
+.format-option:focus-within,
+.chaos-toggle:focus-within {
+  outline: 2px solid var(--orange);
+  outline-offset: 1px;
+}
+.character-picks {
+  display: flex;
+  gap: 3px;
+}
+.pick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 3px;
+  border: 2px solid transparent;
+  color: var(--muted);
+  font:
+    bold 8px "Courier New",
+    monospace;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pick input,
+.format-option input,
+.chaos-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.pick-face {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  background: #1a252d;
+  border: 2px solid var(--person);
+  color: var(--text);
+  font-size: 10px;
+}
+/* Selection is shown by a filled face and bold white label, not colour alone. */
+.pick:has(input:checked) {
+  border-color: var(--person);
+  color: var(--text);
+}
+.pick:has(input:checked) .pick-face {
+  background: var(--person);
+  color: #0b1216;
+}
+.setup-player .btn,
+.setup-head .btn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+.party-setup {
+  padding-block: 18px;
+}
+.setup-options {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  align-items: end;
+  gap: 8px;
+}
+.setup-format {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 8px 0;
+  padding: 0;
+  border: 0;
+}
+.setup-format legend,
+.chaos-card > span,
+.award-card > span {
+  margin-bottom: 6px;
+  color: var(--blue);
+  font:
+    bold 10px "Courier New",
+    monospace;
+  letter-spacing: 2px;
+}
+.format-option,
+.chaos-toggle {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 2px solid #394650;
+  background: #10191f;
+  cursor: pointer;
+}
+.format-option small,
+.chaos-toggle small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.format-option:has(input:checked),
+.chaos-toggle:has(input:checked) {
+  border-color: var(--orange);
+  background: #2a1d12;
+}
+.format-option:has(input:checked) b::before {
+  content: "● ";
+  color: var(--orange);
+}
+.chaos-toggle {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.chaos-toggle span {
+  display: flex;
+  flex-direction: column;
+}
+.chaos-toggle::before {
+  content: "OFF";
+  min-width: 38px;
+  padding: 3px 0;
+  border: 2px solid #53626d;
+  color: var(--muted);
+  text-align: center;
+  font:
+    bold 10px "Courier New",
+    monospace;
+}
+.chaos-toggle:has(input:checked)::before {
+  content: "ON";
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #0b1216;
+}
+.party-setup .actions {
+  margin-top: 12px;
+}
+.chaos-card {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 2px dashed var(--orange);
+  background: #2a1d12;
+}
+.chaos-card > span {
+  display: block;
+  color: var(--orange);
+}
+.chaos-card p:last-child {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+.party-table td small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.party-table td:first-child {
+  width: 28px;
+}
+.party-table tr {
+  border-left: 3px solid var(--person);
+}
+.eliminated-banner {
+  display: inline-block;
+  padding: 5px 10px;
+  border: 2px solid var(--orange);
+  color: var(--orange) !important;
+  font:
+    bold 13px "Courier New",
+    monospace !important;
+  letter-spacing: 2px;
+}
+.award-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.award-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid #53626d;
+  background: #10191f;
+}
+.award-card small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.party-final .results-table,
+.party-scoreboard .results-table {
+  margin: 8px 0;
+}
+/* The final screen keeps the ribbon but trims spacing for up to six rows. */
+.party-final {
+  padding-block: 18px;
+}
+.party-final .championship-seal {
+  display: none;
+}
+.party-final .championship-ribbon {
+  margin-bottom: 10px;
+}
+.party-final > p:not(.eyebrow) {
+  margin-bottom: 4px;
+}
+.party-final .award-grid {
+  margin: 6px 0;
+}
+.award-card {
+  padding: 6px 10px;
+}
+.party-final h2 {
+  margin-bottom: 4px;
+}
+.party-final .results-table td,
+.party-scoreboard .results-table td {
+  padding: 5px 10px;
+}
+.party-final .actions {
+  margin-top: 10px;
+}
+@media (max-width: 800px) {
+  .setup-players,
+  .setup-format,
+  .setup-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
