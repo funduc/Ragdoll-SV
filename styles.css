@@ -1464,3 +1464,97 @@ kbd {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* Title screen event picker: the pressed event is filled, not just coloured. */
+.event-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.event-picker > span {
+  color: var(--muted);
+  font:
+    bold 10px "Courier New",
+    monospace;
+  letter-spacing: 2px;
+}
+.event-picker .btn {
+  padding: 8px 14px;
+}
+.event-picker .btn[aria-pressed="true"] {
+  background: linear-gradient(#ff943e, #ef741d);
+  color: #101519;
+}
+.event-picker .btn[aria-pressed="true"]::before {
+  content: "● ";
+}
+/* High Jump verdict on the results screen. */
+.hj-verdict {
+  margin: 10px 0;
+  padding: 10px 14px;
+  border: 2px solid #53626d;
+  background: #10191f;
+}
+.hj-verdict > span {
+  display: block;
+  color: var(--muted);
+  font:
+    bold 11px "Courier New",
+    monospace;
+  letter-spacing: 1px;
+}
+.hj-verdict strong {
+  display: block;
+  margin: 4px 0;
+  font:
+    900 32px Impact,
+    "Arial Black",
+    Arial,
+    sans-serif;
+  color: var(--orange);
+}
+.hj-verdict[data-result="cleared"] {
+  border-color: var(--green);
+}
+.hj-verdict[data-result="cleared"] strong {
+  color: var(--green);
+}
+.hj-verdict p {
+  margin: 0;
+}
+.fosbury-bonus {
+  display: inline-block;
+  padding: 3px 8px;
+  background: var(--green);
+  color: #0b1216;
+  font:
+    bold 11px "Courier New",
+    monospace;
+  letter-spacing: 1px;
+}
+.hj-rules {
+  padding: 8px 10px;
+  border: 2px solid #394650;
+  background: #10191f;
+}
+.hj-rules p {
+  margin: 0;
+}
+/* Once the event picker shows, the title compacts so every button fits. */
+.title-panel:has(.event-picker) h1 {
+  font-size: clamp(44px, 5.6vw, 70px);
+  margin-bottom: 8px;
+}
+.title-panel:has(.event-picker) .vault-title {
+  margin: 8px 0 12px;
+}
+.title-panel:has(.event-picker) > p:not(.eyebrow) {
+  margin-bottom: 4px;
+}
+.title-panel:has(.event-picker) .mode-choices {
+  margin-top: 12px;
+}
+.title-panel:has(.event-picker) .title-meta {
+  margin-top: 10px;
+}

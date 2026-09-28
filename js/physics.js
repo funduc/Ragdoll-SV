@@ -85,6 +85,7 @@ export class PhysicsWorld {
         this.M.Body.translate(body, { x: 0, y: this.spawnOffsetY });
     this.damage = new CrashDamage(this);
     this.createCargo();
+    this.createBar();
     this.runEffects?.install(this);
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
     this.M.Events.on(this.engine, "collisionStart", this.collisionHandler);
@@ -208,6 +209,86 @@ export class PhysicsWorld {
       "Lost",
       "MUG RESIGNED · delivery now requires a replacement mug",
     );
+  }
+  // CART HIGH JUMP: a real, light bar resting on a peg at `arena.barHeight`
+  // metres. The peg only touches the bar, so the cart passes the uprights.
+  createBar() {
+    const bar = this.course.bar;
+    this.bar = null;
+    this.highJump = null;
+    if (!bar || !Number.isFinite(this.arena.barHeight)) return;
+    const { Bodies, Composite } = this.M;
+    const top = this.course.groundY - this.arena.barHeight * 40;
+    this.bar = Bodies.rectangle(bar.x, top + bar.thickness / 2, bar.width, bar.thickness, {
+      label: "high-jump bar",
+      density: 0.0006,
+      friction: 0.6,
+      frictionAir: 0.01,
+      restitution: 0.1,
+      collisionFilter: { category: 0x0004, mask: 0xffffffff },
+    });
+    this.barPeg = Bodies.rectangle(bar.x, top + bar.thickness + 3, 14, 6, {
+      isStatic: true,
+      label: "bar peg",
+      friction: 0.9,
+      collisionFilter: { category: 0x0008, mask: 0x0004 },
+    });
+    Composite.add(this.engine.world, [this.bar, this.barPeg]);
+    this.barRest = { x: this.bar.position.x, y: this.bar.position.y };
+    this.highJump = {
+      height: this.arena.barHeight,
+      barX: bar.x,
+      barTop: top,
+      knocked: false,
+      face: false, // the rider's head touched the bar
+      hitBy: [],
+      crossing: null, // "over" or "under" when the cart centre passes the bar
+      fosbury: false,
+    };
+    this.barPreviousX = this.cart.position.x;
+  }
+  updateBar() {
+    const hj = this.highJump;
+    if (!hj) return;
+    const b = this.bar;
+    if (
+      !hj.knocked &&
+      (Math.abs(b.position.x - this.barRest.x) > 4 ||
+        Math.abs(b.position.y - this.barRest.y) > 4 ||
+        Math.abs(normalAngle(b.angle)) > 0.2)
+    ) {
+      hj.knocked = true;
+      this.events.push("barKnocked");
+    }
+    const x = this.cart.position.x;
+    if (hj.crossing === null && this.barPreviousX < hj.barX && x >= hj.barX) {
+      // Judged on the whole assembly: every part must be above the bar.
+      const lowest = Math.max(...this.dynamic.map((body) => body.bounds.max.y));
+      hj.crossing = lowest < hj.barTop ? "over" : "under";
+      // Upside down over the bar (a flip over it): the Fosbury.
+      hj.fosbury =
+        hj.crossing === "over" && Math.abs(normalAngle(this.cart.angle)) > 2.09;
+      this.events.push(hj.fosbury ? "fosbury" : "barCrossed");
+    }
+    this.barPreviousX = x;
+  }
+  highJumpResult() {
+    const hj = this.highJump;
+    if (!hj) return null;
+    const result = hj.knocked
+      ? "knocked"
+      : hj.crossing === "over"
+        ? "cleared"
+        : hj.crossing === "under"
+          ? "under"
+          : "short";
+    return {
+      height: hj.height,
+      result,
+      cleared: result === "cleared",
+      fosbury: result === "cleared" && hj.fosbury,
+      face: hj.knocked && hj.face,
+    };
   }
   createVehicle() {
     const { Bodies, Body, Composite, Constraint } = this.M,
@@ -389,6 +470,22 @@ export class PhysicsWorld {
     for (const pair of pairs) {
       const a = pair.bodyA.parent,
         b = pair.bodyB.parent;
+      if (this.bar && (a === this.bar || b === this.bar)) {
+        const other = a === this.bar ? b : a;
+        if (!other.isStatic) {
+          const part =
+            other === this.head
+              ? "head"
+              : other === this.cart
+                ? "cart"
+                : this.wheels.includes(other)
+                  ? "wheel"
+                  : "rider";
+          if (!this.highJump.hitBy.includes(part)) this.highJump.hitBy.push(part);
+          if (part === "head") this.highJump.face = true;
+        }
+        continue;
+      }
       const terrain = a.isStatic ? a : b.isStatic ? b : null;
       const body = terrain === a ? b : a;
       if (!terrain || body.isStatic) continue;
@@ -485,6 +582,7 @@ export class PhysicsWorld {
     }
     this.damage.afterStep(STEP_MS / 1000);
     this.updateCargo();
+    this.updateBar();
     // Settle the cart's spin on the ramp (takeoff.rampSettle): no wheelie.
     if (
       !this.launched &&
@@ -608,6 +706,7 @@ export class PhysicsWorld {
       ...this.skills.metrics(),
       trickSummary: this.tricks.snapshot(),
       sync: this.syncResult || null,
+      highJump: this.highJumpResult(),
     };
   }
   drainEvents() {

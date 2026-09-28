@@ -15,7 +15,11 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     world.landed &&
     world.landingTime - world.launchTime >=
       CONDITIONS["wrate-issue"].warning + CONDITIONS["wrate-issue"].duration;
+  const highJump = world.highJumpResult?.() || null;
   return {
+    hjCleared: highJump?.cleared === true,
+    hjFosbury: highJump?.fosbury === true,
+    hjFace: highJump?.face === true,
     syncCompleted: Boolean(score.sync),
     syncPerfect: score.sync?.grade === "PERFECT SYNC",
     syncBoosted: (score.sync?.reward.speed || 1) > 1,

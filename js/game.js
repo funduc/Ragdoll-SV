@@ -97,7 +97,7 @@ class Game {
       onExclusiveKey: (event) => this.exclusiveKey(event),
       onConfirm: (event) => {
         const menu = event?.target?.closest?.(
-          "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter], button[data-setup], button[data-party]",
+          "button[data-replay], button[data-mode], button[data-campaign], button[data-achievement], button[data-audio-enter], button[data-setup], button[data-party], button[data-event]",
         );
         if (menu) {
           this.menuAction(menu);
@@ -146,9 +146,18 @@ class Game {
       this.mode === "party" &&
       this.tournament.state === State.READY &&
       this.tournament.currentRound.condition;
+    // Party High Jump: the high-jump course with this round's bar height.
+    const highJump =
+      this.mode === "party" && this.tournament.highJump
+        ? {
+            id: "high-jump",
+            course: "high-jump",
+            barHeight: this.tournament.currentRound.height,
+          }
+        : undefined;
     this.world = new PhysicsWorld(
       character,
-      this.mode === "vault" ? this.campaign.attemptArena : undefined,
+      this.mode === "vault" ? this.campaign.attemptArena : highJump,
       this.mode === "vault"
         ? this.campaign.attemptSpec
         : chaos
@@ -347,6 +356,20 @@ class Game {
     }
     if (button.dataset.achievement) {
       this.achievementAction(button);
+      return;
+    }
+    if (button.dataset.event) {
+      // Title screen event picker; Vault Run stays long jump.
+      if (this.mode !== "party" || this.tournament.state !== State.TITLE) return;
+      if (this.tournament.setEvent(button.dataset.event)) {
+        savePartySetup(this.campaign.save.storage, this.tournament.setup);
+        this.presentation.audio.play("click");
+        this.replaceWorld(CHARACTERS[0]);
+        this.renderState();
+        document
+          .querySelector(`[data-event="${button.dataset.event}"]`)
+          ?.focus({ preventScroll: true });
+      }
       return;
     }
     if (button.dataset.setup || button.dataset.party) {
@@ -697,6 +720,7 @@ class Game {
           const score = Object.freeze({
             ...scoreAttempt(this.world.metrics(), this.world.character),
             carnage: this.world.damage.summary(),
+            highJump: this.world.highJumpResult(),
           });
           finishedScore = score;
           if (this.mode === "vault") this.campaign.record(score, this.world);

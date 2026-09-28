@@ -130,6 +130,7 @@ export function renderCampaign(ui, run) {
   const c = run.current,
     level = run.level;
   ui.root.dataset.mode = "vault-run";
+  ui.eventLabel.innerHTML = "<b>01</b> SHOPPING-CART LONG JUMP";
   ui.campaignSession = run;
   ui.roundLabel.textContent =
     run.active || [S.READY, S.RESULTS].includes(run.state)
