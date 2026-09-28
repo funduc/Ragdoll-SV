@@ -1,0 +1,163 @@
+// Course shapes as plain data. World pixels, y grows downward, 40 px = 1 m.
+// A level or event picks one with `arena.course` (an id or a course object);
+// otherwise the default long-jump course is used.
+
+// The takeoff zone as offsets from the ramp edge; courses may override it.
+const TAKEOFF_OFFSETS = Object.freeze({
+  armedX: -220, // first push after this line commits the one launch opportunity
+  goodStart: -140,
+  perfectStart: -100,
+  perfectEnd: -20,
+  goodEnd: 10,
+});
+export const TAKEOFF_KEYS = Object.freeze(Object.keys(TAKEOFF_OFFSETS));
+
+const number = (value, name) => {
+  if (!Number.isFinite(value))
+    throw new TypeError(`Course field "${name}" must be a finite number.`);
+  return value;
+};
+const freeze = (value) => {
+  if (value && typeof value === "object") {
+    Object.values(value).forEach(freeze);
+    Object.freeze(value);
+  }
+  return value;
+};
+
+// Outline of a static piece in world coordinates (used by physics and drawing).
+export function pieceOutline(piece) {
+  if (piece.type === "polygon") return piece.points.map((p) => ({ ...p }));
+  const cos = Math.cos(piece.angle),
+    sin = Math.sin(piece.angle);
+  return [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([sx, sy]) => {
+    const dx = (sx * piece.width) / 2,
+      dy = (sy * piece.height) / 2;
+    return { x: piece.x + dx * cos - dy * sin, y: piece.y + dx * sin + dy * cos };
+  });
+}
+
+// Extra static pieces: { type: "rect", x, y, width, height, angle? } (x, y is
+// the centre) or { type: "polygon", points: [{x, y}, …] }. Optional: label,
+// friction, restitution, landing (true = counts as a landing surface, like the
+// ground), fill and stroke colours.
+function definePiece(raw, index) {
+  const common = {
+    label: String(raw.label || `course piece ${index + 1}`),
+    friction: Number.isFinite(raw.friction) ? raw.friction : 0.8,
+    restitution: Number.isFinite(raw.restitution) ? raw.restitution : 0.03,
+    landing: raw.landing === true,
+    fill: String(raw.fill || "#44565f"),
+    stroke: String(raw.stroke || "#9bb3bf"),
+  };
+  if (raw.type === "polygon") {
+    if (!Array.isArray(raw.points) || raw.points.length < 3)
+      throw new TypeError("A polygon course piece needs at least 3 points.");
+    return {
+      type: "polygon",
+      ...common,
+      points: raw.points.map((p, i) => ({
+        x: number(p?.x, `pieces[${index}].points[${i}].x`),
+        y: number(p?.y, `pieces[${index}].points[${i}].y`),
+      })),
+    };
+  }
+  if (raw.type !== "rect")
+    throw new TypeError(`Unknown course piece type "${raw.type}".`);
+  return {
+    type: "rect",
+    ...common,
+    x: number(raw.x, `pieces[${index}].x`),
+    y: number(raw.y, `pieces[${index}].y`),
+    width: number(raw.width, `pieces[${index}].width`),
+    height: number(raw.height, `pieces[${index}].height`),
+    angle: Number.isFinite(raw.angle) ? raw.angle : 0,
+  };
+}
+
+// Fills in derived fields and freezes the result. Only the ramp, ground
+// height and run-up start are required; everything else has a default that
+// reproduces the long-jump layout around them.
+export function defineCourse(raw) {
+  const groundY = number(raw.groundY, "groundY"),
+    rampStart = number(raw.rampStart, "rampStart"),
+    rampEnd = number(raw.rampEnd, "rampEnd"),
+    rampTop = number(raw.rampTop, "rampTop"),
+    startX = number(raw.startX, "startX");
+  if (!(startX < rampStart && rampStart < rampEnd && rampTop < groundY))
+    throw new RangeError(
+      "A course needs startX < rampStart < rampEnd and rampTop above groundY.",
+    );
+  const endX = Number.isFinite(raw.endX) ? raw.endX : rampEnd + 9420;
+  const takeoff = Object.fromEntries(
+    TAKEOFF_KEYS.map((key) => [
+      key,
+      Number.isFinite(raw.takeoff?.[key])
+        ? raw.takeoff[key]
+        : rampEnd + TAKEOFF_OFFSETS[key],
+    ]),
+  );
+  return freeze({
+    id: String(raw.id || "custom"),
+    name: String(raw.name || raw.id || "Custom course"),
+    groundY,
+    rampStart,
+    rampEnd,
+    rampTop,
+    startX,
+    endX, // passing this x ends the attempt
+    // Distance is measured from here (the ramp edge unless a course says otherwise).
+    distanceOrigin: Number.isFinite(raw.distanceOrigin)
+      ? raw.distanceOrigin
+      : rampEnd,
+    // The ground slab and the back wall sit a fixed distance behind the start.
+    groundLeft: Number.isFinite(raw.groundLeft) ? raw.groundLeft : startX - 1210,
+    groundRight: Number.isFinite(raw.groundRight) ? raw.groundRight : endX + 500,
+    wallX: Number.isFinite(raw.wallX) ? raw.wallX : startX - 310,
+    takeoff,
+    pieces: (raw.pieces || []).map(definePiece),
+  });
+}
+
+export const COURSES = freeze({
+  "long-jump": defineCourse({
+    id: "long-jump",
+    name: "Long Jump",
+    groundY: 520,
+    rampStart: 730,
+    rampEnd: 1080,
+    rampTop: 330,
+    startX: -3000, // long run-up: about six on-beat pushes before the ramp
+    endX: 10500,
+    groundRight: 11000,
+  }),
+});
+export const DEFAULT_COURSE = COURSES["long-jump"];
+
+// Accepts a course id, a raw or defined course object, or nothing.
+export function resolveCourse(value) {
+  if (!value) return DEFAULT_COURSE;
+  if (typeof value === "string") {
+    if (!Object.hasOwn(COURSES, value))
+      throw new RangeError(`Unknown course "${value}".`);
+    return COURSES[value];
+  }
+  return Object.isFrozen(value) && value.takeoff && value.pieces
+    ? value
+    : defineCourse(value);
+}
+
+// The skill config for a course: its takeoff zone positions replace the
+// default ones, keeping any per-attempt widening (e.g. an upgrade) intact.
+export function courseSkillConfig(base, course) {
+  if (course === DEFAULT_COURSE) return base;
+  const takeoff = { ...base.takeoff };
+  for (const key of TAKEOFF_KEYS)
+    takeoff[key] += course.takeoff[key] - DEFAULT_COURSE.takeoff[key];
+  return Object.freeze({ ...base, takeoff: Object.freeze(takeoff) });
+}

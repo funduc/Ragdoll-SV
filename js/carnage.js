@@ -27,7 +27,7 @@ export class CrashDamage {
       const index = w.wheels.indexOf(body);
       this.impactWheel = index >= 0 ? index : null;
     }
-    if (w.launched && terrain === w.ground && this.wheelLostAt !== null &&
+    if (w.launched && w.landingSurfaces.has(terrain) && this.wheelLostAt !== null &&
       w.elapsed > this.wheelLostAt && (body === w.cart || w.rider.includes(body)))
       this.landedAfterWheelLoss = true;
   }

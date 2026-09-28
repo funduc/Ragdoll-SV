@@ -245,7 +245,16 @@ export class AttemptSkills {
   contactETA(world) {
     if (!world.launched || world.landed) return Infinity;
     const bottom = Math.max(...world.dynamic.map((body) => body.bounds.max.y));
-    const height = Math.max(0, world.course.groundY - bottom);
+    // A course's landing pieces raise the surface under their footprint.
+    let surface = world.course.groundY;
+    for (const body of world.coursePieces || [])
+      if (
+        body.coursePiece.landing &&
+        world.cart.position.x >= body.bounds.min.x - 40 &&
+        world.cart.position.x <= body.bounds.max.x + 40
+      )
+        surface = Math.min(surface, body.bounds.min.y);
+    const height = Math.max(0, surface - bottom);
     const velocity = world.M.Body.getVelocity(world.cart).y * 60;
     const gravity = world.engine.gravity.y * world.engine.gravity.scale * 1e6;
     return (

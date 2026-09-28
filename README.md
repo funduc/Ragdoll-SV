@@ -36,6 +36,8 @@ The run-up is long: a good one takes about six on-beat pushes (roughly 4 seconds
 
 Hard crashes can shed wheels, the grille and child seat; severe crashes eject the rider. Crash results show a separate **CARNAGE** score: 150 per lost part, 100 per airborne second after ejection, 75 per bounce, and 10 per metre of rider travel from the ejection point. It never adds to normal points or medals. Party awards **Crash of the Night** across all rounds (first crash wins a tie). Losing two parts and touching down after wheel loss can unlock the existing Theseus and Wheel achievements.
 
+**Courses** are data in `js/course.js` (ground height, ramp, run-up start, takeoff zone, distance origin, world end and optional extra static pieces). A level or event picks one with `arena.course`; everything else uses the default `long-jump` course.
+
 ## Engineering and tests
 
 Run the dependency-free test suite with Node.js 22 or newer:

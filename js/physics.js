@@ -7,14 +7,14 @@ import { TrickTracker, trickSample } from "./tricks.js";
 import { trickRotationScale } from "./trick-config.js";
 import { RunEffects } from "./run-effects.js";
 import { CrashDamage } from "./carnage.js";
-export const COURSE = Object.freeze({
-  groundY: 520,
-  rampStart: 730,
-  rampEnd: 1080,
-  rampTop: 330,
-  startX: -3000, // long run-up: about six on-beat pushes before the ramp
-  endX: 10500,
-});
+import {
+  DEFAULT_COURSE,
+  resolveCourse,
+  pieceOutline,
+  courseSkillConfig,
+} from "./course.js";
+// The default long-jump course. Worlds read their own `world.course`.
+export const COURSE = DEFAULT_COURSE;
 export const STEP_MS = 1000 / 120;
 export const ATTEMPT_LIMIT = 20;
 const RUNUP_LIMIT = 12;
@@ -34,7 +34,8 @@ export class PhysicsWorld {
     this.character = this.runEffects
       ? this.runEffects.character(character)
       : character;
-    this.course = COURSE;
+    // A level or event picks the course shape with `arena.course`.
+    this.course = resolveCourse(arena.course);
     this.arena = arena;
     this.engine = this.M.Engine.create({
       positionIterations: 8,
@@ -70,10 +71,18 @@ export class PhysicsWorld {
     this.riderSettleTime = 0;
     this.reason = "";
     this.events = [];
-    this.skills = new AttemptSkills(this.runEffects?.skills);
+    this.skills = new AttemptSkills(
+      courseSkillConfig(this.runEffects?.skills || SKILL_CONFIG, this.course),
+    );
     this.tricks = new TrickTracker(this.character);
     this.createCourse();
     this.createVehicle();
+    // The cart and rider are built for the default ground height; other
+    // courses lift or lower the whole assembly to their own ground.
+    this.spawnOffsetY = this.course.groundY - DEFAULT_COURSE.groundY;
+    if (this.spawnOffsetY)
+      for (const body of this.dynamic)
+        this.M.Body.translate(body, { x: 0, y: this.spawnOffsetY });
     this.damage = new CrashDamage(this);
     this.createCargo();
     this.runEffects?.install(this);
@@ -88,41 +97,59 @@ export class PhysicsWorld {
       restitution: 0.03,
       label: "ground",
     };
-    // The ground and back wall sit a fixed distance behind the run-up start.
-    const groundLeft = COURSE.startX - 1210;
+    const course = this.course;
+    // A 160 px ground slab whose top edge is the course's ground height.
     this.ground = Bodies.rectangle(
-      (groundLeft + 11000) / 2,
-      600,
-      11000 - groundLeft,
+      (course.groundLeft + course.groundRight) / 2,
+      course.groundY + 80,
+      course.groundRight - course.groundLeft,
       160,
       options,
     );
     const points = [
-      { x: COURSE.rampStart, y: COURSE.groundY },
-      { x: COURSE.rampEnd, y: COURSE.rampTop },
-      { x: COURSE.rampEnd, y: COURSE.groundY },
+      { x: course.rampStart, y: course.groundY },
+      { x: course.rampEnd, y: course.rampTop },
+      { x: course.rampEnd, y: course.groundY },
     ];
     const center = {
-      x: (COURSE.rampStart + 2 * COURSE.rampEnd) / 3,
-      y: (2 * COURSE.groundY + COURSE.rampTop) / 3,
+      x: (course.rampStart + 2 * course.rampEnd) / 3,
+      y: (2 * course.groundY + course.rampTop) / 3,
     };
     this.ramp = Bodies.fromVertices(center.x, center.y, [points], {
       ...options,
       label: "ramp",
       friction: 0.65,
     });
-    this.wall = Bodies.rectangle(COURSE.startX - 310, 200, 80, 900, {
+    this.wall = Bodies.rectangle(course.wallX, course.groundY - 320, 80, 900, {
       ...options,
       label: "wall",
     });
     Composite.add(this.engine.world, [this.ground, this.ramp, this.wall]);
+    // Optional extra static pieces from the course data (bars, walls, ramps).
+    this.coursePieces = course.pieces.map((piece) => {
+      const outline = pieceOutline(piece);
+      const centre = this.M.Vertices.centre(outline);
+      const body = Bodies.fromVertices(centre.x, centre.y, [outline], {
+        ...options,
+        label: piece.label,
+        friction: piece.friction,
+        restitution: piece.restitution,
+      });
+      body.coursePiece = piece;
+      return body;
+    });
+    this.landingSurfaces = new Set([
+      this.ground,
+      ...this.coursePieces.filter((body) => body.coursePiece.landing),
+    ]);
+    Composite.add(this.engine.world, this.coursePieces);
     this.runwayBumps = (this.arena.bumps || []).map(({ x, width, height }) => {
       const points = [
-        { x: x - width / 2, y: COURSE.groundY },
-        { x, y: COURSE.groundY - height },
-        { x: x + width / 2, y: COURSE.groundY },
+        { x: x - width / 2, y: course.groundY },
+        { x, y: course.groundY - height },
+        { x: x + width / 2, y: course.groundY },
       ];
-      return Bodies.fromVertices(x, COURSE.groundY - height / 3, [points], {
+      return Bodies.fromVertices(x, course.groundY - height / 3, [points], {
         ...options,
         label: "runway repair",
       });
@@ -137,8 +164,8 @@ export class PhysicsWorld {
     if (!config) return;
     const { Bodies, Body, Constraint, Composite } = this.M;
     this.cargo = Bodies.rectangle(
-      COURSE.startX + 25,
-      445,
+      this.course.startX + 25,
+      445 + this.spawnOffsetY,
       config.size,
       config.size,
       {
@@ -184,7 +211,7 @@ export class PhysicsWorld {
   }
   createVehicle() {
     const { Bodies, Body, Composite, Constraint } = this.M,
-      x = COURSE.startX;
+      x = this.course.startX;
     const group = Body.nextGroup(true),
       filter = { group };
     const base = {
@@ -370,7 +397,7 @@ export class PhysicsWorld {
       if (
         this.launched &&
         !this.landed &&
-        terrain === this.ground &&
+        this.landingSurfaces.has(terrain) &&
         (body === this.cart || this.wheels.includes(body) || this.rider.includes(body))
       ) {
         // collisionStart runs after integration: this step's rotation happened
@@ -384,7 +411,7 @@ export class PhysicsWorld {
         this.skills.onLanding(this);
         this.distancePixels = Math.max(
           0,
-          this.cart.position.x - COURSE.rampEnd,
+          this.cart.position.x - this.course.distanceOrigin,
         );
         const tilt = Math.abs(normalAngle(this.cart.angle));
         if (tilt > 1.15 * this.character.landingStability)
@@ -461,8 +488,8 @@ export class PhysicsWorld {
     // Settle the cart's spin on the ramp (takeoff.rampSettle): no wheelie.
     if (
       !this.launched &&
-      this.cart.position.x >= COURSE.rampStart &&
-      this.cart.position.x < COURSE.rampEnd
+      this.cart.position.x >= this.course.rampStart &&
+      this.cart.position.x < this.course.rampEnd
     )
       Body.setAngularVelocity(
         this.cart,
@@ -478,10 +505,11 @@ export class PhysicsWorld {
       this.skills.runwayCapReached = true;
     if (
       !this.launched &&
-      this.cart.position.x > COURSE.rampEnd + 35 &&
+      this.cart.position.x > this.course.rampEnd + 35 &&
       this.wheels.every(
         (w) =>
-          w.position.x > COURSE.rampEnd && w.position.y < COURSE.groundY - 45,
+          w.position.x > this.course.rampEnd &&
+            w.position.y < this.course.groundY - 45,
       )
     ) {
       this.launched = true;
@@ -495,7 +523,10 @@ export class PhysicsWorld {
     if (this.launched && !this.landed) {
       this.tricks.sample(trickSample(this));
       this.airRotation = Math.abs(this.tricks.signedRotation);
-      this.distancePixels = Math.max(0, this.cart.position.x - COURSE.rampEnd);
+      this.distancePixels = Math.max(
+        0,
+        this.cart.position.x - this.course.distanceOrigin,
+      );
     }
     if (this.landed || this.crashed) {
       const still = (body) =>
@@ -523,8 +554,8 @@ export class PhysicsWorld {
       this.finish("Run-up time expired");
     else if (this.elapsed >= ATTEMPT_LIMIT) this.finish("Attempt time limit");
     else if (
-      this.dynamic.some((b) => b.position.y > 1800) ||
-      this.cart.position.x > COURSE.endX
+      this.dynamic.some((b) => b.position.y > this.course.groundY + 1280) ||
+      this.cart.position.x > this.course.endX
     )
       this.finish("Out of bounds");
   }
