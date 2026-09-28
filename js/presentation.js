@@ -45,7 +45,8 @@ export class Presentation {
           : "normal";
     if (this.lastState === t.state) return;
     this.lastState = t.state;
-    if (t.state === State.ELIMINATION) this.audio.play("elimination");
+    if (t.state === State.SCOREBOARD && t.lastEliminated)
+      this.audio.play("elimination");
     if (t.state === State.RESULTS) this.audio.play("crowd");
     if (t.state === State.FINAL) {
       this.effects.victory();

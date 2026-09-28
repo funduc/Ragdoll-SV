@@ -18,7 +18,7 @@ export const carnageDetails = (s) => s.crashed && s.carnage
   : "";
 
 export const crashOfNightMarkup = (award) => award
-  ? `<section class="carnage-card" aria-label="Crash of the Night"><h3>CRASH OF THE NIGHT</h3><p>${escape(award.character.fullName)}</p><strong>${award.carnage.total} CARNAGE</strong><p>JOHN: THE CART ARRIVED AS ONE ITEM. ${escape(award.character.name.split(" ")[0].toUpperCase())} HAS REQUESTED SEPARATE RECEIPTS!</p></section>`
+  ? `<section class="carnage-card" aria-label="Crash of the Night"><h3>CRASH OF THE NIGHT</h3><p>${escape(award.player ? `${award.player.name} · ${award.character.name}` : award.character.fullName)}</p><strong>${award.carnage.total} CARNAGE</strong><p>JOHN: THE CART ARRIVED AS ONE ITEM. ${escape((award.player?.name || award.character.name.split(" ")[0]).toUpperCase())} HAS REQUESTED SEPARATE RECEIPTS!</p></section>`
   : "";
 
 // Shared by Party Tournament and Vault Run results: the scorecard stays on

@@ -1,6 +1,6 @@
 # Ragdoll Olympics: The Santor Vault
 
-A browser game about shopping-cart long jumps with ragdoll physics. Play the saved **Vault Run** solo campaign or a three-player local **Party Tournament** as Jake, Brandon, and Owen. Built with vanilla HTML/CSS/JavaScript and vendored Matter.js; no build step or backend.
+A browser game about shopping-cart long jumps with ragdoll physics. Play the saved **Vault Run** solo campaign or a 2–6 player local **Party Tournament**, with everyone playing as Jake, Brandon or Owen. Built with vanilla HTML/CSS/JavaScript and vendored Matter.js; no build step or backend.
 
 ## Play locally
 
@@ -32,7 +32,9 @@ Results in both modes offer **WATCH REPLAY**. Crashes and landings over 55 m rep
 
 The run-up is long: a good one takes about six on-beat pushes (roughly 4 seconds). Only Perfect pushes reach top speed, and taps faster than the beat count as Miss. Typical distances: sloppy 20–30 m, solid 40–50 m, excellent 60–70 m. Tuning lives in `SKILL_CONFIG` (`js/skill-config.js`).
 
-Hard crashes can shed wheels, the grille and child seat; severe crashes eject the rider. Crash results show a separate **CARNAGE** score: 150 per lost part, 100 per airborne second after ejection, 75 per bounce, and 10 per metre of rider travel from the ejection point. It never adds to normal points or medals. Party awards **Crash of the Night** across both rounds (first crash wins a tie). Losing two parts and touching down after wheel loss can unlock the existing Theseus and Wheel achievements.
+**Party Tournament** is a pass-and-play game night for 2–6 players. Each player types a name and picks any character (duplicates allowed), then chooses **Quick** (one jump each), **Best of 3** (three rounds, total points) or **Elimination** (lowest running total drops out each round). **Chaos** rolls a random condition each round, from the five Vault Run conditions plus Low-G, Tailwind and Chameleon Wind. A scoreboard shows running totals and best jumps between rounds, and the end screen gives Longest Jump, Best Style, Crash of the Night and Most Consistent awards. Names and settings are remembered in this browser. Ties go to the better single jump.
+
+Hard crashes can shed wheels, the grille and child seat; severe crashes eject the rider. Crash results show a separate **CARNAGE** score: 150 per lost part, 100 per airborne second after ejection, 75 per bounce, and 10 per metre of rider travel from the ejection point. It never adds to normal points or medals. Party awards **Crash of the Night** across all rounds (first crash wins a tie). Losing two parts and touching down after wheel loss can unlock the existing Theseus and Wheel achievements.
 
 ## Engineering and tests
 

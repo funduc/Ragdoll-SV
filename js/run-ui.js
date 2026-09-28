@@ -21,12 +21,15 @@ const planFor = (run, level) =>
   );
 // Briefing badge: an icon plus a few words. Full descriptions stay in Details.
 // U+FE0E keeps the symbols as plain text glyphs rather than emoji.
-const CONDITION_BADGES = {
+export const CONDITION_BADGES = {
   crosswind: ["➜", "pushes you right"],
   "icy-ramp": ["❄", "slippery everywhere"],
   "heavy-cart": ["⚓", "slower, but steadier"],
   "boost-strip": ["⚡", "free +3 speed"],
   "wrate-issue": ["⚠", "forward wobble mid-air"],
+  "low-gravity": ["⇡", "40% less gravity"],
+  tailwind: ["»", "pushes you forward"],
+  "shifting-wind": ["⇄", "gusts flip mid-air"],
 };
 export function conditionBadge(run, level) {
   const plan = planFor(run, level);

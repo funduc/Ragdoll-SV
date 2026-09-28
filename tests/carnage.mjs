@@ -105,34 +105,44 @@ for (const character of CHARACTERS) {
 }
 console.log("PASS real crashes: axles break, panels persist, ejection keeps incoming speed, airborne/bounce/travel carnage, replay debris, real achievement unlocks and disposal");
 
-const tournament = new Tournament();
+// Best of 3 with a duplicate character: carnage is tracked per player.
+const tournament = new Tournament({
+  players: [{ name: "Ana", characterId: "jake" }, { name: "Bo", characterId: "jake" }, { name: "Cy", characterId: "owen" }],
+  format: "best-of-3",
+}, { seedFactory: () => 1 });
 assert.equal(tournament.crashOfNight, null);
-tournament.state = State.ACTIVE;
-for (let i = 0; i < 3; i++) {
-  tournament.turn = i; tournament.state = State.ACTIVE;
-  tournament.record({ ...crashScores[i], carnage: { ...crashScores[i].carnage, total: 100 + i } });
-}
+for (let i = 0; i < 3; i++) tournament.confirm(); // setup → rules → round intro
+const play = (score) => {
+  tournament.confirm(); // round intro or results → ready
+  if (tournament.state !== State.READY) tournament.confirm();
+  tournament.confirm(); // ready → active
+  assert.ok(tournament.record(score));
+};
+const crash = (i, total, extra = {}) => ({ ...crashScores[i], carnage: { ...crashScores[i].carnage, total }, ...extra });
+for (let i = 0; i < 3; i++) play(crash(i, 100 + i));
 tournament.confirm();
-const qualifiers = tournament.finalists.map(c => c.id);
-tournament.confirm(); tournament.confirm(); tournament.confirm();
-const firstFinalist = tournament.current;
-tournament.record({ ...crashScores[0], carnage: { ...crashScores[0].carnage, total: 9999 } });
+assert.equal(tournament.state, State.SCOREBOARD);
+tournament.confirm();
+play(crash(0, 9999)); // Ana, round 2
+const firstBig = tournament.currentPlayer;
+play(crash(1, 5));
+play(crash(2, 5));
 tournament.confirm(); tournament.confirm();
-const winner = tournament.current;
-tournament.record({ ...crashScores[0], total: crashScores[0].total + 1, distancePoints: crashScores[0].distancePoints + 1, carnage: { ...crashScores[1].carnage, total: 1 } });
+play(crash(0, 1, { total: crashScores[0].total + 1, distancePoints: crashScores[0].distancePoints + 1 }));
+play(crash(1, 9999)); // Bo ties the carnage later: the first crash keeps it
+play(crash(2, 1));
 tournament.confirm();
 assert.equal(tournament.state, State.FINAL);
-assert.equal(tournament.winners[0], winner, "normal points still decide the winner");
-assert.equal(tournament.crashOfNight.character, firstFinalist);
+assert.equal(tournament.crashOfNight.player, firstBig, "first crash wins tied carnage");
 assert.equal(tournament.crashOfNight.carnage.total, 9999);
-tournament.championship[winner.id] = {
-  ...tournament.championship[winner.id], carnage: { total: 9999 },
-};
-assert.equal(tournament.crashOfNight.character, firstFinalist, "first crash wins tied carnage");
+assert.equal(tournament.awards.crashOfNight.player.name, "Ana");
+assert.notEqual(tournament.crashOfNight.player.name, "Bo", "same character, different player");
+const expectedWinner = [...tournament.players].sort((a, b) => tournament.totalFor(b.id) - tournament.totalFor(a.id))[0];
+assert.ok(tournament.winners.includes(expectedWinner), "normal points still decide the winner");
 assert.match(crashOfNightMarkup(tournament.crashOfNight), /JOHN:/);
 assert.match(crashOfNightMarkup(tournament.crashOfNight), /CRASH OF THE NIGHT/);
-assert.deepEqual(tournament.finalists.map(c => c.id), qualifiers);
+assert.match(crashOfNightMarkup(tournament.crashOfNight), /ANA HAS REQUESTED/);
 tournament.confirm(); assert.equal(tournament.crashOfNight, null);
-tournament.qualifying.jake = { crashed: true, carnage: { total: 0 } };
-assert.equal(tournament.crashOfNight.character.id, "jake");
-console.log("PASS Crash of the Night considers both rounds, survives hand-offs, preserves normal winners and clears on restart");
+tournament.rounds[0].scores.p3 = { crashed: true, carnage: { total: 0 } };
+assert.equal(tournament.crashOfNight.character.id, "owen");
+console.log("PASS Crash of the Night considers every round, tracks players (not characters), preserves normal winners and clears on restart");
