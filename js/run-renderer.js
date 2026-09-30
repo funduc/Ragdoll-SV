@@ -32,7 +32,10 @@ export function drawRunMarkings(renderer, world, left, right) {
     const dir =
       effects.conditionId === "tailwind"
         ? 1
-        : effects.shiftingDirection(world) || 1;
+        : // Replays store the gust direction; live attempts compute it.
+          (typeof effects.shiftingDirection === "function"
+            ? effects.shiftingDirection(world)
+            : effects.gust) || 1;
     // Trail the arrows beside the cart (upwind side) so they never cover the HUD.
     const x = world.cart.position.x - dir * 60,
       y = world.cart.position.y - 30;

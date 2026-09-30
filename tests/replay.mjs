@@ -75,6 +75,34 @@ for (const character of CHARACTERS) {
   lastWorld = world; lastRecording = recording;
 }
 console.log("PASS all characters: exact Canvas commands, every body/cargo, effects, detached poses, impact slow motion, reduced motion and unchanged scores");
+// Every condition on every event course: a replay frame draws exactly what
+// the live attempt drew (Chameleon Wind's gusts once froze the game here).
+{
+  const { ALL_CONDITION_IDS } = await import("../js/run-config.js");
+  const arenas = [undefined, { id: "high-jump", course: "high-jump", barHeight: 2.5 }, { id: "bowling", course: "bowling" }];
+  let frames = 0;
+  for (const arena of arenas)
+    for (const condition of ALL_CONDITION_IDS) {
+      const world = new PhysicsWorld(CHARACTERS[2], arena, { condition });
+      const effects = new Effects(), recording = new ReplayRecording(world);
+      for (let i = 0; i < 2600 && !world.finished; i++) {
+        world.step(timedInputs(world, world.launched ? -1 : 0));
+        recording.observe(world);
+        if (i % 2) continue;
+        recording.capture(world, effects, {});
+        if (i % 60 !== 0) continue;
+        const player = new ReplayPlayer(recording);
+        player.time = world.elapsed;
+        const sample = player.sample();
+        assert.equal(drawing(sample.world, sample.effects, sample.cosmetics), drawing(world, effects, {}), `${arena?.id || "long-jump"} ${condition} replay matches at ${world.elapsed.toFixed(2)} s`);
+        frames++;
+      }
+      world.dispose();
+    }
+  assert.ok(frames > 300);
+}
+console.log("PASS every condition on every event course replays with the same Canvas commands");
+
 
 const bounds = new ReplayRecording(lastWorld), effects = new Effects();
 for (let i = 0; i < 5000; i++) {
