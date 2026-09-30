@@ -127,6 +127,9 @@ const booleanFields = [
   "hjCleared",
   "hjFosbury",
   "hjFace",
+  "bowlStrike",
+  "bowlRiderStrike",
+  "bowlZeroMax",
 ];
 const stringFields = [
   "levelId",

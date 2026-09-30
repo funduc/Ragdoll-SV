@@ -161,6 +161,7 @@ export class Renderer {
       if (piece.sign) this.pieceSign(piece);
     }
     if (world?.highJump) this.drawHighJump(world, course);
+    if (course.pins) this.drawBowling(world, course);
     drawRunMarkings(this, world, left, right);
     for (const bump of world?.runwayBumps || [])
       this.polygon(bump.vertices, "#667782", "#ffb84b", 2);
@@ -259,6 +260,39 @@ export class Renderer {
     const x = (Math.min(...xs) + Math.max(...xs)) / 2,
       y = (Math.min(...ys) + Math.max(...ys)) / 2 + 5;
     this.label(piece.sign, x, y, 14, "#eaf6ff", "center");
+  }
+  // CART BOWLING: a wooden lane with aiming arrows, then the Crunchos pins.
+  drawBowling(world, course) {
+    const c = this.ctx,
+      ground = course.groundY,
+      start = course.rampEnd + 40,
+      end = course.pins.x + course.pins.spacing * course.pins.rows + 60;
+    c.fillStyle = "#b9824f";
+    c.fillRect(start, ground - 3, end - start, 7);
+    c.fillStyle = "#8a5a33";
+    for (let x = start; x < end; x += 90) c.fillRect(x, ground - 3, 2, 7);
+    c.fillStyle = "#ff5a4f";
+    c.fillRect(course.pins.x - 520, ground - 5, 4, 10); // foul line
+    for (const x of [course.pins.x - 420, course.pins.x - 300, course.pins.x - 180]) {
+      c.beginPath();
+      c.moveTo(x - 10, ground - 12);
+      c.lineTo(x + 10, ground - 18);
+      c.lineTo(x - 10, ground - 24);
+      c.fillStyle = "#ffcf3f";
+      c.fill();
+    }
+    this.label("CRUNCHOS PIN DECK", course.pins.x + 80, ground + 34, 12, "#ffcf3f", "center");
+    const colours = ["#ffcf3f", "#ff852b", "#f4f1e8"];
+    const { width, height } = course.pins;
+    (world?.pins || []).forEach((pin, i) => {
+      this.polygon(pin.vertices, colours[i % 3], "#10151a", 2);
+      c.save();
+      c.translate(pin.position.x, pin.position.y);
+      c.rotate(pin.angle);
+      c.fillStyle = "#c93b2f";
+      c.fillRect(-width / 2 + 3, -height * 0.18, width - 6, height * 0.2);
+      c.restore();
+    });
   }
   // CART HIGH JUMP: upright with height marks, the peg, and the real bar.
   drawHighJump(world, course) {
