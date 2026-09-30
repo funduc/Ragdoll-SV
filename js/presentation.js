@@ -5,7 +5,7 @@ import { MusicDirector, MusicPlayer } from "./music.js";
 
 // A read-only observer of game state and Matter collision results. No physics writes.
 export class Presentation {
-  constructor(root, button) {
+  constructor(root, button, onGesture = () => {}) {
     this.root = root;
     this.audio = new SynthAudio(button);
     this.musicDirector = new MusicDirector();
@@ -13,7 +13,10 @@ export class Presentation {
       getContext: () => this.audio.context,
       onAvailable: (value) => this.audio.setMusicAvailable(value),
     });
-    this.audio.onGesture = () => this.music.retryFromGesture();
+    this.audio.onGesture = () => {
+      this.music.retryFromGesture();
+      onGesture();
+    };
     this.effects = new Effects(
       globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
         false,

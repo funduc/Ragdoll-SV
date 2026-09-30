@@ -106,6 +106,7 @@ export function defineCourse(raw) {
   return freeze({
     id: String(raw.id || "custom"),
     name: String(raw.name || raw.id || "Custom course"),
+    theme: raw.theme ? String(raw.theme) : null, // absent = Santor Vault
     groundY,
     rampStart,
     rampEnd,

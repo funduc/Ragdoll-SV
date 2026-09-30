@@ -1,12 +1,13 @@
 import { DEFAULT_COURSE, pieceOutline } from "./course.js";
-import { Stadium } from "./stadium.js";
+import { ThemePainter } from "./themes.js";
 import { drawRunMarkings } from "./run-renderer.js";
 import { SKILL_CONFIG } from "./skill-config.js";
 export class Renderer {
-  constructor(canvas) {
+  constructor(canvas, themeOptions) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    this.stadium = new Stadium();
+    this.themes = new ThemePainter(themeOptions);
+    this.motionPreference = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)");
     this.cosmetics = {};
     this.camera = { x: 0, y: -80, scale: 1 };
     this.width = 1200;
@@ -53,6 +54,7 @@ export class Renderer {
     if (world?.invalid) world = null;
     // Everything below is drawn from the world's own course data.
     const course = world?.course || DEFAULT_COURSE;
+    const theme = this.themes.resolve(world?.arena?.theme || course.theme);
     const c = this.ctx,
       w = this.width,
       h = this.height;
@@ -85,17 +87,22 @@ export class Renderer {
     c.save();
     const shake = effects?.offset() || { x: 0, y: 0 };
     c.translate(shake.x, shake.y);
-    this.stadium.backdrop(c, w, h, this.label.bind(this), this.cosmetics.arena);
+    this.themes.backdrop(c, theme, {
+      width: w, height: h, label: this.label.bind(this),
+      accent: this.cosmetics.arena || theme.accent,
+      camera: this.camera, startX: course.startX, time: world?.elapsed || 0,
+      reducedMotion: this.motionPreference?.matches || false,
+    });
     c.save();
     c.scale(this.camera.scale, this.camera.scale);
     c.translate(-this.camera.x, -this.camera.y);
     const left = this.camera.x,
       right = left + w / this.camera.scale;
-    c.fillStyle = "#25343c";
+    c.fillStyle = theme.ground.fill;
     c.fillRect(left, course.groundY, right - left, 3000);
-    c.fillStyle = "#97afba";
+    c.fillStyle = theme.ground.edge;
     c.fillRect(left, course.groundY, right - left, 3);
-    c.strokeStyle = "#354954";
+    c.strokeStyle = theme.ground.lines;
     c.lineWidth = 1;
     for (let x = Math.floor(left / 100) * 100; x < right; x += 100) {
       c.beginPath();
@@ -103,8 +110,8 @@ export class Renderer {
       c.lineTo(x - 40, course.groundY + 90);
       c.stroke();
     }
-    this.stadium.ground(c, left, right, course.groundY, this.label.bind(this));
-    c.fillStyle = "#31464e";
+    this.themes.ground(c, theme, left, right, course.groundY, this.label.bind(this));
+    c.fillStyle = theme.ground.distanceStrip;
     if (course.distanceMarkers)
       c.fillRect(course.distanceOrigin, course.groundY + 4, 12000, 8);
     for (
@@ -129,8 +136,8 @@ export class Renderer {
         { x: course.rampEnd, y: course.rampTop },
         { x: course.rampEnd, y: course.groundY },
       ],
-      "#374a56",
-      "#73919f",
+      theme.ramp.fill,
+      theme.ramp.outline,
       3,
     );
     c.save();
@@ -139,7 +146,7 @@ export class Renderer {
     c.lineTo(course.rampEnd, course.rampTop);
     c.lineTo(course.rampEnd, course.groundY);
     c.clip();
-    c.strokeStyle = "#e68031";
+    c.strokeStyle = theme.ramp.stripes;
     c.lineWidth = 7;
     // Hazard stripes, laid out from the ramp's own foot and height.
     for (let x = course.rampStart + 10; x < course.rampEnd + 40; x += 46) {
@@ -152,7 +159,7 @@ export class Renderer {
     c.beginPath();
     c.moveTo(course.rampStart, course.groundY - 2);
     c.lineTo(course.rampEnd, course.rampTop - 2);
-    c.strokeStyle = "#a3bcc8";
+    c.strokeStyle = theme.ramp.edge;
     c.lineWidth = 7;
     c.stroke();
     // Optional extra static pieces (bars, walls, second ramps) from course data.
@@ -463,6 +470,7 @@ export class Renderer {
     c.restore();
   }
   destroy() {
+    this.themes.destroy();
     this.observer.disconnect();
   }
 }

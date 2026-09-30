@@ -20,6 +20,7 @@ export class ReplayRecording {
     this.scene = structuredClone({
       character: world.character,
       course: world.course,
+      arena: { theme: world.arena.theme },
       cartArtOffset: world.cartArtOffset,
       runwayBumps: world.runwayBumps.map(bodyPose),
       skills: { config: world.skills.config },

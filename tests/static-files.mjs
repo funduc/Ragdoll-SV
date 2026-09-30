@@ -74,6 +74,7 @@ try {
     "js/effects.js",
     "js/presentation.js",
     "js/stadium.js",
+    "js/themes.js",
     "js/touch.js",
     "js/skill-config.js",
     "js/skills.js",

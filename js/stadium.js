@@ -75,8 +75,8 @@ export class Stadium {
     ctx.quadraticCurveTo(signX - 159, signY + 19, signX - 190, signY + 27);
     ctx.fill();
   }
-  ground(ctx, left, right, y, label) {
-    ctx.strokeStyle = "#101719";
+  ground(ctx, left, right, y, label, sponsors = this.sponsors, cracks = "#101719") {
+    ctx.strokeStyle = cracks;
     ctx.lineWidth = 2;
     for (let x = Math.floor(left / 240) * 240; x < right; x += 240) {
       ctx.beginPath();
@@ -87,12 +87,13 @@ export class Stadium {
       ctx.stroke();
     }
     // Boards continue back along the lengthened run-up (negative x).
-    const count = this.sponsors.length;
+    const count = sponsors.length;
+    if (!count) return;
     for (let i = Math.floor((left - 500) / 640); i < 16; i++) {
       const x = 300 + i * 640;
       if (x + 200 < left || x - 180 > right) continue;
       const [name, slogan, color] =
-        this.sponsors[((i % count) + count) % count];
+        sponsors[((i % count) + count) % count];
       ctx.fillStyle = "#10191e";
       ctx.fillRect(x - 135, y - 108, 270, 58);
       ctx.strokeStyle = "#070b0f";

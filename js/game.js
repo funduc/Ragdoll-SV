@@ -73,6 +73,7 @@ class Game {
     this.presentation = new Presentation(
       document.getElementById("game"),
       document.getElementById("mute-button"),
+      () => this.renderer.themes.unlock(),
     );
     this.presentation.replaceWorld(this.world);
     this.recording = new ReplayRecording(this.world);
