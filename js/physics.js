@@ -12,6 +12,7 @@ import {
   resolveCourse,
   pieceOutline,
   courseSkillConfig,
+  pinLayout,
 } from "./course.js";
 // The default long-jump course. Worlds read their own `world.course`.
 export const COURSE = DEFAULT_COURSE;
@@ -86,6 +87,7 @@ export class PhysicsWorld {
     this.damage = new CrashDamage(this);
     this.createCargo();
     this.createBar();
+    this.createPins();
     this.runEffects?.install(this);
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
     this.M.Events.on(this.engine, "collisionStart", this.collisionHandler);
@@ -290,6 +292,64 @@ export class PhysicsWorld {
       face: hj.knocked && hj.face,
     };
   }
+  // CART BOWLING: ten standing pins in a 1-2-3-4 triangle. Pins in the same
+  // row stand side by side in depth, so they never collide with each other;
+  // every other row, the cart and the rider do. A pin is down once it has
+  // tipped, dropped, or been knocked well away from its spot.
+  createPins() {
+    const config = this.course.pins;
+    this.pins = [];
+    this.bowling = null;
+    if (!config) return;
+    const { Bodies, Composite } = this.M;
+    const rowBit = (row) => 0x0010 << row;
+    this.pins = pinLayout(config, this.course.groundY).map((spot, i) => {
+      const pin = Bodies.rectangle(spot.x, spot.y, config.width, config.height, {
+        label: `pin ${i + 1}`,
+        density: config.density,
+        friction: config.friction,
+        frictionStatic: config.frictionStatic,
+        frictionAir: 0.004,
+        restitution: 0.15,
+        collisionFilter: { category: rowBit(spot.row), mask: 0xffffffff & ~rowBit(spot.row) },
+      });
+      pin.rest = { x: spot.x, y: spot.y, row: spot.row };
+      return pin;
+    });
+    Composite.add(this.engine.world, this.pins);
+    this.bowling = { cartHit: false, riderHit: false, firstHitTime: null };
+  }
+  pinDown(pin) {
+    const { width, height } = this.course.pins;
+    return (
+      Math.abs(normalAngle(pin.angle)) > 0.6 ||
+      pin.position.y > pin.rest.y + height * 0.3 ||
+      Math.abs(pin.position.x - pin.rest.x) > width * 1.5
+    );
+  }
+  get pinsDown() {
+    return this.pins.filter((pin) => this.pinDown(pin)).length;
+  }
+  pinsStill() {
+    const { Body } = this.M;
+    return this.pins.every(
+      (pin) =>
+        Body.getSpeed(pin) < 0.3 && Math.abs(Body.getAngularVelocity(pin)) < 0.03,
+    );
+  }
+  bowlingResult() {
+    if (!this.bowling) return null;
+    const pins = this.pinsDown;
+    return {
+      pins,
+      strike: pins === this.pins.length,
+      cartHit: this.bowling.cartHit,
+      riderHit: this.bowling.riderHit,
+      // The rider (not the cart) did all the work: no cart contact at all.
+      riderOnly: this.bowling.riderHit && !this.bowling.cartHit,
+      maxSpeed: this.skills.runwayCapReached,
+    };
+  }
   createVehicle() {
     const { Bodies, Body, Composite, Constraint } = this.M,
       x = this.course.startX;
@@ -470,6 +530,24 @@ export class PhysicsWorld {
     for (const pair of pairs) {
       const a = pair.bodyA.parent,
         b = pair.bodyB.parent;
+      if (this.bowling && (a.label.startsWith("pin ") || b.label.startsWith("pin "))) {
+        const other = a.label.startsWith("pin ") ? b : a;
+        const hit =
+          other === this.cart || this.wheels.includes(other)
+            ? "cartHit"
+            : this.rider.includes(other)
+              ? // Only a rider thrown clear of the cart counts as flying in.
+                this.attached
+                ? "cartHit"
+                : "riderHit"
+              : null;
+        if (hit) {
+          if (!this.bowling[hit]) this.events.push(hit === "riderHit" ? "riderPins" : "pinsHit");
+          this.bowling[hit] = true;
+          this.bowling.firstHitTime ??= this.elapsed;
+        }
+        continue;
+      }
       if (this.bar && (a === this.bar || b === this.bar)) {
         const other = a === this.bar ? b : a;
         if (!other.isStatic) {
@@ -519,8 +597,10 @@ export class PhysicsWorld {
           );
         this.events.push("land");
         // A little rolling resistance lets a good landing actually settle.
-        for (const dynamic of this.dynamic)
-          dynamic.frictionAir = this.runEffects?.landingAirFriction ?? 0.045;
+        // Bowling lanes keep the cart rolling toward the pins instead.
+        if (!this.course.rollOut)
+          for (const dynamic of this.dynamic)
+            dynamic.frictionAir = this.runEffects?.landingAirFriction ?? 0.045;
       }
       if ((body === this.head || body === this.torso) && this.elapsed > 0.4) {
         this.crash(
@@ -574,6 +654,14 @@ export class PhysicsWorld {
           Math.sign(this.cart.angularVelocity) * 0.16,
         );
     }
+    // Bowling: a small nudge on the lane tilts the cart to aim high or low.
+    if (this.course.laneNudge && this.landed && !this.crashed)
+      this.cart.torque +=
+        rotate *
+        this.cart.inertia *
+        0.00006 *
+        this.course.laneNudge *
+        this.character.rotationControl;
     this.runEffects?.step(this, STEP_MS / 1000);
     Engine.update(this.engine, STEP_MS);
     if (!this.hasFiniteBodies()) {
@@ -638,14 +726,20 @@ export class PhysicsWorld {
           riderSpeeds.length <
           0.5 &&
         Math.max(...riderSpeeds) < 1.8;
-      const allStill = still(this.cart) && riderStill;
+      // Bowling: the throw only ends once the pins have stopped tumbling.
+      const allStill = still(this.cart) && riderStill && (!this.bowling || this.pinsStill());
       this.settleTime = allStill ? this.settleTime + STEP_MS / 1000 : 0;
       this.riderSettleTime = riderStill
         ? this.riderSettleTime + STEP_MS / 1000
         : 0;
       if (this.settleTime > 0.75)
         this.finish(this.crashed ? "Crash settled" : "Landing settled");
-      else if (this.crashed && !this.attached && this.riderSettleTime > 1)
+      else if (
+        this.crashed &&
+        !this.attached &&
+        this.riderSettleTime > 1 &&
+        (!this.bowling || this.pinsStill())
+      )
         this.finish("Rider came to rest");
     }
     if (!this.launched && this.elapsed >= RUNUP_LIMIT)
@@ -707,6 +801,7 @@ export class PhysicsWorld {
       trickSummary: this.tricks.snapshot(),
       sync: this.syncResult || null,
       highJump: this.highJumpResult(),
+      bowling: this.bowlingResult(),
     };
   }
   drainEvents() {

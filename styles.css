@@ -1558,3 +1558,19 @@ kbd {
 .title-panel:has(.event-picker) .title-meta {
   margin-top: 10px;
 }
+/* Bowling result: ten pin markers, knocked pins filled (not colour alone). */
+.pin-row {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0;
+}
+.pin-row i {
+  width: 12px;
+  height: 20px;
+  border: 2px solid #ffcf3f;
+  border-radius: 3px 3px 1px 1px;
+}
+.pin-row i[data-down="true"] {
+  background: #ffcf3f;
+  transform: rotate(-35deg);
+}

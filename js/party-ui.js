@@ -13,6 +13,7 @@ import {
   HIGH_JUMP_TRIES,
 } from "./party-config.js";
 import { escape, portrait } from "./ui-content.js";
+import { BOWLING } from "./bowling.js";
 
 // Party Tournament screens. Pure markup, so tests can check them in Node.
 const confirmButton = (label) =>
@@ -40,10 +41,12 @@ export function highJumpLine(kind) {
   lineCursor[kind] = ((lineCursor[kind] ?? -1) + 1) % lines.length;
   return lines[lineCursor[kind]];
 }
-const eventName = (t) => (t.highJump ? "HIGH JUMP" : PARTY_FORMATS[t.format].name.toUpperCase());
+const eventName = (t) =>
+  t.highJump ? "HIGH JUMP" : t.bowling ? "BOWLING" : PARTY_FORMATS[t.format].name.toUpperCase();
 export function roundLabel(t) {
   const round = t.currentRound;
   if (t.highJump) return `HEIGHT ${round.number} · BAR ${metres(round.height)}`;
+  if (t.bowling) return `FRAME ${round.number} OF ${t.totalRounds}`;
   return t.format === "elimination"
     ? `ROUND ${round.number} · ${round.order.length} LEFT`
     : `ROUND ${round.number} OF ${t.totalRounds}`;
@@ -68,14 +71,22 @@ export function setupMarkup(t) {
         `<label class="format-option"><input type="radio" name="party-format" value="${id}" data-setup="format"${format === id ? " checked" : ""}><b>${escape(f.name)}</b><small>${escape(f.summary)}</small></label>`,
     )
     .join("");
-  const formatBlock = t.setup.event === "high-jump"
-    ? `<div class="setup-format hj-rules"><p class="tiny"><b>HIGH JUMP RULES</b> ${escape(EVENTS["high-jump"].summary)}</p></div>`
+  const formatBlock = t.setup.event !== "long-jump"
+    ? `<div class="setup-format hj-rules"><p class="tiny"><b>${escape(EVENTS[t.setup.event].name.toUpperCase())} RULES</b> ${escape(EVENTS[t.setup.event].summary)}</p></div>`
     : `<fieldset class="setup-format"><legend>FORMAT</legend>${formats}</fieldset>`;
   return `<section class="menu-panel party-setup"><p class="eyebrow">PARTY TOURNAMENT / ${escape(EVENTS[t.setup.event].name.toUpperCase())} SETUP</p><h2>WHO'S JUMPING?</h2><div class="setup-head"><p class="tiny">${players.length} players · 2–6 · any character, duplicates welcome</p>${players.length < MAX_PLAYERS ? setupButton("+ Add player", "add") : ""}</div><ol class="setup-players">${rows}</ol><div class="setup-options">${formatBlock}<label class="chaos-toggle"><input type="checkbox" data-setup="chaos"${chaos ? " checked" : ""}><span><b>CHAOS</b><small>Every round rolls a random condition</small></span></label></div><div class="actions">${confirmButton("Start game night")}${setupButton("Back", "back")}</div></section>`;
 }
 
 export function roundLine(t) {
   const { condition, number } = t.currentRound;
+  if (t.bowling)
+    return condition
+      ? CHAOS_LINES[condition]
+      : [
+          "Ten boxes of Crunchos, standing proud. Not for long.",
+          "The pins have been reset. The pins have been warned.",
+          "Final frame. Somebody please hit the cereal.",
+        ][Math.min(number - 1, 2)];
   if (t.highJump)
     return condition
       ? CHAOS_LINES[condition]
@@ -92,14 +103,18 @@ export function roundLine(t) {
 }
 export function roundIntroMarkup(t) {
   const { condition } = t.currentRound;
-  const title = t.highJump
+  const title = t.bowling
+    ? `FRAME ${t.currentRound.number}`
+    : t.highJump
     ? `BAR AT ${metres(t.currentRound.height)}`
     : t.isFinalRound && t.format !== "quick"
       ? "FINAL ROUND"
       : `ROUND ${t.currentRound.number}`;
   const label = t.highJump
     ? `HEIGHT ${t.currentRound.number} OF ${t.totalRounds} · ${HIGH_JUMP_TRIES} TRIES EACH`
-    : roundLabel(t);
+    : t.bowling
+      ? `${roundLabel(t)} · ONE THROW EACH`
+      : roundLabel(t);
   return `<section class="menu-panel party-round"><p class="eyebrow">${escape(eventName(t))} / ${label}</p><h2>${title}</h2>${condition ? `<div class="chaos-card"><span>CHAOS ROLL</span>${chaosBadge(condition)}<p>${escape(CONDITIONS[condition].description)}</p></div>` : ""}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(roundLine(t))}</p><p class="tiny">JUMP ORDER: ${t.roster.map((p) => escape(p.name)).join(" → ")}</p><div class="actions">${confirmButton("First hand-off")}</div></section>`;
 }
 
@@ -107,12 +122,13 @@ export function handoffMarkup(t) {
   const p = t.currentPlayer,
     c = p.character,
     next = t.nextPlayer;
-  return `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${roundLabel(t)} · ${t.highJump ? `TRY ${t.attemptNumber} OF ${HIGH_JUMP_TRIES}` : `JUMP ${t.turn + 1} OF ${t.roster.length}`}</span><div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h2>${escape(p.name)}</h2><span class="nickname">${escape(c.name)} “${escape(c.nickname)}”</span></div></div>${chaosBadge(t.currentRound.condition)}<p>Ready, ${escape(p.name)}?</p><p class="subline">${next ? `ON DECK: ${escape(next.name)}` : "LAST JUMP OF THE ROUND"}${!t.jumpsFor(p.id).length ? "" : t.highJump ? ` · YOUR BEST ${t.bestHeightFor(p.id) ? metres(t.bestHeightFor(p.id)) : "—"}` : ` · YOUR TOTAL ${t.totalFor(p.id)}`}</p><p class="tiny"><b>${escape(c.passive.name)}</b> · Style ×${c.styleMultiplier.toFixed(2)} · Air control ×${c.rotationControl.toFixed(2)} · Stability ×${c.landingStability.toFixed(2)}</p><div class="actions">${confirmButton("Begin jump")}</div></section>`;
+  return `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${roundLabel(t)} · ${t.highJump ? `TRY ${t.attemptNumber} OF ${HIGH_JUMP_TRIES}` : `${t.bowling ? "THROW" : "JUMP"} ${t.turn + 1} OF ${t.roster.length}`}</span><div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h2>${escape(p.name)}</h2><span class="nickname">${escape(c.name)} “${escape(c.nickname)}”</span></div></div>${chaosBadge(t.currentRound.condition)}<p>Ready, ${escape(p.name)}?</p><p class="subline">${next ? `ON DECK: ${escape(next.name)}` : "LAST JUMP OF THE ROUND"}${!t.jumpsFor(p.id).length ? "" : t.highJump ? ` · YOUR BEST ${t.bestHeightFor(p.id) ? metres(t.bestHeightFor(p.id)) : "—"}` : ` · YOUR TOTAL ${t.totalFor(p.id)}`}</p><p class="tiny"><b>${escape(c.passive.name)}</b> · Style ×${c.styleMultiplier.toFixed(2)} · Air control ×${c.rotationControl.toFixed(2)} · Stability ×${c.landingStability.toFixed(2)}</p><div class="actions">${confirmButton("Begin jump")}</div></section>`;
 }
 
 // The button label after a jump: next player, round results or final results.
 export function resultsAction(t) {
   if (t.nextPlayer) return "Next competitor";
+  if (t.bowling) return t.isFinalRound ? "Final results" : "Frame results";
   if (t.highJump) {
     const round = t.currentRound;
     const stillIn = t.alive.some((id) =>
@@ -146,9 +162,34 @@ export function highJumpResultMarkup(t) {
       : `Three misses at ${metres(hj.height)}. ${escape(p.name)} is out${t.bestHeightFor(p.id) ? ` with ${metres(t.bestHeightFor(p.id))}` : ""}.`;
   return `<div class="hj-verdict" data-result="${hj.result}"><span>${metres(hj.height)} · TRY ${attempt} OF ${HIGH_JUMP_TRIES}</span><strong>${verdict}</strong>${hj.fosbury ? '<b class="fosbury-bonus">FOSBURY STYLE BONUS</b>' : ""}<p>${note}</p></div>`;
 }
+// The bowling verdict shown on the results screen instead of the points card.
+export function bowlingResultMarkup(t) {
+  const b = t.lastScore.bowling;
+  const verdict = b.riderOnly
+    ? "STRIKE · BY RIDER!"
+    : b.strike
+      ? "STRIKE!"
+      : b.pins === 0
+        ? "GUTTER CART"
+        : `${b.pins} ${b.pins === 1 ? "PIN" : "PINS"}`;
+  const pins = Array.from({ length: 10 }, (_, i) => `<i data-down="${i < b.pins}"></i>`).join("");
+  const parts = [
+    `${b.pins} × ${BOWLING.pinPoints} = ${b.pinPoints}`,
+    b.strike ? `STRIKE +${b.strikeBonus}` : "",
+    b.carnage ? `RIDER CARNAGE +${b.carnageBonus}` : "",
+  ].filter(Boolean);
+  return `<div class="hj-verdict bowl-verdict" data-result="${b.strike ? "cleared" : "pins"}"><span>${roundLabel(t)}</span><strong>${verdict}</strong><div class="pin-row" role="img" aria-label="${b.pins} of 10 pins down">${pins}</div><p>${parts.join(" · ")} · <b>${b.points} POINTS</b></p></div>`;
+}
 const bestLabel = (best) =>
   best ? `${best.score.total} · ${best.score.distanceMetres.toFixed(1)} m` : "—";
 export function standingsTable(t) {
+  if (t.bowling)
+    return `<table class="results-table party-table"><thead><tr><th>#</th><th>PLAYER</th><th>STRIKES</th><th>PINS</th><th>POINTS</th></tr></thead><tbody>${t.standings
+      .map(
+        (row, i) =>
+          `<tr style="--person:${row.player.character.primaryColor}"><td>${i + 1}</td><td>${who(row.player)}</td><td>${row.strikes}</td><td>${row.pins}</td><td>${row.total}</td></tr>`,
+      )
+      .join("")}</tbody></table>`;
   if (t.highJump)
     return `<table class="results-table party-table"><thead><tr><th>#</th><th>PLAYER</th><th>MISSES</th><th>FOSBURYS</th><th>BEST HEIGHT</th></tr></thead><tbody>${t.standings
       .map(
@@ -190,6 +231,16 @@ function awardCard(title, award, detail) {
 }
 export function awardsMarkup(awards) {
   const a = awards || {};
+  if ("strikeLeader" in a) {
+    const cards = [
+      awardCard("PIN COLLECTOR", a.pinCollector, a.pinCollector && `${a.pinCollector.value} ${a.pinCollector.value === 1 ? "pin" : "pins"} in all`),
+      awardCard("STRIKE LEADER", a.strikeLeader, a.strikeLeader && `${a.strikeLeader.value} ${a.strikeLeader.value === 1 ? "strike" : "strikes"}`),
+      awardCard("CRASH OF THE NIGHT", a.crashOfNight, a.crashOfNight && `${a.crashOfNight.carnage.total} carnage · frame ${a.crashOfNight.round}`),
+      awardCard("HUMAN BOWLING BALL", a.bowlingBall, a.bowlingBall && `rider into the pins ${a.bowlingBall.value}×`),
+      awardCard("GUTTER GLORY", a.gutterGlory, a.gutterGlory && `${a.gutterGlory.value} zero-pin ${a.gutterGlory.value === 1 ? "throw" : "throws"}`),
+    ].join("");
+    return cards ? `<div class="award-grid" aria-label="Awards">${cards}</div>` : "";
+  }
   if ("fosburyKing" in a) {
     const hjCards = [
       awardCard("FOSBURY KING", a.fosburyKing, a.fosburyKing && `${a.fosburyKing.value} upside-down ${a.fosburyKing.value === 1 ? "clear" : "clears"}`),

@@ -31,6 +31,7 @@ import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
 import { ReplayRecording, ReplayPlayer, ReplayControls } from "./replay.js";
 import { loadPartySetup, savePartySetup } from "./party-config.js";
+import { scoreBowling } from "./bowling.js";
 
 class Game {
   constructor() {
@@ -154,7 +155,9 @@ class Game {
             course: "high-jump",
             barHeight: this.tournament.currentRound.height,
           }
-        : undefined;
+        : this.mode === "party" && this.tournament.bowling
+          ? { id: "bowling", course: "bowling" }
+          : undefined;
     this.world = new PhysicsWorld(
       character,
       this.mode === "vault" ? this.campaign.attemptArena : highJump,
@@ -721,6 +724,7 @@ class Game {
             ...scoreAttempt(this.world.metrics(), this.world.character),
             carnage: this.world.damage.summary(),
             highJump: this.world.highJumpResult(),
+            bowling: scoreBowling(this.world.bowlingResult()),
           });
           finishedScore = score;
           if (this.mode === "vault") this.campaign.record(score, this.world);

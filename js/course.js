@@ -132,7 +132,39 @@ export function defineCourse(raw) {
           thickness: Number.isFinite(raw.bar.thickness) ? raw.bar.thickness : 8,
         }
       : null,
+    // Optional bowling pins: the classic 1-2-3-4 triangle seen from the
+    // side, so its rows run down the lane from x. Pins in one row stand side
+    // by side in depth (a small stagger shows that); each is a real body.
+    pins: raw.pins
+      ? {
+          x: number(raw.pins.x, "pins.x"),
+          width: Number.isFinite(raw.pins.width) ? raw.pins.width : 20,
+          height: Number.isFinite(raw.pins.height) ? raw.pins.height : 58,
+          rows: Number.isInteger(raw.pins.rows) ? raw.pins.rows : 4,
+          spacing: Number.isFinite(raw.pins.spacing) ? raw.pins.spacing : 48,
+          stagger: Number.isFinite(raw.pins.stagger) ? raw.pins.stagger : 12,
+          density: Number.isFinite(raw.pins.density) ? raw.pins.density : 0.0012,
+          friction: Number.isFinite(raw.pins.friction) ? raw.pins.friction : 0.4,
+          frictionStatic: Number.isFinite(raw.pins.frictionStatic) ? raw.pins.frictionStatic : 0.6,
+        }
+      : null,
+    // Bowling lanes keep the cart rolling after it lands instead of adding
+    // the landing's rolling resistance, and allow a small nudge on the lane.
+    rollOut: raw.rollOut === true,
+    laneNudge: Number.isFinite(raw.laneNudge) ? raw.laneNudge : 0,
   });
+}
+// Rest positions of the pins: row 0 (one pin) first, then 2, 3 and 4.
+export function pinLayout(pins, groundY) {
+  const spots = [];
+  for (let row = 0; row < pins.rows; row++)
+    for (let i = 0; i <= row; i++)
+      spots.push({
+        row,
+        x: pins.x + row * pins.spacing + (i - row / 2) * pins.stagger,
+        y: groundY - pins.height / 2,
+      });
+  return spots;
 }
 
 export const COURSES = freeze({
@@ -175,6 +207,39 @@ export const COURSES = freeze({
         fill: "#2f5e9e",
         stroke: "#8fd0ff",
         sign: "SQUISHCO · THE FLOOR IS SOFTER HERE",
+      },
+    ],
+  }),
+  // CART BOWLING: a run-up and a low launch ramp onto a long lane that
+  // ends in a pyramid of ten cereal-box pins and a padded backstop.
+  bowling: defineCourse({
+    id: "bowling",
+    name: "Cart Bowling",
+    groundY: 520,
+    rampStart: 800,
+    rampEnd: 1080,
+    rampTop: 450,
+    startX: -1600,
+    endX: 4400,
+    groundRight: 5000,
+    distanceMarkers: false,
+    rollOut: true,
+    laneNudge: 0.35,
+    // Tuned so pin count climbs with run-up speed: sloppy ≈ 1, good ≈ 6–8,
+    // all-Perfect ≈ strike, for every character.
+    pins: { x: 3300, height: 66, spacing: 56, density: 0.0022, frictionStatic: 0.4 },
+    pieces: [
+      {
+        type: "rect",
+        label: "backstop",
+        x: 3700,
+        y: 400,
+        width: 40,
+        height: 240,
+        friction: 0.5,
+        restitution: 0.2,
+        fill: "#3b2a45",
+        stroke: "#c79bff",
       },
     ],
   }),

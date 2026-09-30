@@ -29,6 +29,12 @@ export const EVENTS = Object.freeze({
     summary:
       "The bar rises each round. Three tries per height; miss all three and you're out. Best cleared height wins.",
   }),
+  bowling: Object.freeze({
+    name: "Bowling",
+    course: "bowling",
+    summary:
+      "Three frames, one throw each per frame. 10 points a pin, +50 for a strike, +25 if your rider flies into the pins.",
+  }),
 });
 export const EVENT_IDS = Object.freeze(Object.keys(EVENTS));
 // Bar heights in metres, one per round. Tuned so the opening height suits

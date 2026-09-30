@@ -36,6 +36,8 @@ The run-up is long: a good one takes about six on-beat pushes (roughly 4 seconds
 
 **Cart High Jump** is a second event, picked on the title screen (Party only; Vault Run stays long jump). A short run-up leads to a steep kicker, a real bar on pegs and the Squishco landing pit. The bar rises each round and each player gets three tries per height; knocking the bar off or passing under it is a miss. The best cleared height wins, with ties decided by fewer misses, then Fosburys (clearing the bar upside down, which earns John's approval and a style bonus).
 
+**Cart Bowling** is a third Party event. The run-up and a low ramp launch the cart down a long lane into ten Crunchos cereal-box pins, set in the classic 1-2-3-4 triangle (seen from the side, so the rows run down the lane). More speed knocks more pins; air rotation and a small lane nudge (← / → once you land) change how you hit. Each player gets three throws: 10 points a pin, +50 for a strike, +25 if the rider flies into the pins.
+
 Hard crashes can shed wheels, the grille and child seat; severe crashes eject the rider. Crash results show a separate **CARNAGE** score: 150 per lost part, 100 per airborne second after ejection, 75 per bounce, and 10 per metre of rider travel from the ejection point. It never adds to normal points or medals. Party awards **Crash of the Night** across all rounds (first crash wins a tie). Losing two parts and touching down after wheel loss can unlock the existing Theseus and Wheel achievements.
 
 **Courses** are data in `js/course.js` (ground height, ramp, run-up start, takeoff zone, distance origin, world end and optional extra static pieces). A level or event picks one with `arena.course`; everything else uses the default `long-jump` course.

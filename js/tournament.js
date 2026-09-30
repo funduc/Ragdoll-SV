@@ -1,6 +1,7 @@
 import { CHARACTERS } from "./characters.js";
 import { assertScore } from "./scoring.js";
 import { seededShuffle, newRunSeed } from "./run-random.js";
+import { BOWLING } from "./bowling.js";
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -76,6 +77,14 @@ export class Tournament {
   get highJump() {
     return this.event === "high-jump";
   }
+  // Cart Bowling: three frames, one throw per player each, points added up.
+  get bowling() {
+    return this.event === "bowling";
+  }
+  // A throw's points: bowling points, or the long-jump total.
+  pointsOf(score) {
+    return this.bowling ? score.bowling.points : score.total;
+  }
   createRound() {
     const index = this.rounds.length;
     this.rounds.push({
@@ -147,6 +156,7 @@ export class Tournament {
   }
   get totalRounds() {
     if (this.highJump) return HIGH_JUMP_HEIGHTS.length;
+    if (this.bowling) return BOWLING.throws;
     return this.format === "quick"
       ? 1
       : this.format === "best-of-3"
@@ -154,7 +164,8 @@ export class Tournament {
         : this.players.length - 1;
   }
   get isFinalRound() {
-    if (this.highJump) return this.roundIndex >= this.totalRounds - 1;
+    if (this.highJump || this.bowling)
+      return this.roundIndex >= this.totalRounds - 1;
     return this.format === "elimination"
       ? this.currentRound.order.length <= 2
       : this.roundIndex >= this.totalRounds - 1;
@@ -166,7 +177,7 @@ export class Tournament {
       return this.players.length > 2 && this.alive.length <= 2
         ? "championship"
         : "qualifying";
-    return this.format !== "quick" && this.isFinalRound
+    return (this.bowling || this.format !== "quick") && this.isFinalRound
       ? "championship"
       : "qualifying";
   }
@@ -217,14 +228,21 @@ export class Tournament {
     return this.jumps.filter((jump) => jump.player.id === id);
   }
   totalFor(id) {
-    return this.jumpsFor(id).reduce((sum, jump) => sum + jump.score.total, 0);
+    return this.jumpsFor(id).reduce((sum, jump) => sum + this.pointsOf(jump.score), 0);
   }
   bestJumpFor(id) {
     return this.jumpsFor(id).reduce(
       (best, jump) =>
-        !best || jump.score.total > best.score.total ? jump : best,
+        !best || this.pointsOf(jump.score) > this.pointsOf(best.score) ? jump : best,
       null,
     );
+  }
+  // --- Bowling queries ---
+  pinsFor(id) {
+    return this.jumpsFor(id).reduce((sum, j) => sum + (j.score.bowling?.pins ?? 0), 0);
+  }
+  strikesFor(id) {
+    return this.jumpsFor(id).filter((j) => j.score.bowling?.strike).length;
   }
   // --- High Jump queries ---
   // Tries so far at this height for a player (the current try is this + 1).
@@ -266,6 +284,14 @@ export class Tournament {
   // Higher total first, then the better single jump, then roster order.
   compare(a, b) {
     if (this.highJump) return this.compareHighJump(a, b);
+    // Bowling: points, then strikes, then pins, then roster order.
+    if (this.bowling)
+      return (
+        this.totalFor(b.id) - this.totalFor(a.id) ||
+        this.strikesFor(b.id) - this.strikesFor(a.id) ||
+        this.pinsFor(b.id) - this.pinsFor(a.id) ||
+        a.index - b.index
+      );
     const bestA = this.bestJumpFor(a.id)?.score,
       bestB = this.bestJumpFor(b.id)?.score;
     return (
@@ -292,6 +318,8 @@ export class Tournament {
       jumps: this.jumpsFor(player.id).length,
       out: this.eliminated.find((entry) => entry.player === player) || null,
       height: this.bestHeightFor(player.id),
+      pins: this.pinsFor(player.id),
+      strikes: this.strikesFor(player.id),
       misses: this.missesFor(player.id),
       fosburys: this.fosburysFor(player.id),
     }));
@@ -313,6 +341,7 @@ export class Tournament {
   // Fun awards for the end screen. Ties go to whoever did it first.
   computeAwards() {
     if (this.highJump) return this.computeHighJumpAwards();
+    if (this.bowling) return this.computeBowlingAwards();
     const top = (value, minimum = -Infinity) => {
       let best = null;
       for (const jump of this.jumps) {
@@ -366,6 +395,28 @@ export class Tournament {
       cleanSheet: clean,
       barBreaker: most(
         (id) => this.jumpsFor(id).filter((j) => j.highJump?.result === "knocked").length,
+      ),
+    };
+  }
+  computeBowlingAwards() {
+    const most = (count) => {
+      let best = null;
+      for (const player of this.players) {
+        const value = count(player.id);
+        if (value >= 1 && (!best || value > best.value)) best = { player, value };
+      }
+      return best;
+    };
+    return {
+      // Always awarded once anyone knocks a pin, so the end screen is never bare.
+      pinCollector: most((id) => this.pinsFor(id)),
+      strikeLeader: most((id) => this.strikesFor(id)),
+      crashOfNight: this.crashOfNight,
+      bowlingBall: most(
+        (id) => this.jumpsFor(id).filter((j) => j.score.bowling?.carnage).length,
+      ),
+      gutterGlory: most(
+        (id) => this.jumpsFor(id).filter((j) => j.score.bowling?.pins === 0).length,
       ),
     };
   }
@@ -428,7 +479,7 @@ export class Tournament {
   }
   finishRound() {
     if (this.highJump) return this.finishHighJumpRound();
-    if (this.format === "elimination") {
+    if (this.format === "elimination" && !this.bowling) {
       const ranked = this.alive
         .map((id) => this.player(id))
         .sort((a, b) => this.compare(a, b));
@@ -445,7 +496,22 @@ export class Tournament {
       return;
     }
     const best = Math.max(...this.players.map((p) => this.totalFor(p.id)));
-    this.finish(this.players.filter((p) => this.totalFor(p.id) === best));
+    // Bowling ties on points go to more strikes, then more pins.
+    const top = this.players.filter((p) => this.totalFor(p.id) === best);
+    this.finish(
+      this.bowling
+        ? top.filter(
+            (p) =>
+              this.strikesFor(p.id) === Math.max(...top.map((q) => this.strikesFor(q.id))) &&
+              this.pinsFor(p.id) ===
+                Math.max(
+                  ...top
+                    .filter((q) => this.strikesFor(q.id) === this.strikesFor(p.id))
+                    .map((q) => this.pinsFor(q.id)),
+                ),
+          )
+        : top,
+    );
   }
   // Anyone who did not clear this height after three tries is out. The bar
   // keeps rising while anyone is still in (or until the last height).
@@ -477,6 +543,8 @@ export class Tournament {
     if (!this.active) return false;
     assertScore(score);
     if (this.highJump) return this.recordHighJump(score);
+    if (this.bowling && !Number.isFinite(score.bowling?.points))
+      throw new TypeError("A bowling throw needs a pin result.");
     const scores = this.currentRound.scores;
     if (scores[this.currentPlayer.id]) return false;
     const saved = Object.freeze({ ...score });

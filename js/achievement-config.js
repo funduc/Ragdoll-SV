@@ -466,6 +466,27 @@ export const ACHIEVEMENTS = freeze([
     [["hjFace", "eq", true]],
   ),
   attempt(
+    "bowl-strike",
+    "Clean Aisle",
+    "Bowling",
+    "Knock down all ten pins with one throw in Cart Bowling.",
+    [["bowlStrike", "eq", true]],
+  ),
+  attempt(
+    "bowl-rider-strike",
+    "Human Bowling Ball",
+    "Bowling",
+    "Bowl a strike where only your flying rider touched the pins.",
+    [["bowlRiderStrike", "eq", true]],
+  ),
+  attempt(
+    "bowl-zero-max",
+    "Full Send, Zero Pins",
+    "Bowling",
+    "Reach maximum run-up speed and still knock down no pins at all.",
+    [["bowlZeroMax", "eq", true]],
+  ),
+  attempt(
     "wheel",
     "The Wheel Was Never Essential",
     "Hidden",

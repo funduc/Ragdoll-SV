@@ -1,6 +1,7 @@
 import { ACHIEVEMENT_RULES } from "./achievement-config.js";
 import { LEVELS } from "./campaign-levels.js";
 import { OBJECTIVES, CONDITIONS } from "./run-config.js";
+import { scoreBowling } from "./bowling.js";
 
 // Read-only boundary between real gameplay and the manager's flat facts.
 // Called once at the end of an attempt, after scoring/objective evaluation.
@@ -16,7 +17,11 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     world.landingTime - world.launchTime >=
       CONDITIONS["wrate-issue"].warning + CONDITIONS["wrate-issue"].duration;
   const highJump = world.highJumpResult?.() || null;
+  const bowling = scoreBowling(world.bowlingResult?.() || null);
   return {
+    bowlStrike: bowling?.strike === true,
+    bowlRiderStrike: bowling?.riderOnly === true,
+    bowlZeroMax: bowling?.zeroAtMaxSpeed === true,
     hjCleared: highJump?.cleared === true,
     hjFosbury: highJump?.fosbury === true,
     hjFace: highJump?.face === true,
