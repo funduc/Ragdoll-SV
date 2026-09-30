@@ -681,10 +681,20 @@ class Game {
       this.replayPlayer.reducedMotion = this.reducedMotion;
       if (!this.suspended && !document.hidden && gap <= 250)
         this.replayPlayer.advance(gap / 1000);
-      const replay = this.replayPlayer.sample();
       const cosmetics = this.renderer.cosmetics;
-      this.renderer.cosmetics = replay.cosmetics;
-      this.renderer.draw(replay.world, Math.min(gap / 1000, 1 / 15), replay.effects);
+      try {
+        const replay = this.replayPlayer.sample();
+        this.renderer.cosmetics = replay.cosmetics;
+        this.renderer.draw(replay.world, Math.min(gap / 1000, 1 / 15), replay.effects);
+      } catch (error) {
+        // A replay that cannot be drawn ends; it must never stop the game loop.
+        console.error(error);
+        this.renderer.ctx.reset?.();
+        this.renderer.cosmetics = cosmetics;
+        this.stopReplay();
+        this.raf = requestAnimationFrame(this.frame);
+        return;
+      }
       this.renderer.cosmetics = cosmetics;
       if (this.replayPlayer.done) this.stopReplay();
       this.raf = requestAnimationFrame(this.frame);

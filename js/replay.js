@@ -53,11 +53,18 @@ export class ReplayRecording {
       crashed: world.crashed,
       attached: world.attached,
       landed: world.landed,
+      // Condition markings read these; a replay has no live RunEffects.
+      elapsed: world.elapsed,
+      launched: world.launched,
       distancePixels: world.distancePixels,
       runEffects: world.runEffects ? {
         conditionId: world.runEffects.conditionId,
         objectiveId: world.runEffects.objectiveId,
         boostUsed: world.runEffects.boostUsed,
+        gust:
+          world.runEffects.conditionId === "shifting-wind"
+            ? world.runEffects.shiftingDirection(world)
+            : 0,
       } : null,
     };
     this.frames.push({
