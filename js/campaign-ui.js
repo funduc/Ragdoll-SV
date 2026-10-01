@@ -23,6 +23,7 @@ import {
 } from "./run-ui.js";
 import { CONDITIONS, OBJECTIVES, OBJECTIVE_IDS } from "./run-config.js";
 import { TRICK_CONFIG } from "./trick-config.js";
+import { TOUR_LEVELS, applause, crowdCue } from "./santor-tour.js";
 
 const action = (label, name, value = "", secondary = false, disabled = false) =>
   `<button type="button" class="btn${secondary ? " secondary" : ""}" data-campaign="${name}" data-value="${escape(value)}"${disabled ? " disabled" : ""}>${escape(label)}</button>`;
@@ -51,6 +52,8 @@ const SHORT_GOALS = {
   "siemens-certified": ["Finish after the pulse", "Recover and land", "Max speed, land attached", "Max speed, Clean, Perfect Brace"],
   "the-santor-gauntlet": ["3 jumps, 1,050 points", "2,250 points + 2 landings", "3,000 points + 3 landings", "3,950 points, all Clean"],
   "santor-gauntlet-hard": ["2 landings, 2,250 points", "3 landings, 3,400 points", "3 Perfect Braces, 4,250 points", "4,600 points, all Perfect"],
+  "freezer-aisle": ["Complete a jump", "Land on a freezer lid", "Clean on a lid", "Lid 5, Clean, Perfect Brace"],
+  "open-mic": ["Complete a jump", "2 different tricks + land", "3 different tricks + land", "3 tricks, Clean, mic untouched"],
 };
 const TIERS = [
   ["bronze", 1, "Bronze"],
@@ -102,10 +105,12 @@ function levelTile(run, level, number, lockedHint) {
     : `Locked. ${lockedHint}`;
   return `<li><button type="button" class="level-tile${unlocked ? "" : " locked"}" data-campaign="level" data-value="${level.id}" data-medal="${best.medal}" aria-label="${escape(`${number} ${level.name}: ${status}`)}" title="${escape(unlocked ? level.name : lockedHint)}"${unlocked ? "" : " disabled"}><span class="tile-number">${number}</span><span class="tile-name">${escape(level.name)}</span><span class="tile-status">${unlocked ? `${medalIcon(best.medal)}${best.santor ? medalIcon(4) : ""}` : LOCK}</span></button></li>`;
 }
-// Bonus levels get their own row. After Hours levels join it if that
-// chapter is ever re-exported by campaign-levels.js.
+// Optional chapters stay separate from main-campaign completion.
 function bonusRow(run) {
   return `<section class="bonus-row" aria-label="Bonus levels"><h3>BONUS</h3><ul class="level-grid">${levelTile(run, HARD_GAUNTLET, "OT", "Beat the Santor Gauntlet to unlock.")}</ul></section>`;
+}
+function tourRow(run) {
+  return `<section class="bonus-row tour-row" aria-label="Santor on Tour"><h3>SANTOR ON TOUR</h3><p class="tiny">Bronze in The Santor Gauntlet opens the Tour. Bronze in Freezer Aisle opens The Open Mic.</p><ul class="level-grid">${TOUR_LEVELS.map((level, i) => levelTile(run, level, `T${i + 1}`, i ? "Earn Bronze in Freezer Aisle." : "Earn Bronze in The Santor Gauntlet.")).join("")}</ul></section>`;
 }
 
 function profile(ui, c, run) {
@@ -134,7 +139,7 @@ export function renderCampaign(ui, run) {
   ui.campaignSession = run;
   ui.roundLabel.textContent =
     run.active || [S.READY, S.RESULTS].includes(run.state)
-      ? `VAULT RUN · ${level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} / ${LEVELS.length}`}${run.stage ? ` · HEAT ${run.stageIndex + 1}/3` : ""}`
+      ? `VAULT RUN · ${level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} / ${LEVELS.length}`}${run.stage ? ` · HEAT ${run.stageIndex + 1}/3` : ""}`
       : "VAULT RUN · CAMPAIGN";
   document.getElementById("session-mode").textContent = "SINGLE PLAYER";
   document.getElementById("session-players").textContent = "VAULT RUN";
@@ -171,7 +176,7 @@ export function renderCampaign(ui, run) {
       break;
     case S.MAP: {
       const cleared = progressCount(run.save, c);
-      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime is open.</p>' : ""}${runNotice(run)}${notice(run.save)}<ol class="level-grid">${LEVELS.map(
+      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime and Santor on Tour are open.</p>' : ""}${runNotice(run)}${notice(run.save)}<ol class="level-grid">${LEVELS.map(
         (l, index) =>
           levelTile(
             run,
@@ -183,7 +188,7 @@ export function renderCampaign(ui, run) {
           ),
       ).join(
         "",
-      )}</ol>${bonusRow(run)}<div class="actions compact">${action("Change character", "characters", "", true)}${action("New run", "new-run", "", true)}${action("Main menu", "menu", "", true)}${action("Reset progress", "reset", "", true)}</div>${details(`${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · kept across new runs.</p><p class="tiny">${escape(c.passive.name)} · replays keep your best medal.</p>`)}</section>`;
+      )}</ol>${bonusRow(run)}${tourRow(run)}<div class="actions compact">${action("Change character", "characters", "", true)}${action("New run", "new-run", "", true)}${action("Main menu", "menu", "", true)}${action("Reset progress", "reset", "", true)}</div>${details(`${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · kept across new runs.</p><p class="tiny">${escape(c.passive.name)} · replays keep your best medal.</p>`)}</section>`;
       ui.say(
         cleared === LEVELS.length
           ? "Ten levels complete. Overtime is optional. John is not taking questions."
@@ -193,7 +198,7 @@ export function renderCampaign(ui, run) {
     }
     case S.READY: {
       const number = level.bonus
-        ? "BONUS"
+        ? level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : "BONUS"
         : `LEVEL ${String(LEVELS.indexOf(level) + 1).padStart(2, "0")} / ${LEVELS.length}`;
       html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${goalList(level)}${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
       ui.say(run.introduction);
@@ -211,7 +216,7 @@ export function renderCampaign(ui, run) {
         LEVELS.indexOf(level) < LEVELS.length - 1
           ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked`
           : "";
-      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${scoreCard(s)}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · GAUNTLET OVERTIME UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
+      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${scoreCard(s)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
       ui.say(
         result.provisional
           ? `Heat ${run.stageIndex + 1} banked. ${run.combinedScore} points. ${run.stageIndex ? "THE LEDGER IS GETTING LOUDER." : "Please retain the cart for the next examination."}`
@@ -272,7 +277,7 @@ export function updateCampaignCoach(world, run) {
         (id) => TRICK_CONFIG.tricks[id].name,
       );
       text = names.length
-        ? `${names.length}/${run.level.gold.all.uniqueTricks || 2} different tricks · ${names.slice(0, 2).join(" + ")}${names.length > 2 ? " + more" : ""} · Land Clean or Scrappy for Silver / Gold.`
+        ? `${names.length}/${run.level.gold.all.uniqueTricks || 2} different tricks · ${names.slice(0, 2).join(" + ")}${names.length > 2 ? " + more" : ""} · Land Clean or Scrappy for ${run.level.id === "open-mic" ? "Gold" : "Silver / Gold"}.`
         : "Hold LEFT / RIGHT to complete a full flip, then counter-steer to wheels down. Partial spins do not count.";
       break;
     }
@@ -289,6 +294,11 @@ export function updateCampaignCoach(world, run) {
       break;
     case "ice":
       text = `${skills.braceGrade} · Ice stays slippery after contact. Gold needs Perfect Brace and a Clean landing.`;
+      break;
+    case "freezer":
+      text = world.landed
+        ? `${world.firstLandingOnTop ? world.firstLandingPiece?.sign || "Floor contact" : "Missed the lid"} · ${skills.braceGrade} · Keep the wheels underneath you.`
+        : "Five raised lids; gaps are pits. Aim wheels down, then brace before the lid. Lid 5 is farthest.";
       break;
     case "speed":
       text = `${world.skills.runwayCapReached ? "MAX RUNWAY SPEED REACHED" : "Build to maximum speed with Perfect pushes"} · Counter-steer the announced pulse, then land attached.`;

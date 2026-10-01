@@ -61,7 +61,7 @@ const evidence = [];
 
 test("Ten main levels and optional Overtime have complete content, fixed new conditions and sequential unlocks", () => {
   assert.equal(LEVELS.length, 10);
-  assert.equal(ALL_LEVELS.length, 11);
+  assert.equal(ALL_LEVELS.length, 13);
   assert.ok(LEVELS.reduce((n, l) => n + l.estimatedMinutes, 0) >= 20);
   assert.ok(LEVELS.reduce((n, l) => n + l.estimatedMinutes, 0) <= 30);
   for (const l of ALL_LEVELS) {
@@ -131,7 +131,7 @@ test("Original v1 medals, seed, pending upgrade, timestamps and earned v2 achiev
   assert.equal(manager.data.records["cone-of-composure"].unlocked, false);
 });
 
-test("All three competitors play all ten levels and Overtime using actual physics, without upgrades or altered scores", () => {
+test("All three competitors play all ten levels, Overtime and Santor on Tour using actual physics, without upgrades or altered scores", () => {
   for (const c of CHARACTERS) {
     const run = makeRun(c);
     assert.equal(run.isUnlocked(HARD_GAUNTLET), false);
@@ -184,7 +184,7 @@ test("All three competitors play all ten levels and Overtime using actual physic
         dispose(w);
         if (!run.levelFinished) run.confirm();
       } while (run.state === S.READY);
-      const minimum = LEVELS.indexOf(level) >= 3 || level.bonus ? 3 : 1;
+      const minimum = level.chapter === "santor-on-tour" ? 1 : LEVELS.indexOf(level) >= 3 || level.bonus ? 3 : 1;
       assert.ok(
         run.lastMedal.medal >= minimum,
         JSON.stringify(evidence.at(-1)),
@@ -214,7 +214,7 @@ test("All three competitors play all ten levels and Overtime using actual physic
     );
     const refreshed = new CampaignSave(run.save.storage);
     for (const l of ALL_LEVELS.slice(3))
-      assert.equal(refreshed.entry(c.id, l.id).medal, 3);
+      assert.ok(refreshed.entry(c.id, l.id).medal >= (l.chapter === "santor-on-tour" ? 1 : 3));
     run.startLevel(HARD_GAUNTLET.id);
     assert.equal(run.stageIndex, 0);
     assert.equal(run.combinedScore, 0);

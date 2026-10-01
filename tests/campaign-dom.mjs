@@ -663,7 +663,7 @@ if (process.env.SYNC_TEST) {
     assert.equal(game.state(), "campaign-map");
     let snapshot = JSON.parse(game.savedData()[SAVE]);
     assert.equal(snapshot.progress[c.id][LEVELS[0].id].medal, 3);
-    assert.equal(Object.keys(snapshot.progress[c.id]).length, 11);
+    assert.equal(Object.keys(snapshot.progress[c.id]).length, 13);
     assert.ok(play(LEVELS[1]) >= 1);
     returnToMap();
     assert.ok(play(LEVELS[2], { flip: true }) >= 1);

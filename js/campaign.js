@@ -6,6 +6,7 @@ import { CampaignSave } from "./campaign-save.js";
 import { RunSave } from "./run-save.js";
 import { AchievementManager } from "./achievements.js";
 import { evaluateObjective } from "./objectives.js";
+import { tourFacts } from "./santor-tour.js";
 
 export const CampaignState = Object.freeze({
   SELECT: "campaign-select",
@@ -62,6 +63,7 @@ export function campaignFacts(score, world, reachedRamp) {
     runwayCapReached: world.skills.runwayCapReached,
     impactLoudness: world.impactLoudness ?? null,
     ...world.propFacts(),
+    ...tourFacts(world),
   });
 }
 // Gauntlet totals sum existing attempt scores. No score weights or per-attempt

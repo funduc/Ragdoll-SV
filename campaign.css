@@ -549,3 +549,10 @@
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   }
 }
+.applause-value { font-size: 12px; }
+.applause-meter { display: block; width: 100%; height: 8px; accent-color: #ffc97f; }
+.applause-meter::-webkit-meter-optimum-value { background: #ffc97f; }
+.applause-meter::-moz-meter-bar { background: #ffc97f; }
+.tour-row { display: block; margin-top: 8px; }
+.tour-row > .tiny { margin: 6px 0 8px; }
+.tour-row .level-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

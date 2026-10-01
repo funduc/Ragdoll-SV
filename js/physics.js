@@ -70,6 +70,9 @@ export class PhysicsWorld {
     this.landingAngle = 0;
     this.landingSpeed = 0;
     this.impactLoudness = null;
+    this.firstLandingPiece = null;
+    this.firstLandingOnTop = false;
+    this.obstacleHits = new Set();
     this.distancePixels = 0;
     this.settleTime = 0;
     this.riderSettleTime = 0;
@@ -646,6 +649,8 @@ export class PhysicsWorld {
       const terrain = a.isStatic ? a : b.isStatic ? b : null;
       const body = terrain === a ? b : a;
       if (!terrain || body.isStatic) continue;
+      if (terrain.coursePiece?.type === "obstacle" && this.dynamic.includes(body))
+        this.obstacleHits.add(terrain.coursePiece.label);
       const speed = this.preSpeeds?.get(body.id) || { x: 0, y: 0 };
       this.damage.contact(body, terrain, speed);
       if (terrain.coursePiece?.type === "obstacle" &&
@@ -663,6 +668,9 @@ export class PhysicsWorld {
         this.tricks.land(trickSample(this));
         this.airRotation = Math.abs(this.tricks.signedRotation);
         this.landed = true;
+        this.firstLandingPiece = terrain.coursePiece || null;
+        this.firstLandingOnTop = Math.abs(pair.collision?.normal.y || 0) > 0.5 &&
+          body.position.y < terrain.position.y;
         this.landingTime = this.elapsed;
         this.landingAngle = this.cart.angle;
         this.landingSpeed = Math.abs(this.preSpeeds.get(this.cart.id).y);

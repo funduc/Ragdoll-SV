@@ -26,6 +26,8 @@ On touch screens, use the on-screen controls. During Santor Sync, match the disp
 
 Vault Run menus are kept short: the map is a grid of level tiles (bonus levels in their own row), each briefing shows the condition, medal goals and John's line, and extra detail sits behind **Details** or **Full score breakdown**.
 
+**Santor on Tour** is a bonus map row: earn Bronze in **The Santor Gauntlet** with your chosen character to open **Freezer Aisle**, then Bronze there to open **The Open Mic**. Freezer Aisle has an icy run-up, five freezer lids and real gaps; Clean on lid 5 with Perfect Brace earns Santor. At Open Mic, clear the tall microphone and land different tricks: two for Silver, three for Gold, or three with a Clean landing and no mic contact for Santor. Its applause meter rewards variety and drops on crashes, with cheers or boos at results; applause never changes normal points. Tour medals save per character without affecting main-campaign completion.
+
 On Vault Run results, **RETRY** or **R** starts the same level without the map or briefing. Three-heat levels restart at heat 1. A pending upgrade choice comes first; choosing or skipping it then starts your retry.
 
 Results in both modes offer **WATCH REPLAY**. Crashes and landings over 55 m replay automatically with slow motion around impact; any key or tap skips to results. Recordings stay in memory for the current attempt (up to 20 seconds). Reduced motion disables automatic playback and slow motion; manual replay remains available.
@@ -57,6 +59,8 @@ Hard crashes can shed wheels, the grille and child seat; severe crashes eject th
 New pieces inherit `theme.pieces[type].fill/stroke`; per-piece `fill`, `stroke`, and `sign` override the simple default art. Prop telemetry (`propsFallen`, `propsPastLine`, `propsMoved`) appears in `world.metrics()`, campaign medal facts and crash carnage: a tipped/dropped box or a box crossing its line counts once in `propsMoved`, even if it later returns. These counts do not add ordinary or carnage points. `impactLoudness` is the cart's approach speed normal to its first landing surface in pixels/second (null without a landing); a quiet medal can use `{ all: { completedJump: true }, max: { impactLoudness: 200 } }`, and a prop medal can use `{ all: { propsMoved: 5 } }`. Multi-heat facts sum prop counts and use the loudest landing, requiring a measurement in every heat.
 
 ## Engineering and tests
+
+Themes may provide `drawPiece(renderer, piece, course)` and return `true` to replace a piece's default art; collision shapes still come from the course. The Tour themes demonstrate freezer lids and a microphone, with fog and audience motion driven by recorded attempt time and disabled by reduced motion. `firstLandingPiece`, `firstLandingOnTop` and latched `obstacleHits` supply the Tour's medal facts without changing scoring or physics.
 
 Run the dependency-free test suite with Node.js 22 or newer:
 

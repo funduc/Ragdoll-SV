@@ -1,5 +1,6 @@
 import { CHAPTER_LEVELS, HARD_GAUNTLET_DATA } from "./campaign-chapter.js";
-// Vault Run content and rules. Ten main levels plus optional Gauntlet Overtime.
+import { TOUR_LEVELS } from "./santor-tour.js";
+// Vault Run content and rules. Ten main levels plus optional bonus chapters.
 // Coaching modifiers only add live guidance; they never change scoring or input.
 // Seeded run conditions and temporary upgrades are configured in run-config.js.
 // Thresholds use facts from a finished attempt, not the displayed total score.
@@ -152,7 +153,7 @@ export const LEVELS = freeze([
   ...CHAPTER_LEVELS,
 ]);
 export const HARD_GAUNTLET = freeze(HARD_GAUNTLET_DATA);
-export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET]);
+export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET, ...TOUR_LEVELS]);
 export const levelById = (id) => ALL_LEVELS.find((level) => level.id === id);
 
 // Numeric all conditions mean "at least"; optional max conditions mean

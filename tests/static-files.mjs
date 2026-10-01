@@ -41,6 +41,7 @@ try {
     "js/achievement-dev.js",
     "js/campaign-levels.js",
     "js/campaign-chapter.js",
+    "js/santor-tour.js",
     "js/campaign-save.js",
     "js/campaign.js",
     "js/run-config.js",

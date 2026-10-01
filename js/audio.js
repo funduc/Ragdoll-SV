@@ -13,6 +13,7 @@ export class SynthAudio {
     this.voices = new Set();
     this.lastCues = new Map();
     this.nextRattle = 0;
+    this.nextHum = 0;
     this.preferences = new AudioPreferences(env);
     this.muted = this.preferences.muted;
     this.unsubscribe = this.preferences.subscribe(() => {
@@ -244,6 +245,15 @@ export class SynthAudio {
           this.voice("noise", 900, 0, 0.62, 0.18);
           this.voice("sine", 1150, 0.09, 0.32, 0.035, 1350);
           break;
+        case "boo":
+          [170, 205, 240].forEach((f, i) =>
+            this.voice("triangle", f, i * 0.04, 0.55, 0.065, f * 0.65));
+          this.voice("noise", 350, 0, 0.5, 0.07);
+          break;
+        case "freezer-hum":
+          this.voice("sine", 120, 0, 0.5, 0.035);
+          this.voice("sine", 240, 0, 0.5, 0.012);
+          break;
         case "elimination":
           [330, 277, 196].forEach((f, i) =>
             this.voice("triangle", f, i * 0.16, 0.22, 0.13),
@@ -263,6 +273,10 @@ export class SynthAudio {
     }
   }
   rattle(world, active) {
+    if (active && !world.invalid && world.course.id === "freezer-aisle" && world.elapsed >= this.nextHum) {
+      this.play("freezer-hum");
+      this.nextHum = world.elapsed + 0.5;
+    }
     if (
       !active ||
       world.invalid ||
@@ -287,6 +301,7 @@ export class SynthAudio {
   resetAttempt() {
     this.stopAll();
     this.nextRattle = 0;
+    this.nextHum = 0;
     this.lastCues.clear();
   }
   disable() {

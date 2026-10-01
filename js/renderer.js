@@ -287,6 +287,7 @@ export class Renderer {
   }
   // Default piece art uses theme colours, with per-piece overrides.
   drawCoursePiece(piece, course, theme) {
+    if (theme.drawPiece?.(this, piece, course)) return;
     const c = this.ctx, colors = theme.pieces[piece.type];
     const fill = piece.fill || colors.fill, stroke = piece.stroke || colors.stroke;
     if (piece.type === "pit") {

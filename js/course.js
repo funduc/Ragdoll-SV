@@ -237,6 +237,32 @@ export const COURSES = freeze({
     endX: 10500,
     groundRight: 11000,
   }),
+  "freezer-aisle": defineCourse({
+    id: "freezer-aisle", name: "Freezer Aisle", theme: "freezer-aisle",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,
+    startX: -3000, endX: 10500, groundRight: 11000,
+    pieces: [
+      // Real openings below the narrow spaces; lids retain solid ground below.
+      ...Array.from({ length: 4 }, (_, i) => ({
+        type: "pit", label: `freezer-gap-${i + 1}`,
+        x: 1750 + i * 540, width: 140, depth: 120, sign: "GAP",
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        type: "platform", label: `freezer-${i + 1}`,
+        x: 1480 + i * 540, y: 480, width: 400, height: 80,
+        sign: `LID ${i + 1}${i === 4 ? " · FARTHEST" : ""}`,
+      })),
+    ],
+  }),
+  "open-mic": defineCourse({
+    id: "open-mic", name: "The Open Mic", theme: "open-mic",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,
+    startX: -3000, endX: 10500, groundRight: 11000,
+    pieces: [
+      { type: "obstacle", label: "mic-pole", x: 2350, y: 310, width: 12, height: 420 },
+      { type: "obstacle", label: "mic-head", x: 2350, y: 100, width: 48, height: 18 },
+    ],
+  }),
   // CART HIGH JUMP: a short run-up into a steep kicker, a bar on pegs, then
   // a landing pit. The bar itself is added per attempt (see `bar`).
   "high-jump": defineCourse({

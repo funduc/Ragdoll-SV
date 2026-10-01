@@ -2,6 +2,7 @@ import { SynthAudio } from "./audio.js";
 import { Effects } from "./effects.js";
 import { State } from "./tournament.js";
 import { MusicDirector, MusicPlayer } from "./music.js";
+import { crowdCue } from "./santor-tour.js";
 
 // A read-only observer of game state and Matter collision results. No physics writes.
 export class Presentation {
@@ -49,7 +50,8 @@ export class Presentation {
     this.lastState = t.state;
     if (t.state === State.SCOREBOARD && t.lastEliminated)
       this.audio.play("elimination");
-    if (t.state === State.RESULTS) this.audio.play("crowd");
+    if (t.state === State.RESULTS)
+      this.audio.play(t.level?.id === "open-mic" ? crowdCue(t.lastScore) : "crowd");
     if (t.state === State.FINAL) {
       this.effects.victory();
       this.audio.play("victory");
