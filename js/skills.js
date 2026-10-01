@@ -246,7 +246,8 @@ export class AttemptSkills {
     if (!world.launched || world.landed) return Infinity;
     const bottom = Math.max(...world.dynamic.map((body) => body.bounds.max.y));
     // A course's landing pieces raise the surface under their footprint.
-    let surface = world.course.groundY;
+    let surface = world.pits.some((pit) => world.cart.position.x > pit.x - pit.width / 2 &&
+      world.cart.position.x < pit.x + pit.width / 2) ? Infinity : world.course.groundY;
     for (const body of world.coursePieces || [])
       if (
         body.coursePiece.landing &&

@@ -219,6 +219,7 @@ export function renderCampaign(ui, run) {
               ["none", "bronze", "silver", "gold"][result.medal]
             ],
       );
+      if (s.crashCause) ui.caption(s.crashCause, c, run.round);
       break;
     }
     case S.UPGRADES:

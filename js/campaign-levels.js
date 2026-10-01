@@ -155,7 +155,8 @@ export const HARD_GAUNTLET = freeze(HARD_GAUNTLET_DATA);
 export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET]);
 export const levelById = (id) => ALL_LEVELS.find((level) => level.id === id);
 
-// Numeric conditions mean "at least"; boolean conditions require an exact match.
+// Numeric all conditions mean "at least"; optional max conditions mean
+// "at most" (e.g. impactLoudness). Boolean conditions require an exact match.
 export function meetsThreshold(threshold, facts) {
   return (
     Boolean(threshold?.all) &&
@@ -163,7 +164,8 @@ export function meetsThreshold(threshold, facts) {
       typeof value === "number"
         ? Number.isFinite(facts[key]) && facts[key] >= value
         : facts[key] === value,
-    )
+    ) && Object.entries(threshold.max || {}).every(([key, value]) =>
+      Number.isFinite(facts[key]) && Number.isFinite(value) && facts[key] <= value)
   );
 }
 export function evaluateMedal(level, facts) {

@@ -11,6 +11,7 @@ const TAKEOFF_OFFSETS = Object.freeze({
   goodEnd: 10,
 });
 export const TAKEOFF_KEYS = Object.freeze(Object.keys(TAKEOFF_OFFSETS));
+export const MAX_COURSE_PROPS = 48;
 
 const number = (value, name) => {
   if (!Number.isFinite(value))
@@ -47,15 +48,21 @@ export function pieceOutline(piece) {
 // friction, restitution, landing (true = counts as a landing surface, like the
 // ground), fill and stroke colours, and sign (text painted on the piece).
 function definePiece(raw, index) {
+  const special = ["pit", "platform", "conveyor", "props", "obstacle"].includes(raw.type);
   const common = {
     label: String(raw.label || `course piece ${index + 1}`),
     friction: Number.isFinite(raw.friction) ? raw.friction : 0.8,
     restitution: Number.isFinite(raw.restitution) ? raw.restitution : 0.03,
-    landing: raw.landing === true,
-    fill: String(raw.fill || "#44565f"),
-    stroke: String(raw.stroke || "#9bb3bf"),
+    landing: ["platform", "conveyor"].includes(raw.type) || raw.landing === true,
+    fill: raw.fill ? String(raw.fill) : special ? null : "#44565f",
+    stroke: raw.stroke ? String(raw.stroke) : special ? null : "#9bb3bf",
     sign: raw.sign ? String(raw.sign) : null, // optional painted text
   };
+  if (raw.type === "pit") {
+    const width = number(raw.width, "pit.width"), depth = number(raw.depth ?? 180, "pit.depth");
+    if (width <= 0 || depth <= 0) throw new RangeError("Pits need positive width and depth.");
+    return { ...common, type: "pit", landing: false, x: number(raw.x, "pit.x"), width, depth };
+  }
   if (raw.type === "polygon") {
     if (!Array.isArray(raw.points) || raw.points.length < 3)
       throw new TypeError("A polygon course piece needs at least 3 points.");
@@ -68,10 +75,10 @@ function definePiece(raw, index) {
       })),
     };
   }
-  if (raw.type !== "rect")
+  if (raw.type !== "rect" && !special)
     throw new TypeError(`Unknown course piece type "${raw.type}".`);
-  return {
-    type: "rect",
+  const piece = {
+    type: raw.type,
     ...common,
     x: number(raw.x, `pieces[${index}].x`),
     y: number(raw.y, `pieces[${index}].y`),
@@ -79,6 +86,49 @@ function definePiece(raw, index) {
     height: number(raw.height, `pieces[${index}].height`),
     angle: Number.isFinite(raw.angle) ? raw.angle : 0,
   };
+  if (special && (piece.width <= 0 || piece.height <= 0))
+    throw new RangeError("Course pieces need positive width and height.");
+  if (raw.type === "conveyor") {
+    if (piece.angle !== 0) throw new RangeError("Conveyors must be horizontal.");
+    piece.speed = number(raw.speed, "conveyor.speed"); // signed world pixels/second
+  }
+  if (raw.type === "props") {
+    piece.landing = false;
+    piece.columns = number(raw.columns ?? 1, "props.columns");
+    piece.rows = number(raw.rows ?? 1, "props.rows");
+    if (![piece.columns, piece.rows].every((n) => Number.isInteger(n) && n > 0))
+      throw new RangeError("Prop rows and columns must be positive integers.");
+    piece.gap = number(raw.gap ?? 0, "props.gap");
+    piece.mass = number(raw.mass ?? 0.3, "props.mass");
+    if (piece.gap < 0 || piece.mass <= 0) throw new RangeError("Invalid prop spacing or mass.");
+    piece.lineX = raw.lineX == null ? null : number(raw.lineX, "props.lineX");
+    piece.lineDirection = raw.lineDirection === -1 ? -1 : 1;
+  }
+  if (raw.type === "obstacle") piece.landing = false;
+  return piece;
+}
+
+// Subtract pit intervals from the original slab; without pits its exact
+// dimensions and body order are retained. Overlapping pits form one opening.
+export function groundSpans(course) {
+  const spans = [];
+  let left = course.groundLeft;
+  for (const pit of course.pieces.filter((p) => p.type === "pit")
+    .sort((a, b) => a.x - a.width / 2 - (b.x - b.width / 2))) {
+    const start = pit.x - pit.width / 2, end = pit.x + pit.width / 2;
+    if (start > left) spans.push({ left, right: start });
+    left = Math.max(left, end);
+  }
+  if (left < course.groundRight) spans.push({ left, right: course.groundRight });
+  return spans;
+}
+
+// x/y is the first bottom-row box centre; later rows stack upwards.
+export function propLayout(piece) {
+  return Array.from({ length: piece.rows * piece.columns }, (_, i) => ({
+    x: piece.x + (i % piece.columns) * (piece.width + piece.gap),
+    y: piece.y - Math.floor(i / piece.columns) * (piece.height + piece.gap),
+  }));
 }
 
 // Fills in derived fields and freezes the result. Only the ramp, ground
@@ -95,6 +145,13 @@ export function defineCourse(raw) {
       "A course needs startX < rampStart < rampEnd and rampTop above groundY.",
     );
   const endX = Number.isFinite(raw.endX) ? raw.endX : rampEnd + 9420;
+  const groundRight = Number.isFinite(raw.groundRight) ? raw.groundRight : endX + 500;
+  const pieces = (raw.pieces || []).map(definePiece);
+  for (const pit of pieces.filter((p) => p.type === "pit"))
+    if (pit.x - pit.width / 2 < rampEnd || pit.x + pit.width / 2 > groundRight)
+      throw new RangeError("Pits must fit in the landing area, after the ramp.");
+  if (pieces.filter((p) => p.type === "props").reduce((n, p) => n + p.rows * p.columns, 0) > MAX_COURSE_PROPS)
+    throw new RangeError(`A course supports at most ${MAX_COURSE_PROPS} loose props.`);
   const takeoff = Object.fromEntries(
     TAKEOFF_KEYS.map((key) => [
       key,
@@ -119,12 +176,12 @@ export function defineCourse(raw) {
       : rampEnd,
     // The ground slab and the back wall sit a fixed distance behind the start.
     groundLeft: Number.isFinite(raw.groundLeft) ? raw.groundLeft : startX - 1210,
-    groundRight: Number.isFinite(raw.groundRight) ? raw.groundRight : endX + 500,
+    groundRight,
     wallX: Number.isFinite(raw.wallX) ? raw.wallX : startX - 310,
     takeoff,
     // Long-jump distance markings along the landing strip.
     distanceMarkers: raw.distanceMarkers !== false,
-    pieces: (raw.pieces || []).map(definePiece),
+    pieces,
     // Optional high-jump bar: x is its centre; its height is set per attempt.
     bar: raw.bar
       ? {

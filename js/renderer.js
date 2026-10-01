@@ -1,4 +1,4 @@
-import { DEFAULT_COURSE, pieceOutline } from "./course.js";
+import { DEFAULT_COURSE, pieceOutline, groundSpans } from "./course.js";
 import { ThemePainter } from "./themes.js";
 import { drawRunMarkings } from "./run-renderer.js";
 import { SKILL_CONFIG } from "./skill-config.js";
@@ -98,6 +98,17 @@ export class Renderer {
     c.translate(-this.camera.x, -this.camera.y);
     const left = this.camera.x,
       right = left + w / this.camera.scale;
+    const hasPits = course.pieces.some((p) => p.type === "pit");
+    if (hasPits) {
+      c.save();
+      c.beginPath();
+      // Keep background boards intact above the opening; only the floor and
+      // its painted markings disappear where the physics ground is missing.
+      c.rect(left, this.camera.y, right - left, Math.max(0, course.groundY - this.camera.y));
+      for (const span of groundSpans(course))
+        c.rect(span.left, course.groundY, span.right - span.left, 3000);
+      c.clip();
+    }
     c.fillStyle = theme.ground.fill;
     c.fillRect(left, course.groundY, right - left, 3000);
     c.fillStyle = theme.ground.edge;
@@ -130,6 +141,7 @@ export class Renderer {
         "#b3c79c",
       );
     }
+    if (hasPits) c.restore();
     this.polygon(
       [
         { x: course.rampStart, y: course.groundY },
@@ -164,8 +176,22 @@ export class Renderer {
     c.stroke();
     // Optional extra static pieces (bars, walls, second ramps) from course data.
     for (const piece of course.pieces) {
+      if (["pit", "platform", "conveyor", "props", "obstacle"].includes(piece.type)) {
+        this.drawCoursePiece(piece, course, theme);
+        continue;
+      }
       this.polygon(pieceOutline(piece), piece.fill, piece.stroke, 2);
       if (piece.sign) this.pieceSign(piece);
+    }
+    for (const prop of world?.looseProps || []) {
+      const piece = prop.coursePiece, colors = theme.pieces.props;
+      this.polygon(prop.vertices, piece.fill || colors.fill, piece.stroke || colors.stroke, 2);
+      c.beginPath();
+      c.moveTo(prop.vertices[0].x, prop.vertices[0].y);
+      c.lineTo(prop.vertices[2].x, prop.vertices[2].y);
+      c.moveTo(prop.vertices[1].x, prop.vertices[1].y);
+      c.lineTo(prop.vertices[3].x, prop.vertices[3].y);
+      c.stroke();
     }
     if (world?.highJump) this.drawHighJump(world, course);
     if (course.pins) this.drawBowling(world, course);
@@ -258,6 +284,50 @@ export class Renderer {
     c.restore();
     effects?.drawScreen(c, w, h);
     c.restore();
+  }
+  // Default piece art uses theme colours, with per-piece overrides.
+  drawCoursePiece(piece, course, theme) {
+    const c = this.ctx, colors = theme.pieces[piece.type];
+    const fill = piece.fill || colors.fill, stroke = piece.stroke || colors.stroke;
+    if (piece.type === "pit") {
+      const left = piece.x - piece.width / 2;
+      c.fillStyle = fill;
+      c.fillRect(left, course.groundY, piece.width, 3000);
+      c.strokeStyle = stroke;
+      c.lineWidth = 3;
+      c.beginPath();
+      for (const x of [left, left + piece.width]) {
+        c.moveTo(x, course.groundY); c.lineTo(x, course.groundY + piece.depth);
+      }
+      c.stroke();
+      this.label(piece.sign || "PIT", piece.x, course.groundY + 26, 12, stroke, "center");
+      return;
+    }
+    if (piece.type === "props") {
+      if (piece.lineX !== null) {
+        c.strokeStyle = theme.accent; c.lineWidth = 2; c.setLineDash([5, 6]);
+        c.beginPath(); c.moveTo(piece.lineX, course.groundY - 150);
+        c.lineTo(piece.lineX, course.groundY); c.stroke(); c.setLineDash([]);
+        this.label(piece.lineDirection > 0 ? "CLEAR →" : "← CLEAR", piece.lineX,
+          course.groundY - 160, 11, theme.accent, "center");
+      }
+      return;
+    }
+    this.polygon(pieceOutline(piece), fill, stroke, 2);
+    if (piece.type === "conveyor") {
+      const direction = Math.sign(piece.speed), y = piece.y - piece.height / 2 - 5;
+      c.beginPath();
+      for (let x = piece.x - piece.width / 2 + 16; x < piece.x + piece.width / 2 - 10; x += 40) {
+        c.moveTo(x - direction * 6, y - 5); c.lineTo(x + direction * 6, y);
+        c.lineTo(x - direction * 6, y + 5);
+      }
+      c.stroke();
+    }
+    if (piece.type === "obstacle") {
+      c.beginPath(); c.moveTo(piece.x, piece.y - piece.height / 2);
+      c.lineTo(piece.x, piece.y - piece.height / 2 - 80); c.stroke();
+    }
+    if (piece.sign) this.pieceSign(piece);
   }
   // Painted sponsor text on a course piece (e.g. the high-jump pit mat).
   pieceSign(piece) {

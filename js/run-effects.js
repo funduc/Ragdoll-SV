@@ -79,7 +79,8 @@ export class RunEffects {
     if (this.conditionId === "low-gravity")
       world.engine.gravity.y *= this.condition.gravity;
     if (this.conditionId === "icy-ramp") {
-      world.ground.friction = this.condition.groundFriction;
+      for (const ground of world.groundBodies)
+        ground.friction = this.condition.groundFriction;
       world.ramp.friction = this.condition.rampFriction;
       for (const wheel of world.wheels)
         wheel.friction = this.condition.wheelFriction;

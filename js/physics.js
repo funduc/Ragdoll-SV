@@ -13,6 +13,8 @@ import {
   pieceOutline,
   courseSkillConfig,
   pinLayout,
+  groundSpans,
+  propLayout,
 } from "./course.js";
 // The default long-jump course. Worlds read their own `world.course`.
 export const COURSE = DEFAULT_COURSE;
@@ -67,6 +69,7 @@ export class PhysicsWorld {
     this.passiveWarning = false;
     this.landingAngle = 0;
     this.landingSpeed = 0;
+    this.impactLoudness = null;
     this.distancePixels = 0;
     this.settleTime = 0;
     this.riderSettleTime = 0;
@@ -88,6 +91,7 @@ export class PhysicsWorld {
     this.createCargo();
     this.createBar();
     this.createPins();
+    this.createProps();
     this.runEffects?.install(this);
     this.collisionHandler = (event) => this.handleCollisions(event.pairs);
     this.M.Events.on(this.engine, "collisionStart", this.collisionHandler);
@@ -102,13 +106,16 @@ export class PhysicsWorld {
     };
     const course = this.course;
     // A 160 px ground slab whose top edge is the course's ground height.
-    this.ground = Bodies.rectangle(
-      (course.groundLeft + course.groundRight) / 2,
+    this.groundBodies = groundSpans(course).map(({ left, right }) => Bodies.rectangle(
+      (left + right) / 2,
       course.groundY + 80,
-      course.groundRight - course.groundLeft,
+      right - left,
       160,
       options,
-    );
+    ));
+    this.ground = this.groundBodies[0];
+    this.pits = course.pieces.filter((p) => p.type === "pit");
+    this.pitFalls = new Map();
     const points = [
       { x: course.rampStart, y: course.groundY },
       { x: course.rampEnd, y: course.rampTop },
@@ -127,9 +134,9 @@ export class PhysicsWorld {
       ...options,
       label: "wall",
     });
-    Composite.add(this.engine.world, [this.ground, this.ramp, this.wall]);
+    Composite.add(this.engine.world, [...this.groundBodies, this.ramp, this.wall]);
     // Optional extra static pieces from the course data (bars, walls, ramps).
-    this.coursePieces = course.pieces.map((piece) => {
+    this.coursePieces = course.pieces.filter((p) => !["pit", "props"].includes(p.type)).map((piece) => {
       const outline = pieceOutline(piece);
       const centre = this.M.Vertices.centre(outline);
       const body = Bodies.fromVertices(centre.x, centre.y, [outline], {
@@ -142,9 +149,10 @@ export class PhysicsWorld {
       return body;
     });
     this.landingSurfaces = new Set([
-      this.ground,
+      ...this.groundBodies,
       ...this.coursePieces.filter((body) => body.coursePiece.landing),
     ]);
+    this.conveyors = new Set(this.coursePieces.filter((b) => b.coursePiece.type === "conveyor"));
     Composite.add(this.engine.world, this.coursePieces);
     this.runwayBumps = (this.arena.bumps || []).map(({ x, width, height }) => {
       const points = [
@@ -193,6 +201,77 @@ export class PhysicsWorld {
     });
     this.dynamic.push(this.cargo);
     Composite.add(this.engine.world, [this.cargo, this.cargoTether]);
+  }
+  createProps() {
+    const { Bodies, Body, Composite } = this.M;
+    this.looseProps = this.course.pieces.filter((p) => p.type === "props").flatMap((piece) =>
+      propLayout(piece).map((spot) => {
+        const body = Bodies.rectangle(spot.x, spot.y, piece.width, piece.height, {
+          label: piece.label, angle: piece.angle, friction: piece.friction,
+          restitution: piece.restitution, frictionAir: 0.004,
+        });
+        Body.setMass(body, piece.mass);
+        body.coursePiece = piece;
+        body.rest = spot;
+        body.fallen = body.pastLine = false;
+        return body;
+      }));
+    Composite.add(this.engine.world, this.looseProps);
+  }
+  propFacts() {
+    return {
+      propsFallen: this.looseProps.filter((p) => p.fallen).length,
+      propsPastLine: this.looseProps.filter((p) => p.pastLine).length,
+      propsMoved: this.looseProps.filter((p) => p.fallen || p.pastLine).length,
+    };
+  }
+  updateCoursePieces() {
+    if (!this.conveyors.size && !this.looseProps.length && !this.pits.length) return;
+    const { Body } = this.M;
+    for (const pair of this.engine.pairs.list) {
+      if (!this.conveyors.size) break;
+      if (!pair.isActive) continue;
+      const a = pair.bodyA.parent, b = pair.bodyB.parent;
+      const belt = this.conveyors.has(a) ? a : this.conveyors.has(b) ? b : null;
+      const body = belt === a ? b : a;
+      // Only a real top-surface contact gets belt motion; proximity and
+      // airborne bodies (even ones directly above the belt) do not count.
+      if (!belt || body.isStatic || body.position.y >= belt.bounds.min.y ||
+          Math.abs(pair.collision.normal.y) < 0.5) continue;
+      const velocity = Body.getVelocity(body);
+      Body.setVelocity(body, { x: belt.coursePiece.speed / 60, y: velocity.y });
+    }
+    for (const prop of this.looseProps) {
+      const piece = prop.coursePiece;
+      prop.fallen ||= Math.abs(normalAngle(prop.angle - piece.angle)) > 0.6 ||
+        prop.position.y > prop.rest.y + piece.height * 0.5;
+      if (piece.lineX !== null) {
+        const direction = piece.lineDirection;
+        prop.pastLine ||= (prop.rest.x - piece.lineX) * direction <= 0 &&
+          (prop.position.x - piece.lineX) * direction > 0;
+      }
+    }
+    // A platform may bridge a pit. Crash only once the cart or rider core
+    // actually falls below its authored depth, never while flying over it.
+    for (const body of [this.cart, this.head, this.torso]) {
+      if (body.position.y <= this.course.groundY) this.pitFalls.delete(body);
+      else if (!this.pitFalls.has(body)) {
+        const pit = this.pits.find((p) => body.position.x > p.x - p.width / 2 &&
+          body.position.x < p.x + p.width / 2);
+        if (pit) this.pitFalls.set(body, pit);
+      }
+    }
+    if ([...this.pitFalls].some(([body, pit]) => body.position.y > this.course.groundY + pit.depth)) {
+      this.crash(false, "pit-fall");
+      this.crashClassification = "pit-fall";
+      this.events.push("pit-fall");
+      this.finish("Fell into a pit");
+    }
+  }
+  propsStill() {
+    return this.looseProps.every((body) =>
+      body.position.y > this.course.groundY + 1280 ||
+      (this.M.Body.getSpeed(body) < 0.3 && Math.abs(this.M.Body.getAngularVelocity(body)) < 0.03));
   }
   updateCargo() {
     if (!this.cargo || this.cargoLost) return;
@@ -569,6 +648,10 @@ export class PhysicsWorld {
       if (!terrain || body.isStatic) continue;
       const speed = this.preSpeeds?.get(body.id) || { x: 0, y: 0 };
       this.damage.contact(body, terrain, speed);
+      if (terrain.coursePiece?.type === "obstacle" &&
+          (body === this.head || body === this.torso))
+        this.crash(Math.hypot(speed.x, speed.y) > 3.2 * this.character.landingStability,
+          "obstacle-impact");
       if (
         this.launched &&
         !this.landed &&
@@ -583,6 +666,10 @@ export class PhysicsWorld {
         this.landingTime = this.elapsed;
         this.landingAngle = this.cart.angle;
         this.landingSpeed = Math.abs(this.preSpeeds.get(this.cart.id).y);
+        const velocity = this.preSpeeds.get(this.cart.id), normal = pair.collision?.normal || { x: 0, y: 1 };
+        // Normal approach speed in world pixels/second, measured once before
+        // the solver/brace changes motion. Lower means a quieter first impact.
+        this.impactLoudness = Math.round(Math.abs(velocity.x * normal.x + velocity.y * normal.y) * 600) / 10;
         this.skills.onLanding(this);
         this.distancePixels = Math.max(
           0,
@@ -671,6 +758,8 @@ export class PhysicsWorld {
     this.damage.afterStep(STEP_MS / 1000);
     this.updateCargo();
     this.updateBar();
+    this.updateCoursePieces();
+    if (this.finished) return;
     // Settle the cart's spin on the ramp (takeoff.rampSettle): no wheelie.
     if (
       !this.launched &&
@@ -727,7 +816,7 @@ export class PhysicsWorld {
           0.5 &&
         Math.max(...riderSpeeds) < 1.8;
       // Bowling: the throw only ends once the pins have stopped tumbling.
-      const allStill = still(this.cart) && riderStill && (!this.bowling || this.pinsStill());
+      const allStill = still(this.cart) && riderStill && (!this.bowling || this.pinsStill()) && this.propsStill();
       this.settleTime = allStill ? this.settleTime + STEP_MS / 1000 : 0;
       this.riderSettleTime = riderStill
         ? this.riderSettleTime + STEP_MS / 1000
@@ -738,7 +827,7 @@ export class PhysicsWorld {
         this.crashed &&
         !this.attached &&
         this.riderSettleTime > 1 &&
-        (!this.bowling || this.pinsStill())
+        (!this.bowling || this.pinsStill()) && this.propsStill()
       )
         this.finish("Rider came to rest");
     }
@@ -752,7 +841,7 @@ export class PhysicsWorld {
       this.finish("Out of bounds");
   }
   hasFiniteBodies() {
-    return this.dynamic.every(
+    return [...this.dynamic, ...this.looseProps].every(
       (body) =>
         [
           body.position.x,
@@ -796,6 +885,9 @@ export class PhysicsWorld {
       airRotation: this.airRotation,
       landingAngle: this.landingAngle,
       landingSpeed: this.landingSpeed,
+      impactLoudness: this.impactLoudness,
+      crashCause: this.crashClassification,
+      ...this.propFacts(),
       reason: this.reason,
       ...this.skills.metrics(),
       trickSummary: this.tricks.snapshot(),
@@ -814,6 +906,7 @@ export class PhysicsWorld {
     this.M.Engine.clear(this.engine);
     this.events.length = 0;
     this.preSpeeds?.clear();
+    this.pitFalls.clear();
     this.disposed = true;
   }
 }

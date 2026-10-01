@@ -127,6 +127,7 @@ export class CrashDamage {
     const distance = Math.round(this.distance * 10) / 10;
     return Object.freeze({
       partsLost, airtime, bounces: this.bounces, distance,
+      ...this.world.propFacts(),
       total: Math.round(partsLost * 150 + airtime * 100 + this.bounces * 75 + distance * 10),
     });
   }

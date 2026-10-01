@@ -60,6 +60,8 @@ export function campaignFacts(score, world, reachedRamp) {
       !score.crashed &&
       ["Clean", "Scrappy"].includes(score.landingQuality),
     runwayCapReached: world.skills.runwayCapReached,
+    impactLoudness: world.impactLoudness ?? null,
+    ...world.propFacts(),
   });
 }
 // Gauntlet totals sum existing attempt scores. No score weights or per-attempt
@@ -78,6 +80,12 @@ export function combinedFacts(heats) {
     perfectBraces: count("perfectBrace"),
     perfectTakeoffs: count("perfectTakeoff"),
     uniqueTricks: new Set(facts.flatMap((f) => f.trickIds)).size,
+    propsFallen: facts.reduce((n, f) => n + (f.propsFallen || 0), 0),
+    propsPastLine: facts.reduce((n, f) => n + (f.propsPastLine || 0), 0),
+    propsMoved: facts.reduce((n, f) => n + (f.propsMoved || 0), 0),
+    // A quiet multi-heat goal requires every heat to have a measured landing.
+    impactLoudness: facts.length && facts.every((f) => Number.isFinite(f.impactLoudness))
+      ? Math.max(...facts.map((f) => f.impactLoudness)) : null,
   });
 }
 export class Campaign {

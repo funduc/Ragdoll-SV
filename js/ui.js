@@ -122,7 +122,9 @@ export class UI {
         world.elapsed,
       );
     for (const event of world.drainEvents()) {
-      if (["launch", "crash", "wrateWarning"].includes(event)) queue(event);
+      if (["launch", "crash", "wrateWarning", "pit-fall"].includes(event))
+        queue(event === "crash" && ["pit-fall", "obstacle-impact"].includes(world.crashClassification)
+          ? world.crashClassification : event);
       // High Jump: John reacts the moment the bar falls or a flop goes over.
       if (event === "fosbury") this.say(highJumpLine("fosbury"));
       if (event === "barKnocked")
@@ -262,7 +264,7 @@ export class UI {
           : "";
         this.caption(
           s.crashed
-            ? "crash"
+            ? s.crashCause || "crash"
             : s.landingQuality === "Clean"
               ? "goodLanding"
               : s.distanceMetres >= 45

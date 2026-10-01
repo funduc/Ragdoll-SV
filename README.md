@@ -44,6 +44,18 @@ Hard crashes can shed wheels, the grille and child seat; severe crashes eject th
 
 **Themes:** add a `defineTheme({ id, backdrop, ground, ramp, sponsors, accent, backgroundImage, ambient })` entry to `THEMES` in `js/themes.js`, overriding only what you need; image paths such as `assets/backdrops/yard.webp` are project-relative, replace the procedural backdrop once loaded after the first gesture, and fall back to the Vault backdrop on failure. Set `theme: "your-id"` on a course or `arena.theme: "your-id"` on a level (which overrides the course); `ambient` accepts `kind: "fog"`, `"snow"` or `"sparks"` plus count, color, size, speed and drift, and reduced motion disables ambient particles and image parallax.
 
+**Course pieces** go in a course's `pieces` array; all coordinates are world pixels (40 px = 1 m, y points down). Existing `rect`/`polygon` pieces still work; these new types are available for future levels, with small examples in `tests/course-pieces.mjs`:
+
+| Type | Data and behaviour |
+| --- | --- |
+| `pit` | `x`, `width`, optional `depth` (default 180). Cuts ground after the ramp; falling below its depth ends the attempt with a pit crash and zero landing points. |
+| `platform` | `x`, `y`, `width`, `height`, optional `angle`. Raised landing rectangle; place pits between or underneath platforms for real gaps. |
+| `conveyor` | `x`, `y`, `width`, `height`, `speed`. Horizontal landing rectangle; signed speed is pixels/second, positive forward. Only bodies touching its top are transported. |
+| `props` | `x`, `y`, box `width`/`height`, optional `columns`, `rows`, `mass` (0.3), `gap` (0), `lineX`, `lineDirection` (1 or -1). x/y is the first bottom-row box centre; rows stack upwards, capped at 48 boxes per course. |
+| `obstacle` | `x`, `y`, `width`, `height`, optional `angle`. Hanging solid; head/torso contact causes an obstacle crash, without counting as a landing. |
+
+New pieces inherit `theme.pieces[type].fill/stroke`; per-piece `fill`, `stroke`, and `sign` override the simple default art. Prop telemetry (`propsFallen`, `propsPastLine`, `propsMoved`) appears in `world.metrics()`, campaign medal facts and crash carnage: a tipped/dropped box or a box crossing its line counts once in `propsMoved`, even if it later returns. These counts do not add ordinary or carnage points. `impactLoudness` is the cart's approach speed normal to its first landing surface in pixels/second (null without a landing); a quiet medal can use `{ all: { completedJump: true }, max: { impactLoudness: 200 } }`, and a prop medal can use `{ all: { propsMoved: 5 } }`. Multi-heat facts sum prop counts and use the loudest landing, requiring a measurement in every heat.
+
 ## Engineering and tests
 
 Run the dependency-free test suite with Node.js 22 or newer:

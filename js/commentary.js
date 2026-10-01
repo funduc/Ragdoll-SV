@@ -27,6 +27,8 @@ export const GENERAL_CAPTIONS = Object.freeze({
     "Physics has reviewed the appeal and denied it.",
     "That landing has created several administrative questions.",
   ],
+  "pit-fall": ["THE FLOOR HAS LEFT THE CHAT. The cart has followed it."],
+  "obstacle-impact": ["THE SIGN WAS NOT A SUGGESTION. Please lead with the cart next time."],
   elimination: [
     "ONE IS OUT. I HAVE LOST CONTROL OF THE CLIPBOARD.",
     "THE CUT IS FINAL. PLEASE STOP NEGOTIATING WITH GRAVITY.",
@@ -117,7 +119,7 @@ export class Commentator {
   }
   enqueue(type, character, round, time) {
     if (this.pending.some((item) => item.type === type)) return;
-    if (type === "crash") {
+    if (["crash", "pit-fall", "obstacle-impact"].includes(type)) {
       this.pending = [];
       this.nextAt = time;
     }

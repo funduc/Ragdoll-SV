@@ -117,6 +117,8 @@ export function scoreAttempt(metrics, character) {
     attached: metrics.attached,
     reason: metrics.reason,
     crashed: metrics.crashed,
+    ...(metrics.crashCause === "pit-fall" || metrics.crashCause === "obstacle-impact"
+      ? { crashCause: metrics.crashCause } : {}),
     landingAngle: Math.round(
       (Math.abs(normalAngle(landingAngle)) * 180) / Math.PI,
     ),

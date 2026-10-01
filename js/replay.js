@@ -46,6 +46,7 @@ export class ReplayRecording {
       cargoLost: world.cargoLost,
       bar: world.bar ? bodyPose(world.bar) : null,
       pins: (world.pins || []).map(bodyPose),
+      looseProps: world.looseProps.map((prop) => ({ ...bodyPose(prop), coursePiece: prop.coursePiece })),
       highJump: world.highJump ? { ...world.highJump, hitBy: [...world.highJump.hitBy] } : null,
       damage: {
         lostParts: new Set(world.damage.lostParts),
@@ -134,6 +135,7 @@ export class ReplayPlayer {
         cargo: a.world.cargo ? interpolateBody(a.world.cargo, b.world.cargo, f) : null,
         bar: a.world.bar ? interpolateBody(a.world.bar, b.world.bar, f) : null,
         pins: a.world.pins.map((pin, i) => interpolateBody(pin, b.world.pins[i], f)),
+        looseProps: a.world.looseProps.map((prop, i) => interpolateBody(prop, b.world.looseProps[i], f)),
         damage: {
           ...a.world.damage,
           debris: a.world.damage.debris.map(body => {

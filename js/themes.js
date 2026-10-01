@@ -11,6 +11,13 @@ export const DEFAULT_THEME = Object.freeze({
   ramp: Object.freeze({
     fill: "#374a56", outline: "#73919f", stripes: "#e68031", edge: "#a3bcc8",
   }),
+  pieces: Object.freeze({
+    pit: Object.freeze({ fill: "#080e16", stroke: "#ffac6f" }),
+    platform: Object.freeze({ fill: "#44565f", stroke: "#9bb3bf" }),
+    conveyor: Object.freeze({ fill: "#36413a", stroke: "#b4ef4b" }),
+    props: Object.freeze({ fill: "#b9824f", stroke: "#463020" }),
+    obstacle: Object.freeze({ fill: "#613d50", stroke: "#ffac6f" }),
+  }),
   sponsors: Object.freeze(stadium.sponsors.map((board) => Object.freeze([...board]))),
   backdrop(ctx, { width, height, label, accent }) {
     stadium.backdrop(ctx, width, height, label, accent);
@@ -29,6 +36,8 @@ export function defineTheme(raw) {
     ...raw,
     ground: Object.freeze({ ...DEFAULT_THEME.ground, ...raw.ground }),
     ramp: Object.freeze({ ...DEFAULT_THEME.ramp, ...raw.ramp }),
+    pieces: Object.freeze(Object.fromEntries(Object.entries(DEFAULT_THEME.pieces)
+      .map(([kind, colors]) => [kind, Object.freeze({ ...colors, ...raw.pieces?.[kind] })]))),
     sponsors: Object.freeze((raw.sponsors ?? DEFAULT_THEME.sponsors)
       .map((board) => Object.freeze([...board]))),
     ambient: raw.ambient ? Object.freeze({
