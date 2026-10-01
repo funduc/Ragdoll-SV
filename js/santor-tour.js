@@ -2,6 +2,13 @@
 // Like After Hours, this chapter is separate from the ten main lessons.
 const arena = { id: "santor-vault", gravity: 1.05 };
 const goal = (label, all) => ({ label, all });
+export const QUIET_IMPACT_LIMIT = 950; // First-contact normal speed, world pixels/second.
+export const ROAD_POEM = Object.freeze([
+  "Mapleton, your lamps burn bright,",
+  "Your bumps have learned to rhyme tonight,",
+  "Three holes applaud beneath my flight,",
+  "I land. The road concedes. Good night.",
+]);
 
 export const TOUR_LEVELS = [
   {
@@ -74,7 +81,78 @@ export const TOUR_LEVELS = [
       },
     },
   },
+  {
+    id: "mapleton-night-shift", name: "MAPLETON ROAD: NIGHT SHIFT",
+    chapter: "santor-on-tour", bonus: true, estimatedMinutes: 3,
+    description: "Time your pushes over three taller speed bumps, then land between three potholes. Each bump carries a line of Brandon's road poem. Falling into a pothole is a crash.",
+    objective: "Gold needs first contact between potholes and no Missed pushes. Add a Clean landing and Perfect takeoff for Santor.",
+    arena: { ...arena, course: "mapleton-night-shift" }, condition: null,
+    optionalObjective: "attached-landing", upgradeReward: false,
+    modifier: { id: "road-poem-coach", focus: "night-road", name: "Brandon's Road Poem" },
+    bronze: goal("Complete a jump (crash landings count).", { completedJump: true }),
+    silver: goal("Land without falling in a pothole.", { completedJump: true, avoidedPotholes: true }),
+    gold: goal("Land between potholes with no Missed pushes.", { betweenPotholes: true, avoidedPotholes: true, noMiss: true }),
+    santorMedal: goal("Gold plus a Clean landing and Perfect takeoff.", {
+      betweenPotholes: true, avoidedPotholes: true, noMiss: true, controlledLanding: true, perfectTakeoff: true,
+    }),
+    prerequisites: ["open-mic"],
+    john: {
+      introduction: "Brandon has returned to Mapleton Road. The road has returned to being a problem.",
+      characters: {
+        jake: "Jake, these holes contain neither ice cream nor a shortcut.",
+        brandon: "Brandon, one line per bump. The council has declined an encore.",
+        owen: "Owen, night shift. The asphalt has already clocked out.",
+      },
+      results: {
+        none: "The road has requested another draft.",
+        bronze: "The jump is complete. The repair request remains open.",
+        silver: "You found asphalt. The council calls that a premium service.",
+        gold: "NO MISSED BEATS. EVEN THE POTHOLES HAVE STOPPED INTERRUPTING.",
+      },
+    },
+  },
+  {
+    id: "quiet-please", name: "QUIET PLEASE",
+    chapter: "santor-on-tour", bonus: true, estimatedMinutes: 3,
+    description: "Clear the second kicker and its loose book stack, then land beyond the arrow. Try Good takeoff for a lower, quieter arc; level the cart and brace before contact.",
+    objective: "The noise meter measures the first landing. Stay at or below 100% for a quiet impact. Gold needs Clean beyond the books; Santor adds a trick and zero books knocked over.",
+    arena: { ...arena, course: "quiet-please" }, condition: null,
+    optionalObjective: "attached-landing", upgradeReward: false,
+    modifier: { id: "library-coach", focus: "library", name: "Library Rules" },
+    bronze: goal("Complete a jump (crash landings count).", { completedJump: true }),
+    silver: goal("Land past the book stack.", { pastBookStack: true }),
+    gold: goal("Land Clean past the book stack with a quiet impact.", {
+      pastBookStack: true, controlledLanding: true, quietImpact: true,
+    }),
+    santorMedal: { ...goal("Gold with a trick and zero books knocked over.", {
+      pastBookStack: true, controlledLanding: true, quietImpact: true, uniqueTricks: 1,
+    }), max: { propsFallen: 0 } },
+    prerequisites: ["mapleton-night-shift"],
+    john: {
+      introduction: "brandon. this is the only place he is asked to use fewer words.",
+      characters: {
+        jake: "jake, this is a lending library. the cart is overdue.",
+        brandon: "brandon, please submit the poem in writing. quietly.",
+        owen: "owen, even the overtime must use its inside voice.",
+      },
+      results: {
+        none: "please renew your attempt.",
+        bronze: "jump filed. volume under review.",
+        silver: "past the books. the librarian heard the ending.",
+        gold: "clean. quiet. the librarian has approved a silent celebration.",
+      },
+    },
+  },
 ];
+
+export const libraryTooLoud = (world) => world.impactLoudness > QUIET_IMPACT_LIMIT;
+export const noisePercent = (world) => Math.ceil((world.impactLoudness ?? 0) / QUIET_IMPACT_LIMIT * 100);
+
+export function roadVerse(world) {
+  if (world.course.id !== "mapleton-night-shift") return -1;
+  return world.course.pieces.filter((p) => p.label.startsWith("poem-bump-") &&
+    world.cart.position.x >= p.points[1].x).length - 1;
+}
 
 // Presentation only: never added to points, medals, achievements or saves.
 export function applause(uniqueTricks, crashed) {
@@ -91,9 +169,18 @@ export function tourFacts(world) {
   const lids = world.course.pieces.filter((p) => p.type === "platform");
   const freezerLidLanding = world.course.id === "freezer-aisle" &&
     world.firstLandingOnTop && lids.includes(world.firstLandingPiece);
+  const night = world.course.id === "mapleton-night-shift";
+  const pits = night ? world.course.pieces.filter((p) => p.type === "pit") : [];
+  const landingX = world.course.distanceOrigin + world.distancePixels;
+  const stack = world.course.pieces.find((p) => p.label === "book-stack");
   return {
     freezerLidLanding: Boolean(freezerLidLanding),
     farthestFreezerLanding: Boolean(freezerLidLanding && world.firstLandingPiece === lids.at(-1)),
     micUntouched: world.course.id === "open-mic" && world.obstacleHits.size === 0,
+    avoidedPotholes: night && world.crashClassification !== "pit-fall",
+    betweenPotholes: night && world.landed && !world.firstLandingPiece && pits.some((p, i) =>
+      i > 0 && landingX > pits[i - 1].x + pits[i - 1].width / 2 && landingX < p.x - p.width / 2),
+    pastBookStack: Boolean(stack && world.landed && !world.firstLandingPiece && landingX > stack.x + stack.width / 2),
+    quietImpact: world.course.id === "quiet-please" && Number.isFinite(world.impactLoudness) && !libraryTooLoud(world),
   };
 }

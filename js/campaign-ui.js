@@ -23,7 +23,7 @@ import {
 } from "./run-ui.js";
 import { CONDITIONS, OBJECTIVES, OBJECTIVE_IDS } from "./run-config.js";
 import { TRICK_CONFIG } from "./trick-config.js";
-import { TOUR_LEVELS, applause, crowdCue } from "./santor-tour.js";
+import { TOUR_LEVELS, applause, crowdCue, ROAD_POEM, roadVerse, noisePercent, libraryTooLoud } from "./santor-tour.js";
 
 const action = (label, name, value = "", secondary = false, disabled = false) =>
   `<button type="button" class="btn${secondary ? " secondary" : ""}" data-campaign="${name}" data-value="${escape(value)}"${disabled ? " disabled" : ""}>${escape(label)}</button>`;
@@ -54,6 +54,8 @@ const SHORT_GOALS = {
   "santor-gauntlet-hard": ["2 landings, 2,250 points", "3 landings, 3,400 points", "3 Perfect Braces, 4,250 points", "4,600 points, all Perfect"],
   "freezer-aisle": ["Complete a jump", "Land on a freezer lid", "Clean on a lid", "Lid 5, Clean, Perfect Brace"],
   "open-mic": ["Complete a jump", "2 different tricks + land", "3 different tricks + land", "3 tricks, Clean, mic untouched"],
+  "mapleton-night-shift": ["Complete a jump", "Avoid the potholes", "Between potholes, no Misses", "Gold + Clean + Perfect takeoff"],
+  "quiet-please": ["Complete a jump", "Land beyond the books", "Beyond books, Clean + quiet", "Gold + a trick, zero books tipped"],
 };
 const TIERS = [
   ["bronze", 1, "Bronze"],
@@ -110,7 +112,18 @@ function bonusRow(run) {
   return `<section class="bonus-row" aria-label="Bonus levels"><h3>BONUS</h3><ul class="level-grid">${levelTile(run, HARD_GAUNTLET, "OT", "Beat the Santor Gauntlet to unlock.")}</ul></section>`;
 }
 function tourRow(run) {
-  return `<section class="bonus-row tour-row" aria-label="Santor on Tour"><h3>SANTOR ON TOUR</h3><p class="tiny">Bronze in The Santor Gauntlet opens the Tour. Bronze in Freezer Aisle opens The Open Mic.</p><ul class="level-grid">${TOUR_LEVELS.map((level, i) => levelTile(run, level, `T${i + 1}`, i ? "Earn Bronze in Freezer Aisle." : "Earn Bronze in The Santor Gauntlet.")).join("")}</ul></section>`;
+  return `<section class="bonus-row tour-row" aria-label="Santor on Tour"><h3>SANTOR ON TOUR</h3><p class="tiny">Bronze in The Santor Gauntlet opens the Tour. Earn Bronze in each stop to open the next.</p><ul class="level-grid">${TOUR_LEVELS.map((level, i) => levelTile(run, level, `T${i + 1}`, `Earn Bronze in ${i ? TOUR_LEVELS[i - 1].name : "The Santor Gauntlet"}.`)).join("")}</ul></section>`;
+}
+
+function tourResultNotes(level, facts) {
+  if (level.id === "mapleton-night-shift" && facts.successfulLanding)
+    return `<p class="subline">BRANDON: ${escape(ROAD_POEM[3])}</p>`;
+  if (level.id === "quiet-please") {
+    const noise = facts.impactLoudness == null ? "NO IMPACT RECORDED"
+      : `${noisePercent(facts)}% NOISE · ${facts.quietImpact ? "quiet" : "shhh! too loud for Gold"}`;
+    return `<p class="subline">${noise} · ${facts.propsFallen} BOOKS KNOCKED OVER</p>`;
+  }
+  return "";
 }
 
 function profile(ui, c, run) {
@@ -216,7 +229,7 @@ export function renderCampaign(ui, run) {
         LEVELS.indexOf(level) < LEVELS.length - 1
           ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked`
           : "";
-      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${scoreCard(s)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
+      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${scoreCard(s)}${tourResultNotes(level, result.facts)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
       ui.say(
         result.provisional
           ? `Heat ${run.stageIndex + 1} banked. ${run.combinedScore} points. ${run.stageIndex ? "THE LEDGER IS GETTING LOUDER." : "Please retain the cart for the next examination."}`
@@ -258,6 +271,16 @@ export function updateCampaignCoach(world, run) {
     skills = world.skills.metrics();
   let text;
   switch (run.level.modifier.focus) {
+    case "night-road": {
+      const verse = roadVerse(world);
+      text = `${verse >= 0 ? ROAD_POEM[verse] : "Three bumps. Three verses. Watch the push meter."} · ${skills.pushCounts.Miss} Misses`;
+      break;
+    }
+    case "library":
+      text = world.impactLoudness == null
+        ? "Clear the books; try Good takeoff for a quieter arc. Brace near contact. Quiet means noise ≤100%."
+        : `${libraryTooLoud(world) ? "shhh! too loud for Gold" : "Quiet impact"} · ${noisePercent(world)}% noise · ${world.propFacts().propsFallen} books knocked over`;
+      break;
     case "push":
       text = world.launched
         ? `Takeoff: ${skills.takeoffGrade} · Gold needs Perfect takeoff. Finish the attempt to bank it.`

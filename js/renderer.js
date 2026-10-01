@@ -92,6 +92,7 @@ export class Renderer {
       accent: this.cosmetics.arena || theme.accent,
       camera: this.camera, startX: course.startX, time: world?.elapsed || 0,
       reducedMotion: this.motionPreference?.matches || false,
+      impactLoudness: world?.impactLoudness ?? null,
     });
     c.save();
     c.scale(this.camera.scale, this.camera.scale);
@@ -176,6 +177,7 @@ export class Renderer {
     c.stroke();
     // Optional extra static pieces (bars, walls, second ramps) from course data.
     for (const piece of course.pieces) {
+      if (theme.drawPiece?.(this, piece, course)) continue;
       if (["pit", "platform", "conveyor", "props", "obstacle"].includes(piece.type)) {
         this.drawCoursePiece(piece, course, theme);
         continue;
@@ -184,6 +186,7 @@ export class Renderer {
       if (piece.sign) this.pieceSign(piece);
     }
     for (const prop of world?.looseProps || []) {
+      if (theme.drawProp?.(this, prop)) continue;
       const piece = prop.coursePiece, colors = theme.pieces.props;
       this.polygon(prop.vertices, piece.fill || colors.fill, piece.stroke || colors.stroke, 2);
       c.beginPath();
@@ -287,7 +290,6 @@ export class Renderer {
   }
   // Default piece art uses theme colours, with per-piece overrides.
   drawCoursePiece(piece, course, theme) {
-    if (theme.drawPiece?.(this, piece, course)) return;
     const c = this.ctx, colors = theme.pieces[piece.type];
     const fill = piece.fill || colors.fill, stroke = piece.stroke || colors.stroke;
     if (piece.type === "pit") {

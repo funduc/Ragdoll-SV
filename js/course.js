@@ -226,6 +226,35 @@ export function pinLayout(pins, groundY) {
 }
 
 export const COURSES = freeze({
+  "mapleton-night-shift": defineCourse({
+    id: "mapleton-night-shift", name: "Mapleton Road: Night Shift", theme: "mapleton-night-shift",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,
+    startX: -3000, endX: 10500, groundRight: 11000,
+    pieces: [
+      ...[-1900, -800, 400].map((x, i) => ({
+        type: "polygon", label: `poem-bump-${i + 1}`,
+        points: [{ x: x - 100, y: 520 }, { x, y: 506 - i * 2 }, { x: x + 100, y: 520 }],
+        fill: "#55575d", stroke: "#eac47b", sign: `VERSE ${i + 1}`,
+      })),
+      ...[1900, 2700, 4700].map((x, i) => ({
+        type: "pit", label: `pothole-${i + 1}`, x, width: 180, depth: 150, sign: "POTHOLE",
+      })),
+    ],
+  }),
+  "quiet-please": defineCourse({
+    id: "quiet-please", name: "Quiet Please", theme: "quiet-please",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,
+    startX: -3000, endX: 10500, groundRight: 11000,
+    pieces: [
+      { type: "polygon", label: "book-kicker", landing: true,
+        points: [{ x: 2400, y: 520 }, { x: 2680, y: 460 }, { x: 2680, y: 520 }],
+        fill: "#735542", stroke: "#c5ae7b" },
+      { type: "platform", label: "book-stack", x: 2740, y: 490, width: 120, height: 60,
+        sign: "LAND BEYOND →" },
+      { type: "props", label: "loose-books", x: 2740, y: 454, width: 88, height: 12,
+        rows: 5, mass: 0.3, fill: "#587e68", stroke: "#dccda7" },
+    ],
+  }),
   "long-jump": defineCourse({
     id: "long-jump",
     name: "Long Jump",

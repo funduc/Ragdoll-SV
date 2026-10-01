@@ -32,7 +32,7 @@ import {
   bowlingResultMarkup,
 } from "./party-ui.js";
 import { bowlingLine, bowlingLineKind } from "./bowling.js";
-import { applause } from "./santor-tour.js";
+import { applause, libraryTooLoud, noisePercent, roadVerse, ROAD_POEM } from "./santor-tour.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
 
@@ -113,6 +113,7 @@ export class UI {
     this.commentator.resetAttempt();
     this.announced = new Set();
     this.trickDisplay?.reset();
+    this.roadVerse = -1;
   }
   observeAttempt(world, tournament) {
     this.trickDisplay.observe(world);
@@ -145,6 +146,11 @@ export class UI {
       }
     }
     this.say(this.commentator.tick(world.elapsed));
+    const verse = roadVerse(world);
+    if (verse > this.roadVerse) {
+      this.roadVerse = verse;
+      this.say(`BRANDON: ${ROAD_POEM[verse]}`);
+    }
   }
   showIntroduction(t) {
     const c = t.current;
@@ -363,10 +369,16 @@ export class UI {
       ? `${world.pinsDown} <small>/ ${world.pins.length}</small>`
       : `${(height ?? world.distancePixels / 40).toFixed(1)} <small>m</small>`;
     const openMic = world.course.id === "open-mic";
-    this.hudRotationLabel.textContent = openMic ? "APPLAUSE" : "AIR ROTATION";
+    const library = world.course.id === "quiet-please";
+    this.hudRotationLabel.textContent = openMic ? "APPLAUSE" : library ? "NOISE · LIMIT 100%" : "AIR ROTATION";
     if (openMic) {
       const unique = world.tricks.unique.size, value = applause(unique, world.crashed);
       const markup = `<span class="applause-value">${value}% · ${unique} tricks</span><meter class="applause-meter" min="0" max="100" value="${value}" aria-label="Crowd applause">${value}%</meter>`;
+      if (this.hudRotation.innerHTML !== markup) this.hudRotation.innerHTML = markup;
+    } else if (library) {
+      const value = noisePercent(world), loud = libraryTooLoud(world);
+      const status = world.impactLoudness == null ? "AWAITING LANDING" : loud ? "SHHH! TOO LOUD" : "QUIET";
+      const markup = `<span class="noise-value">${value}% · ${status}</span><meter class="noise-meter" min="0" max="150" high="100" optimum="0" value="${Math.min(150, value)}" aria-label="First landing noise; quiet at 100 percent or below">${value}%</meter>`;
       if (this.hudRotation.innerHTML !== markup) this.hudRotation.innerHTML = markup;
     } else this.hudRotation.textContent = `${Math.round((world.airRotation * 180) / Math.PI)}°`;
     this.hudTime.innerHTML = `${Math.max(0, (world.launched ? ATTEMPT_LIMIT : 12) - world.elapsed).toFixed(1)} <small>s</small>`;

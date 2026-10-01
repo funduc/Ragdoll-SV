@@ -550,6 +550,8 @@
   }
 }
 .applause-value { font-size: 12px; }
+.noise-value { font-size: 11px; }
+.noise-meter { display: block; width: 100%; height: 8px; accent-color: #a8d09b; }
 .applause-meter { display: block; width: 100%; height: 8px; accent-color: #ffc97f; }
 .applause-meter::-webkit-meter-optimum-value { background: #ffc97f; }
 .applause-meter::-moz-meter-bar { background: #ffc97f; }

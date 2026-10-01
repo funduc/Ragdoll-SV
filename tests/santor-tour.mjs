@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 import { CHARACTERS } from "../js/characters.js";
-import { TOUR_LEVELS, applause, crowdCue, tourFacts } from "../js/santor-tour.js";
+import { TOUR_LEVELS, applause, crowdCue, tourFacts, QUIET_IMPACT_LIMIT, ROAD_POEM, roadVerse } from "../js/santor-tour.js";
 import { Campaign, CampaignState as S, campaignFacts } from "../js/campaign.js";
 import { CampaignSave, CAMPAIGN_SAVE_KEY } from "../js/campaign-save.js";
 import { evaluateMedal } from "../js/campaign-levels.js";
@@ -19,7 +19,7 @@ import { Presentation } from "../js/presentation.js";
 import { audioDouble } from "./fake-audio.mjs";
 
 runInThisContext(readFileSync(new URL("../vendor/matter-0.20.0.min.js", import.meta.url), "utf8"));
-const [freezer, mic] = TOUR_LEVELS;
+const [freezer, mic, night, library] = TOUR_LEVELS;
 const makeWorld = (level, character = CHARACTERS[0]) => new PhysicsWorld(character,
   level.arena, { condition: level.condition, upgrades: {}, objective: level.optionalObjective });
 const score = (world) => scoreAttempt(world.metrics(), world.character);
@@ -66,7 +66,7 @@ test("Old saves unlock the Tour per character; its own map row links both briefi
 });
 
 test("All three characters earn each Tour Santor medal with normal discrete controls and no upgrades", () => {
-  for (const c of CHARACTERS) for (const level of TOUR_LEVELS) {
+  for (const c of CHARACTERS) for (const level of [freezer, mic]) {
     const w = driveChapter(makeWorld(level, c), level, { flip: level === mic });
     const facts = campaignFacts(score(w), w, true), result = evaluateMedal(level, facts);
     assert.deepEqual(result, { medal: 3, santor: true }, `${c.id}/${level.id}: ${JSON.stringify(facts)}`);
@@ -174,7 +174,7 @@ test("Tour art replays identical Canvas commands; reduced motion freezes audienc
     const still = draw(w); w.elapsed += 1;
     assert.equal(draw(w), still);
     motion.matches = false;
-    assert.notEqual(draw(w), live);
+    if (level !== library) assert.notEqual(draw(w), live);
     r.destroy(); w.dispose();
   }
 });
@@ -196,6 +196,10 @@ test("Crowd cues and freezer hum respect gesture, pause, mute, voice bounds and 
   audio.play("boo"); assert.equal(audio.voices.size, 0);
   audio.setPaused(false); audio.play("boo"); assert.equal(audio.voices.size, 4);
   audio.toggle(); assert.equal(audio.voices.size, 0);
+  audio.play("shush"); assert.equal(audio.voices.size, 0);
+  audio.toggle(); audio.resetAttempt(); audio.play("shush"); assert.equal(audio.voices.size, 1);
+  audio.setPaused(true); assert.equal(audio.voices.size, 0);
+  audio.play("shush"); assert.equal(audio.voices.size, 0);
   const cues = [], p = Object.create(Presentation.prototype);
   Object.assign(p, { root: node(), music: { setTrack() {} }, musicDirector: { scene() {} }, audio: { play: (cue) => cues.push(cue) } });
   p.state({ state: S.RESULTS, level: mic, lastScore: { crashed: true } });
@@ -205,6 +209,114 @@ test("Crowd cues and freezer hum respect gesture, pause, mute, voice bounds and 
   assert.deepEqual(cues, ["boo", "crowd"]);
   assert.equal(crowdCue({ crashed: false, landingQuality: "No landing" }), "boo");
   audio.destroy(); assert.equal(ctx.connected.size, 0); w.dispose();
+});
+
+test("Tour stops 3 and 4 unlock sequentially in existing per-character saves and open from the map", () => {
+  const data = new Map([[CAMPAIGN_SAVE_KEY, JSON.stringify({ version: 1, selectedCharacter: "jake",
+    progress: { jake: { "freezer-aisle": { medal: 3 }, "open-mic": { medal: 1 } } } })]]);
+  const storage = { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) };
+  const run = new Campaign(new CampaignSave(storage), { seedFactory: () => 42 });
+  run.select("jake"); run.confirm();
+  assert.ok(run.isUnlocked(night)); assert.ok(!run.isUnlocked(library));
+  for (const level of [night, library]) {
+    renderCampaign(ui, run);
+    assert.match(ui.overlay.innerHTML, new RegExp(`data-value="${level.id}"(?![^>]*disabled)`));
+    assert.ok(run.startLevel(level.id)); assert.equal(run.state, S.READY);
+    renderCampaign(ui, run); assert.ok(ui.overlay.innerHTML.includes(level.john.introduction));
+    run.confirm();
+    const w = driveChapter(makeWorld(level), level, { target: level === library ? "Good" : "Perfect" });
+    run.record(score(w), w); renderCampaign(ui, run);
+    assert.match(ui.overlay.innerHTML, level === night ? /The road concedes/ : /NOISE · quiet.*0 BOOKS/);
+    run.confirm(); assert.equal(run.state, S.MAP); w.dispose();
+  }
+  const restored = new CampaignSave(storage);
+  for (const level of [night, library]) {
+    assert.equal(restored.entry("jake", level.id).medal, 3);
+    assert.equal(restored.entry("brandon", level.id).medal, 0);
+  }
+  assert.equal(restored.entry("jake", "open-mic").medal, 1);
+});
+
+test("Night Shift and Quiet Please reach Santor for all three characters without upgrades", () => {
+  for (const level of [night, library]) for (const c of CHARACTERS) {
+    const w = driveChapter(makeWorld(level, c), level, { target: level === library ? "Good" : "Perfect" });
+    const facts = campaignFacts(score(w), w, true);
+    assert.deepEqual(evaluateMedal(level, facts), { medal: 3, santor: true }, `${level.id}/${c.id}: ${JSON.stringify(facts)}`);
+    if (level === night) {
+      assert.equal(evaluateMedal(level, { ...facts, perfectTakeoff: false }).santor, false);
+      assert.equal(evaluateMedal(level, { ...facts, controlledLanding: false }).santor, false);
+      assert.equal(evaluateMedal(level, { ...facts, noMiss: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...facts, betweenPotholes: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...facts, avoidedPotholes: false }).medal, 1);
+    } else {
+      assert.ok(facts.impactLoudness <= QUIET_IMPACT_LIMIT);
+      assert.equal(evaluateMedal(level, { ...facts, quietImpact: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...facts, controlledLanding: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...facts, pastBookStack: false }).medal, 1);
+      assert.deepEqual(evaluateMedal(level, { ...facts, propsFallen: 1 }), { medal: 3, santor: false });
+      assert.equal(evaluateMedal(level, { ...facts, uniqueTricks: 0 }).santor, false);
+    }
+    w.dispose();
+  }
+});
+
+test("Every road bump reveals its verse; every pothole is a real crash opening", () => {
+  const w = makeWorld(night), verses = new Set();
+  const hud = Object.create(UI.prototype);
+  const lines = [];
+  Object.assign(hud, { trickDisplay: { observe() {}, reset() {} }, commentator: { enqueue() {}, tick() { return "John"; } },
+    announced: new Set(), roadVerse: -1, say: (line) => lines.push(line) });
+  for (let frame = 0; frame < 1250 && !w.finished; frame++) {
+    const input = chapterControls(w, night); w.step(input); w.step({ ...input, pushes: 0, brace: false });
+    const verse = roadVerse(w); if (verse >= 0) verses.add(verse);
+    hud.observeAttempt(w, { round: "qualifying" });
+  }
+  assert.deepEqual([...verses], [0, 1, 2]);
+  for (const line of ROAD_POEM.slice(0, 3)) assert.equal(lines.filter((s) => s === `BRANDON: ${line}`).length, 1);
+  w.dispose();
+  hud.resetAttempt = UI.prototype.resetAttempt;
+  hud.commentator.resetAttempt = () => {}; hud.resetAttempt(); assert.equal(hud.roadVerse, -1);
+  for (const pit of w.course.pieces.filter((p) => p.type === "pit")) {
+    const hazard = makeWorld(night);
+    assert.equal(Matter.Query.point(hazard.groundBodies, { x: pit.x, y: 530 }).length, 0);
+    drop(hazard, pit.x, 480);
+    for (let frame = 0; frame < 1500 && !hazard.finished; frame++) hazard.step();
+    assert.equal(hazard.crashClassification, "pit-fall"); assert.equal(score(hazard).landingPoints, 0);
+    assert.equal(tourFacts(hazard).avoidedPotholes, false); hazard.dispose();
+  }
+});
+
+test("Book kicker and loose books collide; clearing them leaves all books standing", () => {
+  const w = makeWorld(library);
+  // Drive the real cart into the stack sideways; no prop count is fabricated.
+  drop(w, 2650, 445);
+  for (const body of w.dynamic) Matter.Body.setVelocity(body, { x: 9, y: 0 });
+  for (let step = 0; step < 700 && !w.finished; step++) w.step();
+  assert.ok(w.propFacts().propsFallen > 0);
+  w.dispose();
+  const kicker = makeWorld(library); drop(kicker, 2510, 475);
+  for (let step = 0; step < 300 && !kicker.landed; step++) kicker.step();
+  assert.equal(kicker.firstLandingPiece?.label, "book-kicker");
+  assert.equal(tourFacts(kicker).pastBookStack, false); kicker.dispose();
+});
+
+test("Measured library noise costs Gold on a hard landing, updates HUD, and shushes once per attempt", () => {
+  const hud = Object.create(UI.prototype);
+  Object.assign(hud, { skillMeter: { update() {} }, campaignSession: null });
+  for (const key of ["passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
+  const w = makeWorld(library), cues = [], p = Object.create(Presentation.prototype);
+  Object.assign(p, { effects: new Effects(), audio: { resetAttempt() {}, play: (cue) => cues.push(cue) } });
+  hud.update(w); assert.match(hud.hudRotation.innerHTML, /AWAITING LANDING/);
+  for (let frame = 0; frame < 1250 && !w.finished; frame++) {
+    const input = chapterControls(w, library); w.step(input); w.step({ ...input, pushes: 0, brace: false });
+    p.observe(w); hud.update(w);
+  }
+  assert.match(hud.hudRotation.innerHTML, /SHHH! TOO LOUD/);
+  assert.equal(cues.filter((cue) => cue === "shush").length, 1);
+  assert.equal(evaluateMedal(library, campaignFacts(score(w), w, true)).medal, 2);
+  const fresh = makeWorld(library); p.observe(fresh); hud.update(fresh);
+  assert.equal(p.shushed, false); assert.match(hud.hudRotation.innerHTML, /AWAITING LANDING/);
+  fresh.dispose(); w.dispose();
 });
 
 console.log(`${groups} Santor on Tour groups passed.`);

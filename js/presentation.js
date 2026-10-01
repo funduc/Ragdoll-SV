@@ -2,7 +2,7 @@ import { SynthAudio } from "./audio.js";
 import { Effects } from "./effects.js";
 import { State } from "./tournament.js";
 import { MusicDirector, MusicPlayer } from "./music.js";
-import { crowdCue } from "./santor-tour.js";
+import { crowdCue, libraryTooLoud } from "./santor-tour.js";
 
 // A read-only observer of game state and Matter collision results. No physics writes.
 export class Presentation {
@@ -29,6 +29,7 @@ export class Presentation {
     this.launched = false;
     this.landed = false;
     this.crashed = false;
+    this.shushed = false;
     this.lostParts = 0;
     this.nextImpact = 0;
     this.skillSerial = 0;
@@ -50,7 +51,7 @@ export class Presentation {
     this.lastState = t.state;
     if (t.state === State.SCOREBOARD && t.lastEliminated)
       this.audio.play("elimination");
-    if (t.state === State.RESULTS)
+    if (t.state === State.RESULTS && t.level?.id !== "quiet-please")
       this.audio.play(t.level?.id === "open-mic" ? crowdCue(t.lastScore) : "crowd");
     if (t.state === State.FINAL) {
       this.effects.victory();
@@ -65,6 +66,10 @@ export class Presentation {
       return;
     }
     const feedback = world.skills.feedback;
+    if (world.course.id === "quiet-please" && libraryTooLoud(world) && !this.shushed) {
+      this.shushed = true;
+      this.audio.play("shush");
+    }
     if (feedback && feedback.serial !== this.skillSerial) {
       this.skillSerial = feedback.serial;
       const good = ["Perfect", "Perfect Brace"].includes(feedback.grade);

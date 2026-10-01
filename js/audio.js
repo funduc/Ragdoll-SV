@@ -250,6 +250,9 @@ export class SynthAudio {
             this.voice("triangle", f, i * 0.04, 0.55, 0.065, f * 0.65));
           this.voice("noise", 350, 0, 0.5, 0.07);
           break;
+        case "shush":
+          this.voice("noise", 3500, 0, 0.55, 0.1);
+          break;
         case "freezer-hum":
           this.voice("sine", 120, 0, 0.5, 0.035);
           this.voice("sine", 240, 0, 0.5, 0.012);

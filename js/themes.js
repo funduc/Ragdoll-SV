@@ -1,4 +1,6 @@
 import { Stadium } from "./stadium.js";
+import { libraryTooLoud } from "./santor-tour.js";
+import { pieceOutline } from "./course.js";
 
 const stadium = new Stadium();
 export const DEFAULT_THEME = Object.freeze({
@@ -161,8 +163,119 @@ const comedy = defineTheme({
   },
 });
 
+const nightRoad = defineTheme({
+  id: "mapleton-night-shift", accent: "#edcf87",
+  ground: { fill: "#292b34", edge: "#86838a", lines: "#363740", cracks: "#11131c", distanceStrip: "#4b4650" },
+  ramp: { fill: "#44434d", outline: "#999293", stripes: "#cbb47c", edge: "#ebd49e" },
+  pieces: { pit: { fill: "#080c15", stroke: "#c9b17c" } },
+  sponsors: [["MAPLETON RD", "NIGHT SHIFT", "#edcf87"], ["ROAD WORKS", "POETRY IN MOTION", "#becad0"]],
+  backdrop(ctx, { width: w, height: h, label, time, reducedMotion }) {
+    ctx.fillStyle = "#101525"; ctx.fillRect(0, 0, w, h);
+    const floor = h * 0.8;
+    ctx.fillStyle = "#cfcca4"; ctx.beginPath(); ctx.arc(w * 0.83, 52, 17, 0, Math.PI * 2); ctx.fill();
+    for (let x = -20, i = 0; x < w; x += 188, i++) {
+      const roof = h * 0.37 + (i % 2) * 21;
+      ctx.fillStyle = i % 2 ? "#272d3c" : "#303443"; ctx.fillRect(x, roof, 161, floor - roof);
+      ctx.beginPath(); ctx.moveTo(x - 8, roof); ctx.lineTo(x + 80, roof - 55);
+      ctx.lineTo(x + 169, roof); ctx.closePath(); ctx.fill();
+      for (let row = 0; row < 2; row++) for (let col = 0; col < 3; col++) {
+        ctx.fillStyle = (i + row + col) % 3 ? "#131c2a" : "#e0b969";
+        ctx.fillRect(x + 19 + col * 44, roof + 27 + row * 59, 23, 31);
+      }
+      // Parked cars stay behind the playable asphalt.
+      ctx.fillStyle = ["#525369", "#384c59", "#5b4048"][i % 3];
+      ctx.fillRect(x + 15, floor - 36, 118, 24); ctx.fillRect(x + 40, floor - 57, 62, 24);
+      ctx.fillStyle = "#111820"; ctx.fillRect(x + 46, floor - 51, 50, 15);
+      for (const wheelX of [x + 37, x + 112]) {
+        ctx.beginPath(); ctx.arc(wheelX, floor - 12, 11, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    for (let x = 85; x < w; x += 340) {
+      const lampY = h * 0.24;
+      ctx.fillStyle = "#ffe0a014"; ctx.beginPath(); ctx.moveTo(x, lampY);
+      ctx.lineTo(x - 112, floor); ctx.lineTo(x + 112, floor); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x, floor, 112, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#585969"; ctx.fillRect(x - 4, lampY, 6, floor - lampY);
+      ctx.fillStyle = "#ffe5a9"; ctx.fillRect(x - 19, lampY - 5, 36, 7);
+      ctx.fillStyle = "#ecd5aa";
+      for (let i = 0; i < 4; i++) {
+        const phase = i * 1.7 + (reducedMotion ? 0 : time * (1 + i * 0.17));
+        ctx.fillRect(x + Math.cos(phase) * 26, lampY + 16 + Math.sin(phase * 1.3) * 13, 3, 2);
+      }
+    }
+    ctx.fillStyle = "#346451"; ctx.fillRect(w * 0.49 - 73, h * 0.18, 146, 27);
+    label("MAPLETON RD", w * 0.49, h * 0.18 + 19, 16, "#eff5d9", "center");
+  },
+});
+
+const library = defineTheme({
+  id: "quiet-please", accent: "#a8d09b",
+  ground: { fill: "#4a3930", edge: "#c5ae7b", lines: "#635041", cracks: "#2c241e", distanceStrip: "#695638" },
+  ramp: { fill: "#70543e", outline: "#b69d73", stripes: "#517a5d", edge: "#c5ae7b" },
+  sponsors: [["QUIET PLEASE", "LAND SOFTLY · READ OFTEN", "#a8d09b"], ["DUE TODAY", "ONE SHOPPING CART", "#d9c497"]],
+  backdrop(ctx, view) {
+    const { width: w, height: h, label } = view, floor = h * 0.8;
+    ctx.fillStyle = "#302c27"; ctx.fillRect(0, 0, w, h);
+    for (let x = -8; x < w; x += 178) {
+      ctx.fillStyle = "#5d4432"; ctx.fillRect(x, 36, 166, floor - 36);
+      for (let row = 0; row < 5; row++) {
+        const y = 67 + row * (floor - 78) / 5;
+        ctx.fillStyle = "#221e1d"; ctx.fillRect(x + 8, y - 24, 150, 51);
+        for (let b = 0; b < 11; b++) {
+          const height = 29 + (b * 7 + row * 3) % 18;
+          ctx.fillStyle = ["#75624a", "#526f5a", "#704d4b", "#52616b"][(b + row) % 4];
+          ctx.fillRect(x + 11 + b * 13, y + 24 - height, 10, height);
+          ctx.fillStyle = "#cfba8155"; ctx.fillRect(x + 12 + b * 13, y + 16, 8, 2);
+        }
+      }
+    }
+    ctx.fillStyle = "#ddcda9"; ctx.fillRect(w * 0.5 - 87, 54, 174, 36);
+    label("QUIET PLEASE", w * 0.5, 79, 21, "#3c4535", "center");
+    for (let x = 55; x < w; x += 285) {
+      ctx.fillStyle = "#60884a17"; ctx.beginPath(); ctx.moveTo(x, floor - 86);
+      ctx.lineTo(x - 65, floor); ctx.lineTo(x + 65, floor); ctx.fill();
+      ctx.fillStyle = "#a48c56"; ctx.fillRect(x - 2, floor - 85, 4, 65);
+      ctx.fillStyle = "#467d52"; ctx.beginPath(); ctx.ellipse(x, floor - 87, 28, 12, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#77563c"; ctx.fillRect(x - 60, floor - 20, 120, 12);
+    }
+    const x = w * 0.76, loud = libraryTooLoud(view);
+    ctx.fillStyle = "#171d1d"; ctx.beginPath(); ctx.ellipse(x, floor - 40, 25, 44, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + (loud ? -6 : 6), floor - 93, 17, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + (loud ? 11 : -11), floor - 104, 9, 0, Math.PI * 2); ctx.fill();
+    // Turning is an immediate pose change, safe with reduced motion and in replay.
+    ctx.fillStyle = "#b0bba2"; ctx.fillRect(x + (loud ? -18 : 13), floor - 95, 8, 3);
+    if (loud) {
+      ctx.fillRect(x - 18, floor - 84, 3, 14);
+      label("shhh!", x - 28, floor - 125, 19, "#e7d8aa", "center");
+    }
+  },
+  drawPiece(renderer, piece) {
+    if (!["book-kicker", "book-stack"].includes(piece.label)) return false;
+    const ctx = renderer.ctx, outline = pieceOutline(piece);
+    renderer.polygon(outline, "#735542", "#c5ae7b");
+    ctx.save(); ctx.beginPath(); outline.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+    ctx.closePath(); ctx.clip();
+    const left = Math.min(...outline.map((p) => p.x)), right = Math.max(...outline.map((p) => p.x));
+    for (let y = 462, i = 0; y < 520; y += 12, i++) {
+      ctx.fillStyle = i % 2 ? "#526d58" : "#805551"; ctx.fillRect(left, y, right - left, 10);
+      ctx.fillStyle = "#cbbb94"; ctx.fillRect(left + 6, y + 3, right - left - 12, 4);
+    }
+    ctx.restore();
+    if (piece.sign) renderer.label(piece.sign, piece.x + piece.width / 2 + 10, 505, 14, "#e9dcae");
+    return true;
+  },
+  drawProp(renderer, prop) {
+    const ctx = renderer.ctx, piece = prop.coursePiece;
+    ctx.save(); ctx.translate(prop.position.x, prop.position.y); ctx.rotate(prop.angle);
+    ctx.fillStyle = piece.fill; ctx.fillRect(-piece.width / 2, -piece.height / 2, piece.width, piece.height);
+    ctx.fillStyle = piece.stroke; ctx.fillRect(-piece.width / 2 + 5, -piece.height / 2 + 3, piece.width - 10, piece.height - 6);
+    ctx.restore(); return true;
+  },
+});
+
 export const THEMES = Object.freeze({
   [DEFAULT_THEME.id]: DEFAULT_THEME, [freezer.id]: freezer, [comedy.id]: comedy,
+  [nightRoad.id]: nightRoad, [library.id]: library,
 });
 
 export class ThemePainter {

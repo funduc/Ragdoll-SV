@@ -30,6 +30,8 @@ Vault Run menus are kept short: the map is a grid of level tiles (bonus levels i
 
 On Vault Run results, **RETRY** or **R** starts the same level without the map or briefing. Three-heat levels restart at heat 1. A pending upgrade choice comes first; choosing or skipping it then starts your retry.
 
+Bronze at The Open Mic opens **Mapleton Road: Night Shift**: three speed bumps reveal Brandon's road poem, then three potholes interrupt the landing strip. Land between potholes with no Missed pushes for Gold; add Clean and Perfect takeoff for Santor. Bronze there opens **Quiet Please**: clear the book-stack kicker and land beyond it. Try Good takeoff for a lower arc, then level and brace: Clean with first-impact noise at or below 100% earns Gold (950 px/s normal impact speed). A trick and zero books knocked over add Santor. Loud impacts turn the librarian around with a shush; the noise meter and results also show this without sound.
+
 Results in both modes offer **WATCH REPLAY**. Crashes and landings over 55 m replay automatically with slow motion around impact; any key or tap skips to results. Recordings stay in memory for the current attempt (up to 20 seconds). Reduced motion disables automatic playback and slow motion; manual replay remains available.
 
 The run-up is long: a good one takes about six on-beat pushes (roughly 4 seconds). Only Perfect pushes reach top speed, and taps faster than the beat count as Miss. Typical distances: sloppy 20–30 m, solid 40–50 m, excellent 60–70 m. Tuning lives in `SKILL_CONFIG` (`js/skill-config.js`).
@@ -60,7 +62,7 @@ New pieces inherit `theme.pieces[type].fill/stroke`; per-piece `fill`, `stroke`,
 
 ## Engineering and tests
 
-Themes may provide `drawPiece(renderer, piece, course)` and return `true` to replace a piece's default art; collision shapes still come from the course. The Tour themes demonstrate freezer lids and a microphone, with fog and audience motion driven by recorded attempt time and disabled by reduced motion. `firstLandingPiece`, `firstLandingOnTop` and latched `obstacleHits` supply the Tour's medal facts without changing scoring or physics.
+Themes may provide `drawPiece(renderer, piece, course)` or `drawProp(renderer, prop)` and return `true` to replace static or loose-piece art; collision shapes still come from the course. The Tour themes demonstrate freezer lids, a microphone and books, with fog, audience and moth motion driven by recorded attempt time and disabled by reduced motion. `firstLandingPiece`, `firstLandingOnTop`, `impactLoudness` and latched `obstacleHits` supply the Tour's medal facts without changing scoring or physics.
 
 Run the dependency-free test suite with Node.js 22 or newer:
 
