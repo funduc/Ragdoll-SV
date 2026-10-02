@@ -91,6 +91,9 @@ function definePiece(raw, index) {
   if (raw.type === "conveyor") {
     if (piece.angle !== 0) throw new RangeError("Conveyors must be horizontal.");
     piece.speed = number(raw.speed, "conveyor.speed"); // signed world pixels/second
+    piece.stopAfter = raw.stopAfter == null ? null : number(raw.stopAfter, "conveyor.stopAfter");
+    if (piece.stopAfter !== null && piece.stopAfter <= 0)
+      throw new RangeError("Conveyor stopAfter must be positive.");
   }
   if (raw.type === "props") {
     piece.landing = false;
@@ -100,6 +103,8 @@ function definePiece(raw, index) {
       throw new RangeError("Prop rows and columns must be positive integers.");
     piece.gap = number(raw.gap ?? 0, "props.gap");
     piece.mass = number(raw.mass ?? 0.3, "props.mass");
+    piece.carnagePoints = number(raw.carnagePoints ?? 0, "props.carnagePoints");
+    if (piece.carnagePoints < 0) throw new RangeError("Prop carnage points cannot be negative.");
     if (piece.gap < 0 || piece.mass <= 0) throw new RangeError("Invalid prop spacing or mass.");
     piece.lineX = raw.lineX == null ? null : number(raw.lineX, "props.lineX");
     piece.lineDirection = raw.lineDirection === -1 ? -1 : 1;
@@ -129,6 +134,12 @@ export function propLayout(piece) {
     x: piece.x + (i % piece.columns) * (piece.width + piece.gap),
     y: piece.y - Math.floor(i / piece.columns) * (piece.height + piece.gap),
   }));
+}
+
+// Optional powered cycle starts at first landing; ordinary belts run forever.
+export function conveyorSpeed(piece, world) {
+  return piece.stopAfter != null && world?.landed &&
+    world.elapsed - world.landingTime >= piece.stopAfter ? 0 : piece.speed;
 }
 
 // Fills in derived fields and freezes the result. Only the ramp, ground
@@ -226,6 +237,25 @@ export function pinLayout(pins, groundY) {
 }
 
 export const COURSES = freeze({
+  "siemens-floor": defineCourse({
+    id: "siemens-floor", name: "Siemens Floor", theme: "siemens-floor",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,
+    startX: -3000, endX: 10500, groundRight: 11000,
+    pieces: [
+      { type: "pit", label: "factory-return-pit", x: 2000, width: 1000, depth: 150, sign: "RETURN CHUTE" },
+      { type: "conveyor", label: "factory-belt", x: 4100, y: 530, width: 3200, height: 40,
+        speed: -180, stopAfter: 4, sign: "← BACKWARDS · STAY ABOARD" },
+    ],
+  }),
+  "temu-warehouse": defineCourse({
+    id: "temu-warehouse", name: "Temu Warehouse", theme: "temu-warehouse",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,
+    startX: -3000, endX: 10500, groundRight: 11000,
+    pieces: [
+      { type: "props", label: "warehouse-boxes", x: 3500, y: 495, width: 50, height: 50,
+        columns: 6, rows: 6, mass: 0.035, friction: 0.45, carnagePoints: 25 },
+    ],
+  }),
   "mapleton-night-shift": defineCourse({
     id: "mapleton-night-shift", name: "Mapleton Road: Night Shift", theme: "mapleton-night-shift",
     groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,

@@ -71,7 +71,7 @@ for (const [course, expected] of Object.entries(baseline)) {
 }
 console.log("PASS default stadium: 54 unchanged Canvas traces across all events, characters and viewport sizes");
 
-// Sample themes stay in tests; the Vault and four authored Tour themes ship.
+// Sample themes stay in tests; the Vault and six authored Tour themes ship.
 const SAMPLE = defineTheme({
   id: "snow-test",
   accent: "#abcdef",
@@ -85,7 +85,7 @@ const SAMPLE = defineTheme({
   ambient: { kind: "snow", count: 100, color: "#fedcba" },
 });
 const registry = { ...THEMES, [SAMPLE.id]: SAMPLE };
-assert.deepEqual(Object.keys(THEMES), [DEFAULT_THEME.id, "freezer-aisle", "open-mic", "mapleton-night-shift", "quiet-please"]);
+assert.deepEqual(Object.keys(THEMES), [DEFAULT_THEME.id, "freezer-aisle", "open-mic", "mapleton-night-shift", "quiet-please", "siemens-floor", "temu-warehouse"]);
 assert.equal(SAMPLE.ambient.count, 48);
 const course = defineCourse({ ...DEFAULT_COURSE, theme: SAMPLE.id });
 const world = new PhysicsWorld(CHARACTERS[0], { course });

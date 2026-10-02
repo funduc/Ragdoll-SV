@@ -55,6 +55,7 @@ export class ReplayRecording {
       crashed: world.crashed,
       attached: world.attached,
       landed: world.landed,
+      landingTime: world.landingTime,
       impactLoudness: world.impactLoudness,
       // Condition markings read these; a replay has no live RunEffects.
       elapsed: world.elapsed,

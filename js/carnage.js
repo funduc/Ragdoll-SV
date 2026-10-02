@@ -125,10 +125,13 @@ export class CrashDamage {
     const partsLost = this.lostParts.size;
     const airtime = Math.round(this.airtime * 10) / 10;
     const distance = Math.round(this.distance * 10) / 10;
+    const propPoints = this.world.looseProps.reduce((sum, prop) =>
+      sum + (prop.fallen ? prop.coursePiece.carnagePoints : 0), 0);
     return Object.freeze({
       partsLost, airtime, bounces: this.bounces, distance,
       ...this.world.propFacts(),
-      total: Math.round(partsLost * 150 + airtime * 100 + this.bounces * 75 + distance * 10),
+      propPoints,
+      total: Math.round(partsLost * 150 + airtime * 100 + this.bounces * 75 + distance * 10 + propPoints),
     });
   }
 }

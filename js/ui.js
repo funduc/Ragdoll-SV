@@ -32,7 +32,7 @@ import {
   bowlingResultMarkup,
 } from "./party-ui.js";
 import { bowlingLine, bowlingLineKind } from "./bowling.js";
-import { applause, libraryTooLoud, noisePercent, roadVerse, ROAD_POEM } from "./santor-tour.js";
+import { applause, libraryTooLoud, noisePercent, roadVerse, ROAD_POEM, factoryCycleRemaining } from "./santor-tour.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
 
@@ -146,6 +146,10 @@ export class UI {
       }
     }
     this.say(this.commentator.tick(world.elapsed));
+    if (world.course.id === "temu-warehouse" && world.propFacts().propsFallen > 0 && !this.announced.has("ordered-boxes")) {
+      this.announced.add("ordered-boxes");
+      this.say("OWEN: I ordered these.");
+    }
     const verse = roadVerse(world);
     if (verse > this.roadVerse) {
       this.roadVerse = verse;
@@ -370,7 +374,9 @@ export class UI {
       : `${(height ?? world.distancePixels / 40).toFixed(1)} <small>m</small>`;
     const openMic = world.course.id === "open-mic";
     const library = world.course.id === "quiet-please";
-    this.hudRotationLabel.textContent = openMic ? "APPLAUSE" : library ? "NOISE · LIMIT 100%" : "AIR ROTATION";
+    const factory = world.course.id === "siemens-floor", warehouse = world.course.id === "temu-warehouse";
+    this.hudRotationLabel.textContent = openMic ? "APPLAUSE" : library ? "NOISE · LIMIT 100%"
+      : factory ? "BACKWARD BELT" : warehouse ? "BOXES KNOCKED" : "AIR ROTATION";
     if (openMic) {
       const unique = world.tricks.unique.size, value = applause(unique, world.crashed);
       const markup = `<span class="applause-value">${value}% · ${unique} tricks</span><meter class="applause-meter" min="0" max="100" value="${value}" aria-label="Crowd applause">${value}%</meter>`;
@@ -380,6 +386,11 @@ export class UI {
       const status = world.impactLoudness == null ? "AWAITING LANDING" : loud ? "SHHH! TOO LOUD" : "QUIET";
       const markup = `<span class="noise-value">${value}% · ${status}</span><meter class="noise-meter" min="0" max="150" high="100" optimum="0" value="${Math.min(150, value)}" aria-label="First landing noise; quiet at 100 percent or below">${value}%</meter>`;
       if (this.hudRotation.innerHTML !== markup) this.hudRotation.innerHTML = markup;
+    } else if (warehouse) {
+      this.hudRotation.innerHTML = `${world.propFacts().propsFallen} <small>/ ${world.looseProps.length}</small>`;
+    } else if (factory) {
+      const remaining = factoryCycleRemaining(world);
+      this.hudRotation.innerHTML = `<span class="tour-counter-value">${world.leftConveyor ? "OFF BELT" : remaining ? `← ${remaining.toFixed(1)} s` : "STOPPED"}</span>`;
     } else this.hudRotation.textContent = `${Math.round((world.airRotation * 180) / Math.PI)}°`;
     this.hudTime.innerHTML = `${Math.max(0, (world.launched ? ATTEMPT_LIMIT : 12) - world.elapsed).toFixed(1)} <small>s</small>`;
     this.hint.textContent = world.landed

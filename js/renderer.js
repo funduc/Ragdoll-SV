@@ -177,7 +177,7 @@ export class Renderer {
     c.stroke();
     // Optional extra static pieces (bars, walls, second ramps) from course data.
     for (const piece of course.pieces) {
-      if (theme.drawPiece?.(this, piece, course)) continue;
+      if (theme.drawPiece?.(this, piece, course, world)) continue;
       if (["pit", "platform", "conveyor", "props", "obstacle"].includes(piece.type)) {
         this.drawCoursePiece(piece, course, theme);
         continue;

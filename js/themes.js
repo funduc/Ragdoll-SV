@@ -1,6 +1,6 @@
 import { Stadium } from "./stadium.js";
 import { libraryTooLoud } from "./santor-tour.js";
-import { pieceOutline } from "./course.js";
+import { pieceOutline, conveyorSpeed } from "./course.js";
 
 const stadium = new Stadium();
 export const DEFAULT_THEME = Object.freeze({
@@ -273,9 +273,110 @@ const library = defineTheme({
   },
 });
 
+const factory = defineTheme({
+  id: "siemens-floor", accent: "#ffad48",
+  ground: { fill: "#343d40", edge: "#a2a8a0", lines: "#455155", cracks: "#202829", distanceStrip: "#665d33" },
+  ramp: { fill: "#484e4b", outline: "#a7a99a", stripes: "#e2b73c", edge: "#c8c9ac" },
+  sponsors: [["SIEMENS CERTIFIED", "NORMAL TUESDAY", "#ffad48"], ["← REVERSE BELT", "STAY ABOARD", "#edcf6a"]],
+  backdrop(ctx, { width: w, height: h, label, time, reducedMotion }) {
+    ctx.fillStyle = "#283437"; ctx.fillRect(0, 0, w, h);
+    for (let x = 20; x < w; x += 155) {
+      ctx.fillStyle = "#414e50"; ctx.fillRect(x, 0, 32, h * 0.78);
+      ctx.fillStyle = "#687273"; ctx.fillRect(x + 5, 0, 5, h * 0.78);
+      for (let y = 100; y < h * 0.75; y += 110) {
+        ctx.fillStyle = "#89918b"; ctx.fillRect(x - 4, y, 40, 7);
+      }
+    }
+    ctx.fillStyle = "#626b69"; ctx.fillRect(0, h * 0.29, w, 38);
+    ctx.fillStyle = "#8b9185"; ctx.fillRect(0, h * 0.29 + 5, w, 4);
+    const floor = h * 0.81;
+    ctx.fillStyle = "#171d20"; ctx.fillRect(0, floor - 12, w, 22);
+    for (let x = 0; x < w; x += 34) {
+      ctx.fillStyle = "#e1b33c"; ctx.beginPath(); ctx.moveTo(x, floor - 12);
+      ctx.lineTo(x + 17, floor - 12); ctx.lineTo(x + 34, floor + 10); ctx.lineTo(x + 17, floor + 10); ctx.fill();
+    }
+    // A background robot: its animation never enters the Matter world.
+    ctx.save(); ctx.translate(w * 0.75, floor - 16);
+    ctx.fillStyle = "#ae702f"; ctx.fillRect(-38, -18, 76, 24);
+    ctx.strokeStyle = "#c8893a"; ctx.lineWidth = 20;
+    const sway = reducedMotion ? 0 : Math.sin(time * 0.5) * 14;
+    ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(-43, -106); ctx.lineTo(18 + sway, -161); ctx.stroke();
+    ctx.strokeStyle = "#a9b1a7"; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(18 + sway, -161); ctx.lineTo(30 + sway, -134);
+    ctx.moveTo(18 + sway, -161); ctx.lineTo(3 + sway, -136); ctx.stroke(); ctx.restore();
+    for (let x = 60; x < w; x += 310) {
+      ctx.save(); ctx.translate(x, h * 0.2);
+      ctx.rotate(reducedMotion ? 0 : time * 2);
+      ctx.fillStyle = "#ffb23b23"; ctx.beginPath(); ctx.moveTo(0, 0);
+      ctx.lineTo(75, -20); ctx.lineTo(75, 20); ctx.fill(); ctx.restore();
+      ctx.fillStyle = "#f59630"; ctx.beginPath(); ctx.arc(x, h * 0.2, 9, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.save(); ctx.translate(w * 0.49, h * 0.32); ctx.rotate(-0.045);
+    ctx.fillStyle = "#e7d9ac"; ctx.fillRect(-125, -28, 250, 56);
+    label("SIEMENS CERTIFIED", 0, -3, 19, "#2d4b49", "center");
+    label("OWEN WRATE · APPROVED", 0, 17, 11, "#59624e", "center"); ctx.restore();
+  },
+  drawPiece(renderer, piece, course, world) {
+    if (piece.type !== "conveyor") return false;
+    const ctx = renderer.ctx, left = piece.x - piece.width / 2, top = piece.y - piece.height / 2;
+    ctx.fillStyle = "#252d30"; ctx.fillRect(left, top, piece.width, piece.height);
+    ctx.strokeStyle = "#d9b83f"; ctx.lineWidth = 3; ctx.strokeRect(left, top, piece.width, piece.height);
+    // Freeze the visible tread when the powered cycle stops (also in replay).
+    const t = world?.landed ? Math.min(world.elapsed, world.landingTime + piece.stopAfter) : world?.elapsed || 0;
+    const offset = renderer.motionPreference?.matches ? 0 : (t * piece.speed) % 60;
+    ctx.save(); ctx.beginPath(); ctx.rect(left, top, piece.width, piece.height); ctx.clip();
+    for (let x = left - 60 + offset; x < left + piece.width + 60; x += 60) {
+      ctx.strokeStyle = "#819087"; ctx.beginPath(); ctx.moveTo(x + 15, top + 7);
+      ctx.lineTo(x, top + 18); ctx.lineTo(x + 15, top + 29); ctx.stroke();
+    }
+    ctx.restore();
+    renderer.label(conveyorSpeed(piece, world) ? "← BACKWARDS · STAY ABOARD" : "BELT STOPPED · SETTLE", left + 30, top + 64, 15, "#edcf6a");
+    return true;
+  },
+});
+
+const warehouse = defineTheme({
+  id: "temu-warehouse", accent: "#ffad67",
+  ground: { fill: "#5d5145", edge: "#c6b49a", lines: "#75624d", cracks: "#352d28", distanceStrip: "#996033" },
+  ramp: { fill: "#796049", outline: "#cba273", stripes: "#ef883e", edge: "#ecd4a2" },
+  sponsors: [["TEMU WAREHOUSE", "I ORDERED THESE", "#ffad67"], ["36 PARCELS", "HANDLE WITH CART", "#e6c99b"]],
+  backdrop(ctx, { width: w, height: h, label }) {
+    ctx.fillStyle = "#3c3734"; ctx.fillRect(0, 0, w, h);
+    for (let x = -12; x < w; x += 170) {
+      ctx.fillStyle = "#6b7774"; ctx.fillRect(x, 0, 9, h * 0.83);
+      for (let row = 0; row < 4; row++) {
+        const y = 26 + row * h * 0.195;
+        for (let box = 0; box < 3; box++) {
+          ctx.fillStyle = box % 2 ? "#98734f" : "#b0895b";
+          ctx.fillRect(x + 15 + box * 49, y, 43, h * 0.135);
+          ctx.fillStyle = "#e48740"; ctx.fillRect(x + 33 + box * 49, y, 7, h * 0.135);
+        }
+        ctx.fillStyle = "#887657"; ctx.fillRect(x + 10, y + h * 0.135, 156, 8);
+        ctx.fillStyle = "#38423f"; ctx.fillRect(x + 10, y + h * 0.135 + 8, 156, 7);
+      }
+    }
+    ctx.fillStyle = "#f2d9a8"; ctx.fillRect(w * 0.04, h * 0.3, w * 0.92, 52);
+    label("ESTIMATED DELIVERY:", w / 2, h * 0.3 + 21, 15, "#593f30", "center");
+    label("3–5 BUSINESS WEEKS", w / 2, h * 0.3 + 42, 18, "#593f30", "center");
+    for (let x = 24; x < w; x += 230) {
+      ctx.fillStyle = "#a67d4e"; ctx.fillRect(x, h * 0.8, 118, 9); ctx.fillRect(x, h * 0.83, 118, 7);
+      for (let i = 0; i < 3; i++) ctx.fillRect(x + i * 50, h * 0.8, 14, h * 0.04);
+    }
+  },
+  drawProp(renderer, prop) {
+    const ctx = renderer.ctx, p = prop.coursePiece;
+    ctx.save(); ctx.translate(prop.position.x, prop.position.y); ctx.rotate(prop.angle);
+    ctx.fillStyle = "#c49661"; ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height);
+    ctx.strokeStyle = "#704c32"; ctx.lineWidth = 2; ctx.strokeRect(-p.width / 2, -p.height / 2, p.width, p.height);
+    ctx.fillStyle = "#f08232"; ctx.fillRect(-5, -p.height / 2, 10, p.height);
+    ctx.fillStyle = "#eddfbe"; ctx.fillRect(8, -10, 12, 16); ctx.restore(); return true;
+  },
+});
+
 export const THEMES = Object.freeze({
   [DEFAULT_THEME.id]: DEFAULT_THEME, [freezer.id]: freezer, [comedy.id]: comedy,
   [nightRoad.id]: nightRoad, [library.id]: library,
+  [factory.id]: factory, [warehouse.id]: warehouse,
 });
 
 export class ThemePainter {

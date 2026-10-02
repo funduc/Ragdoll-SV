@@ -143,10 +143,77 @@ export const TOUR_LEVELS = [
       },
     },
   },
+  {
+    id: "siemens-floor", name: "SIEMENS FLOOR",
+    chapter: "santor-on-tour", bonus: true, estimatedMinutes: 3,
+    description: "Land on the backward conveyor and stay aboard through its four-second cycle — the ramp-side end drops into a pit. The belt then stops so you can settle; distance stays fixed at first contact.",
+    objective: "Expect the Wrate Issue in flight. Recover to wheels down, brace near contact, and land far enough along the belt to survive the ride back.",
+    arena: { ...arena, course: "siemens-floor" }, condition: "wrate-issue",
+    optionalObjective: "attached-landing", upgradeReward: false,
+    modifier: { id: "factory-coach", focus: "factory", name: "Factory Induction" },
+    bronze: goal("Complete a jump (crash landings count).", { completedJump: true }),
+    silver: goal("Land on the conveyor.", { conveyorLanding: true }),
+    gold: goal("Land Clean on the conveyor and stay on it until settled.", {
+      conveyorLanding: true, controlledLanding: true, stayedOnConveyor: true,
+    }),
+    santorMedal: goal("Gold with Perfect Brace and 60 m or more at first contact.", {
+      conveyorLanding: true, controlledLanding: true, stayedOnConveyor: true, perfectBrace: true, tourDistance: 60,
+    }),
+    prerequisites: ["quiet-please"],
+    john: {
+      introduction: "Owen says this is a normal Tuesday. The conveyor has filed a complaint.",
+      characters: {
+        jake: "Jake, the belt goes backwards. This is not a refund policy.",
+        brandon: "Brandon, the factory has put your poem into reverse.",
+        owen: "Owen, your certificate is crooked. Apparently that passes inspection.",
+      },
+      results: {
+        none: "Please keep all limbs out of the returns department.",
+        bronze: "Jump complete. The factory accepts limited responsibility.",
+        silver: "Belt contact confirmed. Continued employment is under review.",
+        gold: "CLEAN. STILL ABOARD. SIEMENS CERTIFIED AGAINST ALL EXPECTATIONS.",
+      },
+    },
+  },
+  {
+    id: "temu-warehouse", name: "TEMU WAREHOUSE",
+    chapter: "santor-on-tour", bonus: true, estimatedMinutes: 3,
+    description: "Smash through a wall of 36 light cardboard boxes, then land with the rider attached. Build speed, keep the wheels down and brace near the floor; each toppled box counts once.",
+    objective: "Knock down 10 for Silver, 20 and land attached for Gold, or 30 with an attached Clean landing for Santor. Crash carnage adds 25 per toppled box; normal points stay unchanged.",
+    arena: { ...arena, course: "temu-warehouse" }, condition: null,
+    optionalObjective: "attached-landing", upgradeReward: false,
+    modifier: { id: "warehouse-coach", focus: "warehouse", name: "Parcel Tracking" },
+    bronze: goal("Complete a jump (crash landings count).", { completedJump: true }),
+    silver: goal("Knock down at least 10 boxes.", { propsFallen: 10 }),
+    gold: goal("Knock down at least 20 boxes and land with the rider attached.", { propsFallen: 20, riderAttached: true }),
+    santorMedal: goal("Knock down at least 30 boxes, attached, with a Clean landing.", {
+      propsFallen: 30, riderAttached: true, controlledLanding: true,
+    }),
+    prerequisites: ["siemens-floor"],
+    john: {
+      introduction: "Owen has found the warehouse. Owen has found ALL the warehouse.",
+      characters: {
+        jake: "Jake, the tracking page says your landing is out for delivery.",
+        brandon: "Brandon, this is a packing list. Please resist the footnotes.",
+        owen: "Owen, the contents of that one parcel remain visibly censored. The boxes are fair game.",
+      },
+      results: {
+        none: "Delivery attempted. Nobody answered the ramp.",
+        bronze: "Jump delivered. Packaging condition: a separate conversation.",
+        silver: "Ten boxes down. The tracking page still says pending.",
+        gold: "TWENTY PARCELS. ONE RIDER. SIGN HERE FOR THE AFTERMATH.",
+      },
+    },
+  },
 ];
 
 export const libraryTooLoud = (world) => world.impactLoudness > QUIET_IMPACT_LIMIT;
 export const noisePercent = (world) => Math.ceil((world.impactLoudness ?? 0) / QUIET_IMPACT_LIMIT * 100);
+
+export function factoryCycleRemaining(world) {
+  const belt = world.course.pieces.find((p) => p.type === "conveyor");
+  return Math.max(0, belt.stopAfter - (world.landed ? world.elapsed - world.landingTime : 0));
+}
 
 export function roadVerse(world) {
   if (world.course.id !== "mapleton-night-shift") return -1;
@@ -173,6 +240,8 @@ export function tourFacts(world) {
   const pits = night ? world.course.pieces.filter((p) => p.type === "pit") : [];
   const landingX = world.course.distanceOrigin + world.distancePixels;
   const stack = world.course.pieces.find((p) => p.label === "book-stack");
+  const conveyorLanding = world.course.id === "siemens-floor" &&
+    world.firstLandingOnTop && world.firstLandingPiece?.label === "factory-belt";
   return {
     freezerLidLanding: Boolean(freezerLidLanding),
     farthestFreezerLanding: Boolean(freezerLidLanding && world.firstLandingPiece === lids.at(-1)),
@@ -182,5 +251,9 @@ export function tourFacts(world) {
       i > 0 && landingX > pits[i - 1].x + pits[i - 1].width / 2 && landingX < p.x - p.width / 2),
     pastBookStack: Boolean(stack && world.landed && !world.firstLandingPiece && landingX > stack.x + stack.width / 2),
     quietImpact: world.course.id === "quiet-please" && Number.isFinite(world.impactLoudness) && !libraryTooLoud(world),
+    conveyorLanding: Boolean(conveyorLanding),
+    stayedOnConveyor: Boolean(conveyorLanding && !world.leftConveyor &&
+      world.finished && world.reason === "Landing settled"),
+    tourDistance: world.distancePixels / 40,
   };
 }

@@ -14,7 +14,7 @@ export const portrait = (c) =>
   `<div class="portrait" style="--person:${c.primaryColor}" role="img" aria-label="${escape(c.name)} portrait"><span>${c.fallbackInitials}</span>${!c.portraitAvailable || unavailablePortraits.has(c.portraitPath) ? "" : `<img src="${escape(c.portraitPath)}" alt="" draggable="false" style="object-position:${escape(c.portraitPosition || "50% 50%")}" loading="eager">`}</div>`;
 
 export const carnageDetails = (s) => s.crashed && s.carnage
-  ? `<section class="carnage-card" aria-label="Crash carnage"><span>CARNAGE</span><strong>${s.carnage.total}</strong><p>${s.carnage.partsLost} parts lost · ${s.carnage.airtime.toFixed(1)} s rider airtime · ${s.carnage.bounces} bounces · ${s.carnage.distance.toFixed(1)} m rider travel${s.carnage.propsMoved ? ` · ${s.carnage.propsMoved} props moved` : ""}</p><small>Separate crash score · normal points and medals stay unchanged</small></section>`
+  ? `<section class="carnage-card" aria-label="Crash carnage"><span>CARNAGE</span><strong>${s.carnage.total}</strong><p>${s.carnage.partsLost} parts lost · ${s.carnage.airtime.toFixed(1)} s rider airtime · ${s.carnage.bounces} bounces · ${s.carnage.distance.toFixed(1)} m rider travel${s.carnage.propsMoved ? ` · ${s.carnage.propsMoved} props moved` : ""}${s.carnage.propPoints ? ` · +${s.carnage.propPoints} parcel carnage` : ""}</p><small>Separate crash score · normal points and medals stay unchanged</small></section>`
   : "";
 
 export const crashOfNightMarkup = (award) => award

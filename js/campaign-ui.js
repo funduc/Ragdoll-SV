@@ -23,7 +23,7 @@ import {
 } from "./run-ui.js";
 import { CONDITIONS, OBJECTIVES, OBJECTIVE_IDS } from "./run-config.js";
 import { TRICK_CONFIG } from "./trick-config.js";
-import { TOUR_LEVELS, applause, crowdCue, ROAD_POEM, roadVerse, noisePercent, libraryTooLoud } from "./santor-tour.js";
+import { TOUR_LEVELS, applause, crowdCue, ROAD_POEM, roadVerse, noisePercent, libraryTooLoud, factoryCycleRemaining } from "./santor-tour.js";
 
 const action = (label, name, value = "", secondary = false, disabled = false) =>
   `<button type="button" class="btn${secondary ? " secondary" : ""}" data-campaign="${name}" data-value="${escape(value)}"${disabled ? " disabled" : ""}>${escape(label)}</button>`;
@@ -56,6 +56,8 @@ const SHORT_GOALS = {
   "open-mic": ["Complete a jump", "2 different tricks + land", "3 different tricks + land", "3 tricks, Clean, mic untouched"],
   "mapleton-night-shift": ["Complete a jump", "Avoid the potholes", "Between potholes, no Misses", "Gold + Clean + Perfect takeoff"],
   "quiet-please": ["Complete a jump", "Land beyond the books", "Beyond books, Clean + quiet", "Gold + a trick, zero books tipped"],
+  "siemens-floor": ["Complete a jump", "Land on the belt", "Clean + stay aboard until rest", "Gold, Perfect Brace, 60 m+"],
+  "temu-warehouse": ["Complete a jump", "10 boxes down", "20 boxes + land attached", "30 boxes, attached + Clean"],
 };
 const TIERS = [
   ["bronze", 1, "Bronze"],
@@ -116,6 +118,10 @@ function tourRow(run) {
 }
 
 function tourResultNotes(level, facts) {
+  if (level.id === "siemens-floor")
+    return `<p class="subline">${facts.conveyorLanding ? "BELT CONTACT" : "MISSED THE BELT"} · ${facts.stayedOnConveyor ? "STAYED ABOARD" : "DID NOT SETTLE ON BELT"} · DISTANCE MEASURED AT FIRST CONTACT</p>`;
+  if (level.id === "temu-warehouse")
+    return `<p class="subline">${facts.propsFallen} / 36 BOXES KNOCKED DOWN${facts.propsFallen ? " · OWEN: I ordered these." : ""}</p>`;
   if (level.id === "mapleton-night-shift" && facts.successfulLanding)
     return `<p class="subline">BRANDON: ${escape(ROAD_POEM[3])}</p>`;
   if (level.id === "quiet-please") {
@@ -271,6 +277,17 @@ export function updateCampaignCoach(world, run) {
     skills = world.skills.metrics();
   let text;
   switch (run.level.modifier.focus) {
+    case "factory":
+      text = !world.landed
+        ? "Recover from the Wrate Issue, aim far along the belt and brace. Four seconds backwards; keep clear of the return chute."
+        : world.leftConveyor ? "OFF BELT · The return chute is a pit. Retry and aim farther along the belt."
+          : `${factoryCycleRemaining(world).toFixed(1)} s until belt stops · Stay aboard until rest. First-contact distance is already banked.`;
+      break;
+    case "warehouse": {
+      const count = world.propFacts().propsFallen;
+      text = `${count}/36 boxes down · Silver 10 · Gold 20 + attached · Santor 30 + attached + Clean${count ? " · OWEN: I ordered these." : ""}`;
+      break;
+    }
     case "night-road": {
       const verse = roadVerse(world);
       text = `${verse >= 0 ? ROAD_POEM[verse] : "Three bumps. Three verses. Watch the push meter."} · ${skills.pushCounts.Miss} Misses`;

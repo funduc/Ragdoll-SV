@@ -19,7 +19,7 @@ import { Presentation } from "../js/presentation.js";
 import { audioDouble } from "./fake-audio.mjs";
 
 runInThisContext(readFileSync(new URL("../vendor/matter-0.20.0.min.js", import.meta.url), "utf8"));
-const [freezer, mic, night, library] = TOUR_LEVELS;
+const [freezer, mic, night, library, factory, warehouse] = TOUR_LEVELS;
 const makeWorld = (level, character = CHARACTERS[0]) => new PhysicsWorld(character,
   level.arena, { condition: level.condition, upgrades: {}, objective: level.optionalObjective });
 const score = (world) => scoreAttempt(world.metrics(), world.character);
@@ -174,7 +174,7 @@ test("Tour art replays identical Canvas commands; reduced motion freezes audienc
     const still = draw(w); w.elapsed += 1;
     assert.equal(draw(w), still);
     motion.matches = false;
-    if (level !== library) assert.notEqual(draw(w), live);
+    if (![library, warehouse].includes(level)) assert.notEqual(draw(w), live);
     r.destroy(); w.dispose();
   }
 });
@@ -316,6 +316,115 @@ test("Measured library noise costs Gold on a hard landing, updates HUD, and shus
   assert.equal(evaluateMedal(library, campaignFacts(score(w), w, true)).medal, 2);
   const fresh = makeWorld(library); p.observe(fresh); hud.update(fresh);
   assert.equal(p.shushed, false); assert.match(hud.hudRotation.innerHTML, /AWAITING LANDING/);
+  fresh.dispose(); w.dispose();
+});
+
+test("Factory and warehouse unlock after Quiet Please and preserve old per-character saves", () => {
+  const data = new Map([[CAMPAIGN_SAVE_KEY, JSON.stringify({ version: 1, selectedCharacter: "owen",
+    progress: { owen: { "quiet-please": { medal: 1 } } } })]]);
+  const storage = { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) };
+  const run = new Campaign(new CampaignSave(storage), { seedFactory: () => 42 });
+  run.select("owen"); run.confirm();
+  assert.ok(run.isUnlocked(factory)); assert.ok(!run.isUnlocked(warehouse));
+  for (const level of [factory, warehouse]) {
+    renderCampaign(ui, run);
+    assert.match(ui.overlay.innerHTML, new RegExp(`data-value="${level.id}"(?![^>]*disabled)`));
+    assert.ok(run.startLevel(level.id)); assert.equal(run.state, S.READY);
+    renderCampaign(ui, run); assert.ok(ui.overlay.innerHTML.includes(level.john.introduction));
+    run.confirm();
+    const w = driveChapter(new PhysicsWorld(run.current, run.attemptArena, run.attemptSpec), level);
+    run.record(score(w), w); renderCampaign(ui, run);
+    assert.match(ui.overlay.innerHTML, level === factory ? /STAYED ABOARD/ : /BOXES KNOCKED DOWN.*I ordered these/);
+    assert.deepEqual({ medal: run.lastMedal.medal, santor: run.lastMedal.santor }, { medal: 3, santor: true });
+    run.confirm(); assert.equal(run.state, S.MAP); w.dispose();
+  }
+  const saved = new CampaignSave(storage);
+  assert.equal(saved.entry("owen", "quiet-please").medal, 1);
+  for (const level of [factory, warehouse]) {
+    assert.equal(saved.entry("owen", level.id).medal, 3);
+    assert.equal(saved.entry("jake", level.id).medal, 0);
+  }
+});
+
+test("Both new stops reach Santor for all characters through real controls, with exact medal gates", () => {
+  for (const level of [factory, warehouse]) for (const c of CHARACTERS) {
+    const w = driveChapter(makeWorld(level, c), level);
+    const f = campaignFacts(score(w), w, true);
+    assert.deepEqual(evaluateMedal(level, f), { medal: 3, santor: true }, `${level.id}/${c.id}: ${JSON.stringify(f)}`);
+    if (level === factory) {
+      assert.equal(w.runEffects.conditionId, "wrate-issue");
+      assert.ok(w.elapsed - w.landingTime >= 4.75);
+      assert.ok(w.course.distanceOrigin + w.distancePixels - w.cart.position.x > 300);
+      assert.equal(evaluateMedal(level, { ...f, stayedOnConveyor: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...f, controlledLanding: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...f, conveyorLanding: false, stayedOnConveyor: false }).medal, 1);
+      assert.equal(evaluateMedal(level, { ...f, perfectBrace: false }).santor, false);
+      assert.equal(evaluateMedal(level, { ...f, tourDistance: 59.99 }).santor, false);
+      assert.equal(evaluateMedal(level, { ...f, tourDistance: 60 }).santor, true);
+    } else {
+      assert.equal(w.looseProps.length, 36); assert.ok(f.propsFallen >= 30 && f.propsFallen <= 36);
+      assert.equal(evaluateMedal(level, { ...f, propsFallen: 9 }).medal, 1);
+      assert.equal(evaluateMedal(level, { ...f, propsFallen: 10 }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...f, propsFallen: 19 }).medal, 2);
+      assert.deepEqual(evaluateMedal(level, { ...f, propsFallen: 20 }), { medal: 3, santor: false });
+      assert.equal(evaluateMedal(level, { ...f, propsFallen: 29 }).santor, false);
+      assert.equal(evaluateMedal(level, { ...f, riderAttached: false }).medal, 2);
+      assert.equal(evaluateMedal(level, { ...f, controlledLanding: false }).santor, false);
+    }
+    w.dispose();
+  }
+});
+
+test("Factory belt leaves airborne motion alone, preserves first contact, and dumps short landings into its pit", () => {
+  const w = makeWorld(factory), control = new PhysicsWorld(CHARACTERS[0], {
+    ...factory.arena, course: { ...w.course, pieces: w.course.pieces.map(p => p.type === "conveyor" ? { ...p, speed: 0 } : p) },
+  }, { condition: factory.condition, upgrades: {}, objective: factory.optionalObjective });
+  for (let frame = 0; frame < 1250 && !w.landed; frame++) {
+    const input = chapterControls(w, factory);
+    for (const v of [w, control]) { v.step(input); v.step({ ...input, pushes: 0, brace: false }); }
+    if (!w.landed) assert.deepEqual(w.cart.position, control.cart.position);
+  }
+  const contact = [w.distancePixels, w.landingTime, w.impactLoudness];
+  driveChapter(w, factory); assert.equal(w.reason, "Landing settled");
+  assert.deepEqual([w.distancePixels, w.landingTime, w.impactLoudness], contact);
+  w.dispose(); control.dispose();
+  const short = makeWorld(factory); drop(short, 2670, 480);
+  for (let frame = 0; frame < 1500 && !short.finished; frame++) short.step();
+  assert.equal(short.firstLandingPiece?.label, "factory-belt");
+  assert.equal(short.crashClassification, "pit-fall"); assert.equal(short.leftConveyor, true);
+  assert.equal(tourFacts(short).stayedOnConveyor, false);
+  assert.equal(evaluateMedal(factory, campaignFacts(score(short), short, true)).medal, 2);
+  short.dispose();
+});
+
+test("Warehouse boxes stay standing before contact, show a live count and Owen's line once, and add only crash carnage", () => {
+  const w = makeWorld(warehouse), hud = Object.create(UI.prototype), lines = [];
+  Object.assign(hud, { skillMeter: { update() {} }, campaignSession: null,
+    trickDisplay: { observe() {}, reset() {} }, commentator: { enqueue() {}, tick() { return "John"; }, resetAttempt() {} },
+    say: line => lines.push(line) });
+  for (const key of ["passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
+  hud.resetAttempt();
+  for (let frame = 0; frame < 1250 && !w.finished; frame++) {
+    const input = chapterControls(w, warehouse); w.step(input); w.step({ ...input, pushes: 0, brace: false });
+    if (w.cart.position.x < 3200) assert.equal(w.propFacts().propsFallen, 0);
+    hud.observeAttempt(w, { round: "qualifying" }); hud.update(w);
+    assert.match(hud.hudRotation.innerHTML, new RegExp(`^${w.propFacts().propsFallen} <small>/ 36`));
+  }
+  assert.equal(lines.filter(line => line === "OWEN: I ordered these.").length, 1);
+  // A crash fixture reuses the real, latched fallen-box measurements. Its
+  // ordinary score must be identical with and without the optional prop bonus.
+  w.crashed = true;
+  const withBoxes = score(w), summary = w.damage.summary();
+  assert.equal(summary.propPoints, w.propFacts().propsFallen * 25);
+  const base = summary.partsLost * 150 + summary.airtime * 100 + summary.bounces * 75 + summary.distance * 10;
+  assert.equal(summary.total, Math.round(base + summary.propPoints));
+  for (const box of w.looseProps) box.fallen = false;
+  const withoutBoxes = score(w);
+  assert.equal(withBoxes.total, withoutBoxes.total);
+  assert.equal(w.damage.summary().propPoints, 0);
+  const fresh = makeWorld(warehouse); hud.resetAttempt(); hud.update(fresh);
+  assert.match(hud.hudRotation.innerHTML, /^0 <small>\/ 36/);
+  assert.equal(hud.announced.has("ordered-boxes"), false);
   fresh.dispose(); w.dispose();
 });
 

@@ -15,6 +15,7 @@ import {
   pinLayout,
   groundSpans,
   propLayout,
+  conveyorSpeed,
 } from "./course.js";
 // The default long-jump course. Worlds read their own `world.course`.
 export const COURSE = DEFAULT_COURSE;
@@ -156,6 +157,7 @@ export class PhysicsWorld {
       ...this.coursePieces.filter((body) => body.coursePiece.landing),
     ]);
     this.conveyors = new Set(this.coursePieces.filter((b) => b.coursePiece.type === "conveyor"));
+    this.leftConveyor = false;
     Composite.add(this.engine.world, this.coursePieces);
     this.runwayBumps = (this.arena.bumps || []).map(({ x, width, height }) => {
       const points = [
@@ -242,7 +244,11 @@ export class PhysicsWorld {
       if (!belt || body.isStatic || body.position.y >= belt.bounds.min.y ||
           Math.abs(pair.collision.normal.y) < 0.5) continue;
       const velocity = Body.getVelocity(body);
-      Body.setVelocity(body, { x: belt.coursePiece.speed / 60, y: velocity.y });
+      Body.setVelocity(body, { x: conveyorSpeed(belt.coursePiece, this) / 60, y: velocity.y });
+    }
+    if (this.landed && this.firstLandingPiece?.type === "conveyor") {
+      const belt = this.firstLandingPiece;
+      this.leftConveyor ||= Math.abs(this.cart.position.x - belt.x) > belt.width / 2;
     }
     for (const prop of this.looseProps) {
       const piece = prop.coursePiece;
@@ -824,7 +830,9 @@ export class PhysicsWorld {
           0.5 &&
         Math.max(...riderSpeeds) < 1.8;
       // Bowling: the throw only ends once the pins have stopped tumbling.
-      const allStill = still(this.cart) && riderStill && (!this.bowling || this.pinsStill()) && this.propsStill();
+      const belt = this.firstLandingPiece;
+      const cycling = belt?.type === "conveyor" && belt.stopAfter !== null && conveyorSpeed(belt, this) !== 0;
+      const allStill = !cycling && still(this.cart) && riderStill && (!this.bowling || this.pinsStill()) && this.propsStill();
       this.settleTime = allStill ? this.settleTime + STEP_MS / 1000 : 0;
       this.riderSettleTime = riderStill
         ? this.riderSettleTime + STEP_MS / 1000
