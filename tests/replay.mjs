@@ -35,6 +35,8 @@ for (const character of CHARACTERS) {
   let comparisons = 0;
   for (let i = 0; i < 2500 && !world.finished; i++) {
     world.step(timedInputs(world, world.launched ? 1 : 0));
+    if (world.launched && !world.syncCelebration && world.elapsed - world.launchTime > .3)
+      world.syncCelebration = { started: world.elapsed, until: world.elapsed + .9, grade: "PERFECT SYNC" };
     recording.observe(world);
     if (world.landed && !effects.particles.length) effects.burst("dust", world.cart.position.x, 520, 8);
     effects.update(1 / 120);
@@ -45,6 +47,17 @@ for (const character of CHARACTERS) {
         player.time = world.elapsed;
         const sample = player.sample();
         assert.equal(drawing(sample.world, sample.effects, sample.cosmetics), drawing(world, effects, cosmetics), "recorded sample issues identical Canvas commands");
+        if (world.syncCelebration && world.elapsed < world.syncCelebration.until && !world.landed && !world.crashed) {
+          assert.notEqual(sample.world.syncCelebration, world.syncCelebration, "replay owns the cosmetic reward state");
+          const ordinaryArt = drawing(world, effects, cosmetics);
+          assert.ok(ordinaryArt.includes("PERFECT SYNC"));
+          renderer.motionPreference = { matches: true };
+          const reducedArt = drawing(world, effects, cosmetics);
+          assert.equal(drawing(sample.world, sample.effects, sample.cosmetics), reducedArt);
+          assert.notEqual(reducedArt, ordinaryArt, "reduced motion suppresses the Sync trail");
+          assert.ok(reducedArt.includes("PERFECT SYNC"), "reward remains visible without motion");
+          renderer.motionPreference = null;
+        }
         assert.equal(sample.world.head, sample.world.rider[world.rider.indexOf(world.head)]);
         assert.notEqual(sample.world.cart, world.cart);
         assert.equal(sample.world.engine, undefined);

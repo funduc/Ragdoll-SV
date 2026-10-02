@@ -1,13 +1,13 @@
-import { SYNC_CONFIG as C, syncResult, syncReward } from "./sync-config.js";
+import { SYNC_CONFIG as C, syncResult } from "./sync-config.js";
 // No DOM, audio timing, timers, listeners or physics steps. Input timestamps are
 // the same internal clock on early and late sides of the timing line.
 export class SyncSequence {
-  constructor(characterId) {
+  constructor(characterId, pattern = C.characters[characterId]?.patterns[0].slice(0, 3) || C.characters.jake.patterns[0].slice(0, 3)) {
     this.characterId = characterId;
     const c = C.characters[characterId] || C.characters.jake;
     this.perfectWindow = C.perfectWindow * c.windows;
     this.goodWindow = C.goodWindow * c.windows;
-    this.notes = c.pattern.map((lane, i) => ({
+    this.notes = pattern.map((lane, i) => ({
       lane,
       at: C.firstBeat + i * C.spacing * c.spacing,
       grade: null,
@@ -17,7 +17,7 @@ export class SyncSequence {
     this.combo = 0;
     this.bestCombo = 0;
     this.extra = 0;
-    this.feedback = "Match each arrow at the green line. Release between taps.";
+    this.feedback = "Tap each arrow on the beat!";
     this.serial = 0;
     this.beats = [];
     this.result = null;
@@ -39,6 +39,7 @@ export class SyncSequence {
         this.notes.filter((n) => n.grade === "Perfect").length,
         this.notes.filter((n) => n.grade === "Good").length,
         this.extra,
+        this.notes.length,
       );
   }
   hit(lane) {
@@ -78,38 +79,49 @@ export class SyncSequence {
     return (
       (this.notes.filter((n) => n.grade === "Perfect").length +
         C.goodCredit * this.notes.filter((n) => n.grade === "Good").length) /
-      C.notes
+      this.notes.length
     );
   }
 }
-// Called only at the existing launch transition, after normal takeoff timing.
-export function applySyncLaunch(world) {
-  if (!world.syncResult || world.syncApplied) return;
-  world.syncApplied = true;
-  const reward = syncReward(world.syncResult, world.character.id);
-  if (reward.speed === 1) return;
-  const { Body } = world.M,
-    v = Body.getVelocity(world.cart);
-  const dx = Math.max(0, Math.min(C.maximumSpeed, v.x * reward.speed) - v.x);
-  const upward = Math.max(0, -v.y);
-  const dy = -Math.max(
-    0,
-    Math.min(C.maximumUpwardSpeed, upward * Math.sqrt(reward.height)) - upward,
-  );
-  // Preserve relative motion and joint geometry, including carried cargo.
-  const bodies = [...world.dynamic, ...(world.cargo ? [world.cargo] : [])];
-  for (const body of new Set(bodies)) {
-    const speed = Body.getVelocity(body);
-    Body.setVelocity(body, { x: speed.x + dx, y: speed.y + dy });
+// Conservative time to any floor, raised surface, prop or obstacle ahead.
+// Uses the highest reachable surface, including pits' rim height, so a gap
+// cannot falsely promise infinite recovery time. No physics is simulated here.
+export function syncLandingETA(world) {
+  if (!world.launched || world.landed || world.crashed || world.finished) return 0;
+  const bottom = Math.max(...world.dynamic.map((body) => body.bounds.max.y));
+  const velocity = world.M.Body.getVelocity(world.cart), vx = velocity.x * 60, vy = velocity.y * 60;
+  const gravity = world.engine.gravity.y * world.engine.gravity.scale * 1e6;
+  const fall = (surface) => {
+    const height = surface - bottom;
+    if (height <= 0) return 0;
+    return (-vy + Math.sqrt(vy * vy + 2 * gravity * height)) / gravity;
+  };
+  let eta = fall(world.course.groundY);
+  const x = world.cart.position.x, reach = x + vx * eta;
+  for (const body of [...world.coursePieces, ...world.looseProps, ...(world.bar ? [world.bar] : [])]) {
+    if (body.bounds.max.x < Math.min(x, reach) - 120 || body.bounds.min.x > Math.max(x, reach) + 120) continue;
+    eta = Math.min(eta, fall(body.bounds.min.y));
   }
-  Body.setAngularVelocity(
-    world.cart,
-    Math.max(
-      -C.maximumSpin,
-      Math.min(
-        C.maximumSpin,
-        world.cart.angularVelocity * reward.damping + reward.kick,
-      ),
-    ),
-  );
+  return eta;
+}
+
+export function syncMoment(world, { hard = false, lastPattern = "", serial = 0 } = {}) {
+  if (!world.launched || world.landed || world.crashed || world.finished || world.syncTriggered ||
+      world.skills.takeoff !== "Perfect" || world.skills.pushes.Perfect < C.minimumPerfectPushes) return null;
+  const gravity = world.engine.gravity.y * world.engine.gravity.scale * 1e6;
+  const vy = world.M.Body.getVelocity(world.cart).y * 60;
+  // Do not interrupt a committed flip or a cart already needing recovery.
+  if (vy < -gravity * C.apexLead || vy > 0 || Math.abs(Math.atan2(Math.sin(world.cart.angle), Math.cos(world.cart.angle))) > 0.45 ||
+      Math.abs(world.cart.angularVelocity) > 0.025 || !world.attached) return null;
+  const eta = syncLandingETA(world);
+  const c = C.characters[world.character.id];
+  let count = eta > 1.6 ? 5 : hard || eta > 1.3 ? 4 : 3;
+  for (; count >= 3; count--) {
+    const duration = C.firstBeat + (count - 1) * C.spacing * c.spacing + C.goodWindow * c.windows;
+    if (eta < C.recoverySeconds + C.safetyMargin + duration * C.timeScale) continue;
+    const pool = c.patterns.map((p) => p.slice(0, count)).filter((p) => p.join("") !== lastPattern);
+    const pattern = pool[serial % pool.length];
+    return new SyncSequence(world.character.id, pattern);
+  }
+  return null;
 }

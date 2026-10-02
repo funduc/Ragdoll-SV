@@ -68,25 +68,15 @@ export function scoreAttempt(metrics, character) {
     metrics.crashed ? "Crash" : landingQuality,
   );
   const normalizedSync = metrics.sync
-    ? syncResult(metrics.sync.perfect, metrics.sync.good, metrics.sync.extra)
+    ? syncResult(metrics.sync.perfect, metrics.sync.good, metrics.sync.extra, metrics.sync.notes)
     : null;
   const sync = normalizedSync
     ? Object.freeze({
         ...normalizedSync,
-        reward: syncReward(normalizedSync, character.id),
+        reward: syncReward(normalizedSync),
       })
     : null;
-  const stylePoints = sync
-    ? Math.min(
-        TRICK_CONFIG.maximumStylePoints,
-        Math.round(
-          tricks.subtotal *
-            tricks.characterMultiplier *
-            tricks.landingMultiplier *
-            sync.reward.style,
-        ),
-      )
-    : tricks.points;
+  const stylePoints = Math.min(TRICK_CONFIG.maximumStylePoints, tricks.points + (sync?.reward.points || 0));
   return Object.freeze({
     sync,
     distanceMetres,

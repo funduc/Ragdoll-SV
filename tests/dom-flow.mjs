@@ -30,9 +30,7 @@ try {
   native = createRequire(resolve(root, ".qa/package.json"))("@napi-rs/canvas");
 }
 const dom = new JSDOM(await readFile(resolve(root, "index.html"), "utf8"), {
-  url:
-    "http://localhost/Ragdoll-SV/" +
-    (process.env.SYNC_FORCE ? "?syncdev=1" : ""),
+  url: "http://localhost/Ragdoll-SV/",
   runScripts: "outside-only",
   pretendToBeVisual: true,
 });
@@ -322,11 +320,8 @@ function frame(gap = 1000 / 60) {
   );
   for (const popup of trickHud.querySelectorAll(".trick-pop"))
     trickPopups.add(popup.textContent);
-  assert.equal(
-    document.querySelector("#sync-overlay").hidden,
-    true,
-    "Party never receives Sync, even forced",
-  );
+  if (document.querySelector("#game").dataset.state !== "active-attempt")
+    assert.equal(document.querySelector("#sync-overlay").hidden, true, "Sync is only available in flight");
   assert.equal(errors.length, 0, errors.join("\n"));
   assert.equal(warnings.length, 0, warnings.join("\n"));
   assert.equal(

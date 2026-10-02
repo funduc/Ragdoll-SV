@@ -1,7 +1,7 @@
 import { ROOFTOP_FALL_LINE } from "./santor-tour.js";
-import { SYNC_CONFIG, SYNC_KEYS } from "./sync-config.js";
-import { SyncSequence } from "./sync.js";
-import { SyncSave, syncRoll } from "./sync-save.js";
+import { SYNC_CONFIG, SYNC_KEYS, syncResult } from "./sync-config.js";
+import { syncMoment, syncLandingETA } from "./sync.js";
+import { SyncSave } from "./sync-save.js";
 import { SyncUI } from "./sync-ui.js";
 import { CHARACTERS } from "./characters.js";
 import { PhysicsWorld, STEP_MS } from "./physics.js";
@@ -37,11 +37,6 @@ import { scoreBowling } from "./bowling.js";
 class Game {
   constructor() {
     this.developerRun = readRunDeveloperSettings(window.location.search);
-    this.forceSync =
-      SYNC_CONFIG.force ||
-      new URLSearchParams(window.location.search).get("syncdev") === "1";
-    if (this.forceSync && !this.developerRun)
-      this.developerRun = { seed: 1, upgrades: {} };
     this.achievementDeveloper =
       new URLSearchParams(window.location.search).get("achievementdev") === "1";
     if (this.achievementDeveloper && !this.developerRun)
@@ -52,6 +47,7 @@ class Game {
     this.tournament = new Tournament(
       loadPartySetup(this.campaign.save.storage),
     );
+    this.syncSerial = 0;
     this.syncSequence = null;
     this.syncUI = new SyncUI((lane) => this.hitSync(lane));
     this.achievements = this.campaign.runs.manager;
@@ -309,7 +305,6 @@ class Game {
   }
   restartAttempt() {
     if (!this.session.active || !this.world.canRestart) return;
-    if (this.mode === "vault") this.syncSave.finish(this.campaign.level.id);
     this.session.resetAttempt();
     this.clearControls();
     this.replaceWorld(this.session.current);
@@ -472,34 +467,27 @@ class Game {
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
     this.renderState();
-    if (this.campaign.active) this.startSync();
   }
   startSync() {
-    if (this.mode !== "vault" || !this.campaign.active) return;
-    // Party and tutorial paths never call this, even with the developer flag.
-    const decision = this.syncSave.begin(
-      this.campaign.runs.run,
-      this.campaign.level.id,
-      this.campaign.stageIndex,
-      this.forceSync,
-    );
-    if (!decision?.triggered) return;
-    if (decision.result) {
-      this.world.syncResult = decision.result;
-      return;
-    }
+    if (!this.session.active || this.syncSequence) return false;
+    const sequence = syncMoment(this.world, {
+      hard: this.mode === "vault" && Boolean(this.campaign.level.stages || this.campaign.level.bonus),
+      lastPattern: this.syncSave.data.lastPattern, serial: this.syncSerial,
+    });
+    if (!sequence) return false;
+    this.syncSerial++;
+    this.world.syncTriggered = true;
+    this.syncSave.recordMoment(this.mode === "vault" ? this.campaign.runs.run : null, sequence.notes.map((n) => n.lane));
     this.clearControls();
-    this.syncSequence = new SyncSequence(this.campaign.current.id);
+    this.syncSequence = sequence;
     this.ui.root.dataset.sync = "playing";
-    const warning =
-      this.campaign.current.id === "owen" &&
-      syncRoll(this.campaign.runs.run.seed, this.campaign.level.id, 999) <
-        SYNC_CONFIG.wrateWarningChance;
-    this.syncUI.show(this.syncSequence, warning);
+    this.syncUI.show(sequence);
+    this.ui.say(SYNC_CONFIG.lines.intro);
     this.presentation.music.setDuck(SYNC_CONFIG.musicDuck);
+    this.presentation.audio.play("sync-drop");
     this.touch.sync();
-    this.lastTime = null;
     this.accumulator = 0;
+    return true;
   }
   hitSync(lane) {
     if (!this.syncSequence || this.suspended) return;
@@ -520,29 +508,26 @@ class Game {
   tickSync(gap) {
     const sequence = this.syncSequence;
     sequence.tick(gap / 1000);
-    for (const beat of sequence.beats.splice(0))
-      this.presentation.audio.play("sync-beat");
-    if (sequence.result && !this.world.syncResult) {
-      this.world.syncResult = sequence.result;
-      this.syncSave.result(this.campaign.level.id, sequence.result);
-      this.ui.root.dataset.sync = "result";
-      this.presentation.audio.play(
-        sequence.result.grade === "PERFECT SYNC"
-          ? "skill-perfect"
-          : "skill-good",
-      );
-    }
+    for (const beat of sequence.beats.splice(0)) this.presentation.audio.play("sync-beat");
     this.syncUI.update(sequence);
-    if (sequence.done) {
-      this.clearControls();
-      this.clearSync();
-      this.presentation.audio.stopAll();
-      this.presentation.audio.play("sync-drop");
-      this.touch.sync();
-      this.accumulator = 0;
-      this.lastTime = null;
-      document.getElementById("game-canvas").focus({ preventScroll: true });
+  }
+  finishSync() {
+    const sequence = this.syncSequence;
+    // If a surface gets close, unfinished notes simply expire; control wins.
+    const result = sequence.result || syncResult(
+      sequence.notes.filter((n) => n.grade === "Perfect").length,
+      sequence.notes.filter((n) => n.grade === "Good").length, sequence.extra, sequence.notes.length);
+    this.world.syncResult = result;
+    if (result.perfect + result.good > 0) {
+      this.world.syncCelebration = { until: this.world.elapsed + SYNC_CONFIG.celebrationSeconds,
+        grade: result.grade, started: this.world.elapsed };
+      this.presentation.audio.play(result.grade === "PERFECT SYNC" ? "sync-drop" : "skill-good");
+      this.ui.say(SYNC_CONFIG.lines[result.grade]);
     }
+    this.clearControls();
+    this.clearSync();
+    this.touch.sync();
+    document.getElementById("game-canvas").focus({ preventScroll: true });
   }
   partyAction(button) {
     if (this.mode !== "party" || this.vaultOpen) return;
@@ -719,19 +704,21 @@ class Game {
     if (gap > 250) {
       this.accumulator = 0;
       this.clearControls();
-    } else if (this.syncSequence && !this.suspended) {
-      this.tickSync(gap);
     } else if (this.session.active && !this.suspended) {
-      this.accumulator += Math.min(gap, 100);
+      const momentFrame = Boolean(this.syncSequence);
+      if (momentFrame) this.tickSync(Math.min(gap, 100));
+      this.accumulator += Math.min(gap, 100) * (momentFrame ? SYNC_CONFIG.timeScale : 1);
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
-        this.world.step(this.touch.merge(this.input.consume()));
+        this.world.step(this.syncSequence ? { pushes: 0, rotate: 0, brace: false } : this.touch.merge(this.input.consume()));
         this.recording.observe(this.world);
         if (this.mode === "vault") this.campaign.observe(this.world);
         this.presentation.observe(this.world);
         this.accumulator -= STEP_MS;
         steps++;
         this.ui.observeAttempt(this.world, this.session);
+        if (this.syncSequence && (this.syncSequence.done || this.world.finished ||
+            syncLandingETA(this.world) < SYNC_CONFIG.recoverySeconds + SYNC_CONFIG.safetyMargin)) this.finishSync();
         if (this.world.finished) {
           const score = Object.freeze({
             ...scoreAttempt(this.world.metrics(), this.world.character),
@@ -753,10 +740,9 @@ class Game {
           if (this.mode === "vault" && !this.world.invalid)
             this.achievements.send("campaign-progress", {
               ...campaignAchievementFacts(this.campaign),
-              syncOccurrences: this.syncSave.data.occurrences,
+              syncOccurrences: this.syncSave.data.scope === `${this.campaign.runs.run.characterId}:${this.campaign.runs.run.seed}`
+                ? this.syncSave.data.occurrences : 0,
             });
-          if (this.mode === "vault")
-            this.syncSave.finish(this.campaign.level.id);
           this.clearControls();
           this.touch.sync();
           this.accumulator = 0;
@@ -764,7 +750,10 @@ class Game {
           break;
         }
       }
-      if (this.session.active) this.ui.update(this.world);
+      if (this.session.active) {
+        this.startSync();
+        this.ui.update(this.world);
+      }
     } else if (
       this.mode === "party" &&
       this.tournament.state === State.INSTRUCTIONS &&
@@ -779,12 +768,12 @@ class Game {
     const drawTime = Math.min(gap / 1000, 1 / 15) || 1 / 60;
     this.presentation.frame(
       this.world,
-      this.session.active && !this.syncSequence,
+      this.session.active,
       this.suspended,
       drawTime,
       gap,
     );
-    if ((this.session.active && !this.syncSequence) || finishedScore)
+    if (this.session.active || finishedScore)
       this.recording.capture(this.world, this.presentation.effects, this.renderer.cosmetics);
     this.renderer.draw(this.world, drawTime, this.presentation.effects);
     if (finishedScore) {

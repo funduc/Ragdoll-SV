@@ -45,12 +45,12 @@ export class SyncUI {
     this.bar.addEventListener("click", this.click);
     this.hide();
   }
-  show(sequence, warning = false) {
+  show(sequence) {
     this.active = true;
     this.serial = -1;
     this.overlay.hidden = this.bar.hidden = false;
     this.overlay.classList.toggle("sync-reduced", this.reduced);
-    this.overlay.innerHTML = `<section class="sync-panel" aria-label="Santor Sync rhythm challenge"><p class="eyebrow">BONUS BROADCAST · PHYSICS PAUSED</p><h2>SANTOR SYNC DETECTED</h2><p class="tiny">Tap the matching arrow at the green line. A / S / W / D also work. Release between taps.</p><div class="sync-track" aria-label="Six-note rhythm sequence">${arrows.map((a, i) => `<div class="sync-lane" data-lane="${i}"><b>${a}</b></div>`).join("")}<div class="sync-line">HIT HERE</div>${sequence.notes.map((n, i) => `<span class="sync-note" data-note="${i}" style="left:${n.lane * 25 + 12.5}%" aria-hidden="true">${arrows[n.lane]}</span>`).join("")}</div><p class="sync-feedback" role="status" aria-live="polite"></p><p class="tiny sync-count"></p><progress class="sync-charge" max="1" value="0" aria-label="Sync charge"></progress><p class="tiny sync-john">JOHN SANTOR: ${warning ? C.lines.wrate + " Wrate Issue: cosmetic diagnostic only." : C.lines.intro}</p></section>`;
+    this.overlay.innerHTML = `<section class="sync-panel" aria-label="Sync Moment rhythm challenge"><p class="eyebrow">BONUS STYLE · FLIGHT AT 20%</p><h2>SYNC MOMENT</h2><p class="tiny">Tap at the line: arrows or A/S/W/D. Optional bonus; no miss penalty.</p><div class="sync-track" aria-label="${sequence.notes.length}-note rhythm sequence">${arrows.map((a, i) => `<div class="sync-lane" data-lane="${i}"><b>${a}</b></div>`).join("")}<div class="sync-line">HIT HERE</div>${sequence.notes.map((n, i) => `<span class="sync-note" data-note="${i}" style="left:${n.lane * 25 + 12.5}%" aria-hidden="true">${arrows[n.lane]}</span>`).join("")}</div><p class="sync-feedback" role="status" aria-live="polite"></p><p class="tiny sync-count"></p><progress class="sync-charge" max="1" value="0" aria-label="Sync charge"></progress><p class="tiny sync-john">JOHN SANTOR: ${C.lines.intro}</p></section>`;
     this.update(sequence);
   }
   update(sequence) {
@@ -84,19 +84,17 @@ export class SyncUI {
       );
     const feedback = this.overlay.querySelector(".sync-feedback");
     if (sequence.result) {
-      const r = syncReward(sequence.result, sequence.characterId);
+      const r = syncReward(sequence.result);
       feedback.textContent = `${sequence.result.grade} · ${sequence.result.accuracy.toFixed(0)}%`;
       this.overlay.querySelector(".sync-count").textContent =
-        r.speed > 1
-          ? `Speed +${Math.round((r.speed - 1) * 100)}% · lift height +${Math.round((r.height - 1) * 100)}% · style ×${r.style.toFixed(2)}`
-          : "No penalty. Ordinary jump begins next.";
+        r.points > 0 ? `+${r.points} style · controls returning` : "No penalty. Back to the landing.";
       this.overlay.querySelector(".sync-john").textContent =
         `JOHN SANTOR: ${C.lines[sequence.result.grade]}`;
     } else {
       if (this.serial !== sequence.serial)
         feedback.textContent = sequence.feedback;
       this.overlay.querySelector(".sync-count").textContent =
-        `COMBO ${sequence.combo} · ${sequence.notes.filter((n) => n.grade).length} / ${C.notes} NOTES · runway follows automatically`;
+        `COMBO ${sequence.combo} · ${sequence.notes.filter((n) => n.grade).length} / ${sequence.notes.length} NOTES · air control returns after notes`;
     }
     this.serial = sequence.serial;
     this.overlay.querySelector("progress").value = sequence.charge;
@@ -131,5 +129,5 @@ export class SyncUI {
 export function syncBreakdown(score) {
   if (!score.sync) return "";
   const s = score.sync;
-  return `<div class="skill-result sync-breakdown"><b>SANTOR SYNC: ${s.grade} · ${s.accuracy.toFixed(0)}%</b><span>${s.perfect} Perfect / ${s.good} Good / ${s.miss} Miss · ${s.extra} off-beat inputs</span><span>Launch speed +${Math.round((s.reward.speed - 1) * 100)}% · lift height +${Math.round((s.reward.height - 1) * 100)}% · style ×${s.reward.style.toFixed(2)}</span></div>`;
+  return `<div class="skill-result sync-breakdown"><b>SYNC MOMENT: ${s.grade} · ${s.accuracy.toFixed(0)}%</b><span>${s.perfect} Perfect / ${s.good} Good / ${s.miss} Miss · ${s.extra} off-beat inputs</span><span>+${s.reward.points} style points · no distance or landing bonus</span></div>`;
 }

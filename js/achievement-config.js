@@ -102,21 +102,21 @@ export const ACHIEVEMENTS = freeze([
   attempt(
     "sync-first",
     "In Sync",
-    "Santor Sync",
-    "Complete your first Santor Sync and finish the attempt.",
+    "Sync Moments",
+    "Complete your first Sync Moment and finish the attempt.",
     [["syncCompleted", "eq", true]],
   ),
   attempt(
     "sync-perfect",
     "Physics Lost Jurisdiction",
-    "Santor Sync",
+    "Sync Moments",
     "Earn Perfect Sync and finish the attempt.",
     [["syncPerfect", "eq", true]],
   ),
   attempt(
     "sync-land",
     "Beat the Landing",
-    "Santor Sync",
+    "Sync Moments",
     "Earn Perfect Sync and land successfully.",
     [
       ["syncPerfect", "eq", true],
@@ -126,8 +126,8 @@ export const ACHIEVEMENTS = freeze([
   attempt(
     "sync-three",
     "Triple Time",
-    "Santor Sync",
-    "Complete three rotations after a Sync boost.",
+    "Sync Moments",
+    "Complete three rotations and earn style points from a Sync Moment.",
     [
       ["syncBoosted", "eq", true],
       ["rotations", "gte", 3],
@@ -136,7 +136,7 @@ export const ACHIEVEMENTS = freeze([
   attempt(
     "sync-miss-medal",
     "Legally Valid",
-    "Santor Sync",
+    "Sync Moments",
     "Miss every Sync note but still earn a medal.",
     [
       ["syncAllMiss", "eq", true],
@@ -146,9 +146,9 @@ export const ACHIEVEMENTS = freeze([
   campaign(
     "sync-twice",
     "Encore in the Vault",
-    "Trigger Sync twice during one completed run.",
+    "Trigger two Sync Moments during one completed Vault Run.",
     {
-      category: "Santor Sync",
+      category: "Sync Moments",
       rules: [["runComplete", "eq", true]],
       field: "syncOccurrences",
       target: 2,

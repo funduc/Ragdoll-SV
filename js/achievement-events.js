@@ -27,7 +27,7 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     hjFace: highJump?.face === true,
     syncCompleted: Boolean(score.sync),
     syncPerfect: score.sync?.grade === "PERFECT SYNC",
-    syncBoosted: (score.sync?.reward.speed || 1) > 1,
+    syncBoosted: (score.sync?.reward.points || 0) > 0,
     syncAllMiss: Boolean(
       (score.sync && score.sync.perfect === 0 && score.sync.good === 0) ||
         (campaign?.levelFinished &&

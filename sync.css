@@ -1,11 +1,11 @@
-/* Isolated bonus broadcast; the cart/arena remain visible under the scrim. */
+/* Brief in-flight notes stay above/right of the cart; gameplay keeps moving. */
 .sync-overlay {
   position: absolute;
   inset: 0;
   z-index: 16;
-  background: #080e1670;
+  background: transparent;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-end;
   padding: 12px;
   pointer-events: none;
@@ -15,7 +15,7 @@
   display: none;
 }
 .sync-panel {
-  width: min(460px, 60%);
+  width: min(390px, 52%);
   padding: 14px;
   border: 3px solid #38b9f2;
   background: linear-gradient(#273c4fee, #0d161fee);
@@ -30,7 +30,7 @@
   margin: 6px 0;
 }
 .sync-track {
-  height: 140px;
+  height: 100px;
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -131,11 +131,11 @@
     align-items: flex-start;
   }
   .sync-panel {
-    width: 85%;
+    width: 50%;
     padding: 8px;
   }
   .sync-track {
-    height: 96px;
+    height: 65px;
   }
   .sync-panel .tiny {
     font-size: 10px;
@@ -148,4 +148,11 @@
 
 [data-sync] .pause-banner {
   z-index: 17;
+}
+
+@media (max-width: 600px) {
+  .sync-panel h2 { font-size: 17px; }
+  .sync-panel .sync-john { display: none; }
+  .sync-panel p { margin: 3px 0; }
+  .sync-note { width: 25px; height: 24px; font-size: 20px; line-height: 20px; }
 }

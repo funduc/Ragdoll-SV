@@ -425,16 +425,46 @@ export class Renderer {
       c.fillRect(world.bar.position.x - 5, world.bar.position.y - 1.5, 10, 3);
     }
   }
+  drawSyncMoment(world) {
+    const c = this.ctx, x = world.cart.position.x, y = world.cart.position.y;
+    if (!this.motionPreference?.matches) {
+      c.save(); c.strokeStyle = world.character.primaryColor; c.lineWidth = 5;
+      for (let i = 0; i < 8; i++) {
+        c.globalAlpha = (1 - i / 8) * 0.65;
+        const offset = Math.sin(world.elapsed * 8 - i) * 8;
+        c.beginPath(); c.moveTo(x - 65 - i * 18, y + offset);
+        c.lineTo(x - 78 - i * 18, y + offset); c.stroke();
+      }
+      c.restore();
+    }
+    const scale = this.camera.scale, width = Math.min(240, this.width - 24) / scale;
+    const tagX = Math.max(this.camera.x + width / 2 + 8 / scale, Math.min(x, this.camera.x + (this.width - 8) / scale - width / 2));
+    const tagY = y + 92 / scale;
+    c.fillStyle = "#0b1a24"; c.fillRect(tagX - width / 2, tagY - 28 / scale, width, 38 / scale);
+    this.label(world.syncCelebration.grade === "PERFECT SYNC" ? "PERFECT SYNC" : "SYNC STYLE!",
+      tagX, tagY, 26 / scale, "#b4ef4b", "center");
+  }
   drawVehicle(world) {
     const c = this.ctx;
     const lost = world.damage?.lostParts;
+    const celebrating = world.syncCelebration && world.elapsed < world.syncCelebration.until && !world.landed && !world.crashed;
+    if (celebrating) this.drawSyncMoment(world);
     for (const body of world.rider) {
       if (body === world.head) continue;
+      if (celebrating && body.label === "arm") continue;
       const fill =
         body.label === "leg" || body === world.hips
           ? "#536b80"
           : world.character.primaryColor;
       this.polygon(body.vertices, fill, "#091117", 2);
+    }
+    if (celebrating) {
+      // Victory pose is art only; hands, grip and cargo keep their real physics.
+      c.strokeStyle = world.character.primaryColor; c.lineWidth = 9;
+      for (const side of [-1, 1]) {
+        c.beginPath(); c.moveTo(world.head.position.x, world.head.position.y + 18);
+        c.lineTo(world.head.position.x + side * 24, world.head.position.y - 16); c.stroke();
+      }
     }
     const head = world.head;
     c.save();

@@ -89,7 +89,7 @@ try {
   }
   assert.ok(!screens.includes(S.MAP) && !screens.includes(S.READY));
   assert.equal(resets, 5);
-  assert.equal(syncStarts, 6, "retries retain the normal Sync entry point");
+  assert.equal(syncStarts, 0, "retries never start a pre-jump Sync");
   assert.equal(focuses, 6);
   console.log("PASS five keyboard-driven Orientation attempts and R retries, reward ordering, fresh worlds, controls and save preservation");
 

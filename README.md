@@ -22,7 +22,9 @@ Open http://127.0.0.1:8000/ and choose **Enter the Vault**. No dependency instal
 | Enter | Continue an introduction or confirm a menu |
 | R | Restart before takeoff; instantly retry from Vault Run results |
 
-On touch screens, use the on-screen controls. During Santor Sync, match the displayed arrow notes. Losing focus pauses play; release and press the controls again when returning. The Instructions screen includes optional practice drills.
+On touch screens, use the on-screen controls. Losing focus pauses play; release and press the controls again when returning. The Instructions screen includes optional practice drills.
+
+**Sync Moments**: in Vault Run or Party, earn at least five Perfect pushes and a Perfect takeoff. Near the apex, a stable jump with enough airtime offers 3–5 arrow notes at 20% flight speed. Tap Left/Down/Up/Right (A/S/W/D or touch lanes) for up to 180 style points, a victory pose and a trail. Rotation pauses during the notes and returns with at least 0.8 seconds before estimated landing; short flights skip it. Ignoring notes costs nothing. Perfect Sync earns John’s callout; rewards never boost distance or landing. Reduced motion keeps notes still and hides the trail. Existing Sync achievements and progress survive the removal of random pre-jump events.
 
 Vault Run menus are kept short: the map is a grid of level tiles (bonus levels in their own row), each briefing shows the condition, medal goals and John's line, and extra detail sits behind **Details** or **Full score breakdown**.
 

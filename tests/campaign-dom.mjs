@@ -225,7 +225,7 @@ async function boot(saved = {}, denied = false, search = "") {
       assert.equal(img.draggable, false);
     }
     if (
-      !wasSync &&
+      !wasSync && !$("#game").dataset.sync &&
       previousState === "active-attempt" &&
       state() === previousState
     )
@@ -334,6 +334,7 @@ async function boot(saved = {}, denied = false, search = "") {
       "unlock notices never cover gameplay",
     );
     for (let count = 0; count < 2800 && state() === "active-attempt"; count++) {
+      if ($("#game").dataset.sync) { rotate(0); frame(); continue; }
       if (!idle) {
         const chapter = level && (level.bonus || LEVELS.indexOf(level) >= 3);
         const controls = chapter
@@ -396,10 +397,9 @@ async function boot(saved = {}, denied = false, search = "") {
     const equation = Math.round(
       Number($("[data-trick-subtotal]").textContent) *
         Number($("[data-trick-character]").textContent) *
-        Number($("[data-trick-landing]").textContent) *
-        Number($("[data-trick-sync]")?.textContent || 1),
+        Number($("[data-trick-landing]").textContent),
     );
-    assert.equal(style, Math.min(5000, equation));
+    assert.equal(style, Math.min(5000, equation + Number($("[data-trick-sync]")?.textContent || 0)));
     return rank;
   }
   frame();

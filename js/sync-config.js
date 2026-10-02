@@ -1,137 +1,57 @@
-// SANTOR SYNC tuning. Seconds use the independent, paused RAF beat clock.
-// Height is a ballistic-height factor; takeoff vertical speed uses its square root.
+// Sync Moments use a real-time beat clock and unchanged fixed physics steps.
 const freeze = (value) => {
-  if (value && typeof value === "object") {
-    Object.values(value).forEach(freeze);
-    Object.freeze(value);
-  }
+  if (value && typeof value === "object") { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;
 };
 export const SYNC_CONFIG = freeze({
-  chance: 0.11,
-  pity: 6,
-  force: false, // Party is always excluded at the lifecycle boundary.
-  firstBeat: 1.0,
-  spacing: 0.48,
-  notes: 6,
-  preview: 1.0,
-  perfectWindow: 0.075,
+  minimumPerfectPushes: 5,
+  timeScale: 0.2,
+  recoverySeconds: 0.8,
+  safetyMargin: 0.12,
+  apexLead: 0.28,
+  firstBeat: 0.55,
+  spacing: 0.27,
+  notes: 3,
+  preview: 0.65,
+  perfectWindow: 0.085,
   goodWindow: 0.15,
   goodCredit: 0.7,
-  resultSeconds: 0.7,
+  resultSeconds: 0,
   maximumFrameGap: 0.25,
   musicDuck: 0.72,
-  maximumSpeed: 35,
-  maximumUpwardSpeed: 20,
-  maximumStyle: 1.35,
-  maximumSpin: 0.16,
+  maximumStyle: 180,
   maximumExtraMisses: 1000,
   beatFlashSeconds: 0.12,
+  celebrationSeconds: 0.9,
   grades: [
-    {
-      name: "PERFECT SYNC",
-      minimum: 95,
-      speed: 1.12,
-      height: 1.25,
-      style: 1.25,
-    },
-    { name: "GREAT", minimum: 80, speed: 1.1, height: 1.12, style: 1.12 },
-    { name: "GOOD", minimum: 60, speed: 1.05, height: 1.05, style: 1 },
-    { name: "MISS", minimum: 0, speed: 1, height: 1, style: 1 },
+    { name: "PERFECT SYNC", minimum: 99.99 },
+    { name: "GREAT", minimum: 80 },
+    { name: "GOOD", minimum: 60 },
+    { name: "MISS", minimum: 0 },
   ],
   characters: {
-    jake: {
-      windows: 1.15,
-      spacing: 1.04,
-      damping: 0.6,
-      speedExtra: 0,
-      styleExtra: 0,
-      styleCap: 1.18,
-      kick: 0,
-      pattern: [0, 1, 2, 3, 0, 3],
-    },
-    brandon: {
-      windows: 1,
-      spacing: 1,
-      damping: 0.85,
-      speedExtra: 0,
-      styleExtra: 0.08,
-      styleCap: 1.35,
-      kick: 0,
-      pattern: [0, 2, 1, 3, 1, 0],
-    },
-    owen: {
-      windows: 1,
-      spacing: 0.88,
-      damping: 0.95,
-      speedExtra: 0.03,
-      styleExtra: 0,
-      styleCap: 1.25,
-      kick: 0.008,
-      pattern: [0, 1, 2, 3, 0, 3],
-    },
+    jake: { windows: 1.15, spacing: 1.04, patterns: [[0,1,2,3,0], [3,2,1,0,3], [0,2,3,1,0], [1,0,3,2,1]] },
+    brandon: { windows: 1, spacing: 1, patterns: [[0,2,1,3,1], [2,0,3,1,2], [1,3,0,2,3], [3,1,2,0,1]] },
+    owen: { windows: 1, spacing: 0.88, patterns: [[0,3,1,2,3], [3,0,2,1,0], [2,1,3,0,2], [1,2,0,3,1]] },
   },
-  wrateWarningChance: 0.25,
   lines: {
-    intro:
-      "The Vault has detected rhythm. This was not in the risk assessment.",
-    MISS: "No rhythm whatsoever. The attempt remains legally valid.",
+    intro: "FIVE PERFECT PUSHES. PERFECT TAKEOFF. THE VAULT HAS DETECTED A MOMENT!",
+    MISS: "No obligation to dance. Back to the landing.",
     GOOD: "They are weaponizing the beat!",
-    GREAT: "They are weaponizing the beat!",
-    "PERFECT SYNC": "Perfect synchronization! Physics has lost jurisdiction.",
-    wrate: "Someone check whether Owen wired this correctly.",
+    GREAT: "BAM! THE CART HAS FOUND ITS RHYTHM!",
+    "PERFECT SYNC": "PERFECT SYNC! EVEN THE AIR HAS ASKED FOR AN ENCORE!",
   },
 });
-export const SYNC_KEYS = Object.freeze({
-  ArrowLeft: 0,
-  KeyA: 0,
-  ArrowDown: 1,
-  KeyS: 1,
-  ArrowUp: 2,
-  KeyW: 2,
-  ArrowRight: 3,
-  KeyD: 3,
-});
-export function syncResult(perfect = 0, good = 0, extra = 0) {
-  const count = (n) =>
-    Number.isSafeInteger(n)
-      ? Math.max(0, Math.min(SYNC_CONFIG.maximumExtraMisses, n))
-      : 0;
-  perfect = Math.min(SYNC_CONFIG.notes, count(perfect));
-  good = Math.min(SYNC_CONFIG.notes - perfect, count(good));
-  extra = count(extra);
-  const accuracy =
-    Math.round(
-      (10000 * (perfect + good * SYNC_CONFIG.goodCredit)) /
-        (SYNC_CONFIG.notes + extra),
-    ) / 100;
-  return Object.freeze({
-    perfect,
-    good,
-    miss: SYNC_CONFIG.notes - perfect - good,
-    extra,
-    accuracy,
-    grade: SYNC_CONFIG.grades.find((g) => accuracy >= g.minimum).name,
-  });
+export const SYNC_KEYS = Object.freeze({ ArrowLeft: 0, KeyA: 0, ArrowDown: 1, KeyS: 1, ArrowUp: 2, KeyW: 2, ArrowRight: 3, KeyD: 3 });
+export function syncResult(perfect = 0, good = 0, extra = 0, notes = SYNC_CONFIG.notes) {
+  const count = (n) => Number.isSafeInteger(n) ? Math.max(0, Math.min(SYNC_CONFIG.maximumExtraMisses, n)) : 0;
+  notes = Math.max(3, Math.min(5, count(notes) || 3));
+  perfect = Math.min(notes, count(perfect)); good = Math.min(notes - perfect, count(good)); extra = count(extra);
+  const accuracy = Math.round(10000 * (perfect + good * SYNC_CONFIG.goodCredit) / (notes + extra)) / 100;
+  return Object.freeze({ notes, perfect, good, miss: notes - perfect - good, extra, accuracy,
+    grade: SYNC_CONFIG.grades.find((g) => accuracy >= g.minimum).name });
 }
-export function syncReward(result, characterId) {
-  const normalized = result
-    ? syncResult(result.perfect, result.good, result.extra)
-    : null;
-  const base =
-    SYNC_CONFIG.grades.find((g) => g.name === normalized?.grade) ||
-    SYNC_CONFIG.grades.at(-1);
-  const c = SYNC_CONFIG.characters[characterId] || SYNC_CONFIG.characters.jake;
-  const boosted = base.speed > 1;
-  return Object.freeze({
-    speed: base.speed + (boosted ? c.speedExtra : 0),
-    height: base.height,
-    style: Math.min(
-      SYNC_CONFIG.maximumStyle,
-      c.styleCap,
-      base.style + (base.style > 1 ? c.styleExtra : 0),
-    ),
-    damping: boosted ? c.damping : 1,
-    kick: boosted ? c.kick : 0,
-  });
+export function syncReward(result) {
+  const normalized = result ? syncResult(result.perfect, result.good, result.extra, result.notes) : null;
+  return Object.freeze({ points: Math.round(SYNC_CONFIG.maximumStyle * (normalized?.accuracy || 0) / 100) });
 }

@@ -44,6 +44,7 @@ export class ReplayRecording {
       hips: rider[world.rider.indexOf(world.hips)],
       cargo: world.cargo ? bodyPose(world.cargo) : null,
       cargoLost: world.cargoLost,
+      syncCelebration: world.syncCelebration ? { ...world.syncCelebration } : null,
       ribbonCut: world.ribbonCut,
       bar: world.bar ? bodyPose(world.bar) : null,
       pins: (world.pins || []).map(bodyPose),
