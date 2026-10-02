@@ -176,6 +176,8 @@ export class Renderer {
     c.lineWidth = 7;
     c.stroke();
     // Optional extra static pieces (bars, walls, second ramps) from course data.
+    if (theme.ramp.sign)
+      this.label(theme.ramp.sign, course.rampStart - 30, course.groundY - 90, 22, theme.accent, "center");
     for (const piece of course.pieces) {
       if (theme.drawPiece?.(this, piece, course, world)) continue;
       if (["pit", "platform", "conveyor", "props", "obstacle"].includes(piece.type)) {
@@ -197,6 +199,19 @@ export class Renderer {
       c.stroke();
     }
     if (world?.highJump) this.drawHighJump(world, course);
+    if (course.ribbon) {
+      const r = course.ribbon, left = r.x - r.width / 2, right = r.x + r.width / 2;
+      c.fillStyle = "#d6bc81";
+      for (const x of [left, right]) c.fillRect(x - 4, r.y - 50, 8, course.groundY - r.y + 50);
+      c.strokeStyle = "#ef334c"; c.lineWidth = r.height;
+      c.beginPath(); c.moveTo(left, r.y);
+      if (world?.ribbonCut) {
+        c.lineTo(left + 120, course.groundY - 4);
+        c.moveTo(right - 120, course.groundY - 4);
+      }
+      c.lineTo(right, r.y); c.stroke();
+      this.label(world?.ribbonCut ? "RIBBON CUT!" : "LAND HERE · CUT THE RIBBON", r.x, r.y - 30, 18, "#ffdb89", "center");
+    }
     if (course.pins) this.drawBowling(world, course);
     drawRunMarkings(this, world, left, right);
     for (const bump of world?.runwayBumps || [])

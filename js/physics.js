@@ -73,6 +73,7 @@ export class PhysicsWorld {
     this.impactLoudness = null;
     this.firstLandingPiece = null;
     this.firstLandingOnTop = false;
+    this.ribbonCut = false;
     this.obstacleHits = new Set();
     this.distancePixels = 0;
     this.settleTime = 0;
@@ -231,6 +232,15 @@ export class PhysicsWorld {
     };
   }
   updateCoursePieces() {
+    const ribbon = this.course.ribbon;
+    if (ribbon && this.launched && this.landed && !this.ribbonCut) {
+      const { min, max } = this.cart.bounds;
+      if (max.x >= ribbon.x - ribbon.width / 2 && min.x <= ribbon.x + ribbon.width / 2 &&
+          max.y >= ribbon.y - ribbon.height / 2 && min.y <= ribbon.y + ribbon.height / 2) {
+        this.ribbonCut = true;
+        this.events.push("ribbon-cut");
+      }
+    }
     if (!this.conveyors.size && !this.looseProps.length && !this.pits.length) return;
     const { Body } = this.M;
     for (const pair of this.engine.pairs.list) {

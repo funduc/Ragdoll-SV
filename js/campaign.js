@@ -78,6 +78,7 @@ export function combinedFacts(heats) {
     completedJumps: count("completedJump"),
     successfulLandings: count("successfulLanding"),
     controlledLandings: count("controlledLanding"),
+    ribbonCut: facts.some((f) => f.ribbonCut),
     goodBraces: count("goodBrace"),
     perfectBraces: count("perfectBrace"),
     perfectTakeoffs: count("perfectTakeoff"),

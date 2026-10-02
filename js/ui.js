@@ -32,7 +32,7 @@ import {
   bowlingResultMarkup,
 } from "./party-ui.js";
 import { bowlingLine, bowlingLineKind } from "./bowling.js";
-import { applause, libraryTooLoud, noisePercent, roadVerse, ROAD_POEM, factoryCycleRemaining } from "./santor-tour.js";
+import { applause, libraryTooLoud, noisePercent, roadVerse, ROAD_POEM, factoryCycleRemaining, ROOFTOP_FALL_LINE } from "./santor-tour.js";
 const button = (label) =>
   `<div class="actions"><button class="btn" data-action="confirm">${label} <small class="keyboard-note">ENTER ↵</small></button></div>`;
 
@@ -149,6 +149,12 @@ export class UI {
     if (world.course.id === "temu-warehouse" && world.propFacts().propsFallen > 0 && !this.announced.has("ordered-boxes")) {
       this.announced.add("ordered-boxes");
       this.say("OWEN: I ordered these.");
+    }
+    if (world.course.id === "rooftop-delivery" && world.crashClassification === "pit-fall" && !this.announced.has("roof-fall")) {
+      this.announced.add("roof-fall"); this.say(ROOFTOP_FALL_LINE);
+    }
+    if (world.ribbonCut && !this.announced.has("ribbon-cut")) {
+      this.announced.add("ribbon-cut"); this.say("RIBBON CUT! THE VAULT IS OPEN! PLEASE USE THE DOOR NEXT TIME!");
     }
     const verse = roadVerse(world);
     if (verse > this.roadVerse) {

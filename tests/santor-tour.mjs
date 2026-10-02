@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 import { CHARACTERS } from "../js/characters.js";
 import { TOUR_LEVELS, applause, crowdCue, tourFacts, QUIET_IMPACT_LIMIT, ROAD_POEM, roadVerse } from "../js/santor-tour.js";
-import { Campaign, CampaignState as S, campaignFacts } from "../js/campaign.js";
+import { Campaign, CampaignState as S, campaignFacts, combinedFacts } from "../js/campaign.js";
+import { attemptAchievementFacts } from "../js/achievement-events.js";
+import { AchievementManager } from "../js/achievements.js";
 import { CampaignSave, CAMPAIGN_SAVE_KEY } from "../js/campaign-save.js";
 import { evaluateMedal } from "../js/campaign-levels.js";
 import { renderCampaign } from "../js/campaign-ui.js";
@@ -19,7 +21,7 @@ import { Presentation } from "../js/presentation.js";
 import { audioDouble } from "./fake-audio.mjs";
 
 runInThisContext(readFileSync(new URL("../vendor/matter-0.20.0.min.js", import.meta.url), "utf8"));
-const [freezer, mic, night, library, factory, warehouse] = TOUR_LEVELS;
+const [freezer, mic, night, library, factory, warehouse, rooftop, finale] = TOUR_LEVELS;
 const makeWorld = (level, character = CHARACTERS[0]) => new PhysicsWorld(character,
   level.arena, { condition: level.condition, upgrades: {}, objective: level.optionalObjective });
 const score = (world) => scoreAttempt(world.metrics(), world.character);
@@ -426,6 +428,124 @@ test("Warehouse boxes stay standing before contact, show a live count and Owen's
   assert.match(hud.hudRotation.innerHTML, /^0 <small>\/ 36/);
   assert.equal(hud.announced.has("ordered-boxes"), false);
   fresh.dispose(); w.dispose();
+});
+
+test("Rooftop cargo uses real physics: all characters deliver it, flips spill it, missing either roof edge is Bronze only", () => {
+  for (const c of CHARACTERS) {
+    const w = driveChapter(makeWorld(rooftop, c), rooftop);
+    const facts = campaignFacts(score(w), w, true);
+    assert.deepEqual(evaluateMedal(rooftop, facts), { medal: 3, santor: true });
+    assert.equal(w.firstLandingPiece.label, "far-roof");
+    assert.equal(evaluateMedal(rooftop, { ...facts, cargoRetained: false }).medal, 2);
+    assert.equal(evaluateMedal(rooftop, { ...facts, controlledLanding: false }).medal, 2);
+    assert.equal(evaluateMedal(rooftop, { ...facts, uniqueTricks: 0 }).santor, false);
+    w.dispose();
+    const spill = driveChapter(makeWorld(rooftop, c), rooftop, { flip: true });
+    assert.equal(spill.cargoLost, true);
+    assert.equal(evaluateMedal(rooftop, campaignFacts(score(spill), spill, true)).medal, 2);
+    spill.dispose();
+  }
+  for (const x of [2200, 6200]) {
+    const w = makeWorld(rooftop), recording = new ReplayRecording(w), effects = new Effects();
+    assert.equal(Matter.Query.point(w.groundBodies, { x, y: 530 }).length, 0);
+    drop(w, x, 430);
+    for (let i = 0; i < 1500 && !w.finished; i++) { w.step(); recording.capture(w, effects, {}); }
+    const s = score(w), f = campaignFacts(s, w, true);
+    assert.ok(w.finished && !w.landed && w.crashed);
+    assert.equal(w.crashClassification, "pit-fall"); assert.equal(s.landingPoints, 0);
+    assert.deepEqual(evaluateMedal(rooftop, f), { medal: 1, santor: false });
+    assert.equal(evaluateMedal(freezer, f).medal, 0); // No global completed-jump exception.
+    assert.ok(recording.shouldAutoPlay(s, false)); assert.ok(!recording.shouldAutoPlay(s, true));
+    w.dispose();
+  }
+  const idle = makeWorld(rooftop);
+  assert.equal(tourFacts(idle).rooftopJump, false); idle.dispose();
+});
+
+test("Ribbon requires a real landed cart, latches once, resets per attempt and is copied into replay without changing points", () => {
+  const w = makeWorld(finale), r = w.course.ribbon;
+  drop(w, r.x, 300);
+  w.updateCoursePieces(); assert.equal(w.ribbonCut, false);
+  for (let i = 0; i < 1000 && !w.ribbonCut; i++) w.step();
+  assert.ok(w.landed && w.ribbonCut);
+  assert.equal(w.drainEvents().filter((e) => e === "ribbon-cut").length, 1);
+  for (let i = 0; i < 120 && !w.finished; i++) w.step();
+  assert.equal(w.drainEvents().filter((e) => e === "ribbon-cut").length, 0);
+  const replay = new ReplayRecording(w); replay.capture(w, new Effects(), {});
+  const total = score(w).total; w.ribbonCut = false;
+  assert.equal(score(w).total, total); assert.equal(replay.frames[0].world.ribbonCut, true);
+  const outside = makeWorld(finale); drop(outside, 5200, 430);
+  for (let i = 0; i < 300 && !outside.landed; i++) outside.step();
+  assert.ok(outside.landed); assert.equal(outside.ribbonCut, false);
+  const fresh = makeWorld(finale); assert.equal(fresh.ribbonCut, false);
+  fresh.dispose(); outside.dispose(); w.dispose();
+});
+
+test("Finale medal calibration uses all three actual courses, conditions and characters, with no score adjustments", () => {
+  for (const c of CHARACTERS) for (const flip of [false, true]) {
+    const heats = finale.stages.map((stage) => {
+      const w = driveChapter(new PhysicsWorld(c, stage.arena, { condition: stage.condition, upgrades: {}, objective: stage.optionalObjective }), finale, { flip });
+      const s = score(w), facts = campaignFacts(s, w, true);
+      assert.equal(w.course.id, stage.arena.course); assert.equal(w.runEffects.conditionId, stage.condition);
+      w.dispose(); return { score: s, facts };
+    });
+    const f = combinedFacts(heats), medal = evaluateMedal(finale, f);
+    assert.equal(f.completedJumps, 3); assert.equal(f.controlledLandings, 3);
+    assert.equal(f.ribbonCut, true);
+    assert.equal(medal.medal, flip ? 3 : 2); assert.equal(medal.santor, flip);
+    assert.equal(evaluateMedal(finale, combinedFacts(heats.slice(0, 2))).medal, 0);
+    if (flip) {
+      assert.equal(evaluateMedal(finale, { ...f, ribbonCut: false }).medal, 2);
+      assert.equal(evaluateMedal(finale, { ...f, successfulLandings: 2 }).medal, 2);
+      assert.equal(evaluateMedal(finale, { ...f, controlledLandings: 2 }).santor, false);
+      assert.equal(evaluateMedal(finale, { ...f, combinedScore: 3499 }).medal, 2);
+      assert.equal(evaluateMedal(finale, { ...f, combinedScore: 4299 }).santor, false);
+    }
+    assert.equal(evaluateMedal(finale, { ...f, combinedScore: 1199 }).medal, 0);
+  }
+});
+
+test("All eight stops play from the map to the podium and save Tour Complete only after the third heat", () => {
+  const data = new Map([[CAMPAIGN_SAVE_KEY, JSON.stringify({ version: 1, selectedCharacter: "jake",
+    progress: { jake: { "the-santor-gauntlet": { medal: 1 } } } })]]);
+  const storage = { getItem: (k) => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) };
+  const run = new Campaign(new CampaignSave(storage), { seedFactory: () => 42 });
+  run.select("jake"); run.confirm();
+  for (const level of TOUR_LEVELS) {
+    renderCampaign(ui, run);
+    assert.match(ui.overlay.innerHTML, new RegExp(`data-value="${level.id}"(?![^>]*disabled)`));
+    assert.ok(run.startLevel(level.id)); run.confirm();
+    do {
+      const w = driveChapter(new PhysicsWorld(run.current, run.attemptArena, run.attemptSpec), level);
+      const s = score(w); run.record(s, w);
+      run.runs.manager.send("attempt-ended", attemptAchievementFacts(w, s, run));
+      renderCampaign(ui, run);
+      if (level === finale && run.levelFinished) {
+        assert.match(ui.overlay.innerHTML, /aria-label="Tour ending"/);
+        for (const c of CHARACTERS) assert.ok(ui.overlay.innerHTML.includes(`${c.name} portrait`));
+        assert.match(ui.overlay.innerHTML, /The mug gets the rest of the night off/);
+        assert.equal(run.runs.manager.data.records["tour-complete"].unlocked, true);
+      } else {
+        assert.doesNotMatch(ui.overlay.innerHTML, /aria-label="Tour ending"/);
+        assert.equal(run.runs.manager.data.records["tour-complete"].unlocked, false);
+      }
+      w.dispose();
+      if (run.levelFinished) break;
+      run.confirm(); run.confirm();
+    } while (run.active);
+    assert.ok(run.lastMedal.medal >= 1);
+    run.confirm(); assert.equal(run.state, S.MAP);
+  }
+  assert.equal(new AchievementManager(storage).data.records["tour-complete"].unlocked, true);
+  const save = new CampaignSave(storage);
+  assert.equal(save.entry("jake", "the-santor-gauntlet").medal, 1);
+  assert.equal(save.entry("jake", finale.id).medal, 3);
+  assert.equal(save.entry("brandon", finale.id).medal, 0);
+  assert.ok(run.startLevel(finale.id)); run.confirm();
+  const w = driveChapter(new PhysicsWorld(run.current, run.attemptArena, run.attemptSpec), finale);
+  run.record(score(w), w); w.dispose();
+  assert.ok(run.retryLevel()); assert.equal(run.stageIndex, 0); assert.equal(run.heats.length, 0);
+  assert.equal(run.attemptArena.course, "freezer-aisle"); assert.equal(run.state, S.ACTIVE);
 });
 
 console.log(`${groups} Santor on Tour groups passed.`);

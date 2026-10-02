@@ -96,6 +96,9 @@ const campaign = (id, name, description, extra) => ({
   ...extra,
 });
 export const ACHIEVEMENTS = freeze([
+  attempt("tour-complete", "TOUR COMPLETE", "Campaign",
+    "Clear Grand Reopening and bring Santor on Tour home.",
+    [["levelId", "eq", "grand-reopening"], ["levelCompleted", "eq", true]]),
   attempt(
     "sync-first",
     "In Sync",

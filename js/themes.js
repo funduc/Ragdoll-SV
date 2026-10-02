@@ -373,10 +373,95 @@ const warehouse = defineTheme({
   },
 });
 
+const rooftops = defineTheme({
+  id: "rooftop-delivery", accent: "#a6b9ff",
+  ground: { fill: "#30313f", edge: "#9ba5bc", lines: "#424657", distanceStrip: "#353c50" },
+  ramp: { fill: "#414455", stripes: "#f1ca71", edge: "#c4cce4", sign: "DELIVERY →" },
+  pieces: { platform: { fill: "#363a4d", stroke: "#c4cce4" }, pit: { fill: "#070d1c", stroke: "#8291bc" } },
+  sponsors: [["EXPRESS MUG", "ROOFTOP DELIVERY →", "#f1ca71"], ["NO SAFE PLACE?", "TRY THE OTHER ROOF", "#a6b9ff"]],
+  backdrop(ctx, { width: w, height: h, label, time, reducedMotion, camera }) {
+    ctx.fillStyle = "#090e22"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#e0e7fc"; ctx.beginPath(); ctx.arc(w * 0.81, h * 0.16, 24, 0, Math.PI * 2); ctx.fill();
+    const shift = reducedMotion ? 0 : (camera.x * 0.035 % 150 + 150) % 150;
+    for (let i = -1; i < Math.ceil(w / 150) + 1; i++) {
+      const x = i * 150 - shift, top = h * (0.29 + ((i + 7) % 3) * 0.07);
+      ctx.fillStyle = "#171f36"; ctx.fillRect(x, top, 132, h - top);
+      for (let row = 0; row < 7; row++) for (let col = 0; col < 5; col++) {
+        ctx.fillStyle = (row + col + i + 10) % 3 ? "#eac580" : "#28334c";
+        ctx.fillRect(x + 12 + col * 23, top + 17 + row * 32, 9, 14);
+      }
+      ctx.fillStyle = reducedMotion || Math.sin(time * 2 + i) > 0 ? "#ff695d" : "#76352e";
+      ctx.fillRect(x + 60, top - 8, 6, 6);
+    }
+    // Near roof silhouettes, air conditioners and the water tower.
+    ctx.fillStyle = "#252a40"; ctx.fillRect(0, h * 0.78, w, h * 0.22);
+    for (let x = 80; x < w; x += 310) {
+      ctx.fillStyle = "#424b63"; ctx.fillRect(x, h * 0.78 - 45, 78, 45);
+      ctx.strokeStyle = "#a6b0c7";
+      for (let n = 0; n < 5; n++) { ctx.beginPath(); ctx.moveTo(x + 8, h * 0.78 - 36 + n * 6); ctx.lineTo(x + 69, h * 0.78 - 36 + n * 6); ctx.stroke(); }
+    }
+    const tx = w * 0.6, ty = h * 0.48;
+    ctx.fillStyle = "#5b4550"; ctx.fillRect(tx, ty, 76, 80);
+    ctx.beginPath(); ctx.moveTo(tx - 7, ty); ctx.lineTo(tx + 38, ty - 22); ctx.lineTo(tx + 83, ty); ctx.fill();
+    ctx.fillStyle = "#77819b"; ctx.fillRect(tx + 9, ty + 80, 5, 70); ctx.fillRect(tx + 62, ty + 80, 5, 70);
+    label("CITY EXPRESS · MUG IN TRANSIT", 24, 38, 15, "#dce5ff");
+  },
+  drawPiece(renderer, piece, course) {
+    if (piece.label !== "far-roof") return false;
+    renderer.polygon(pieceOutline(piece), "#363a4d", "#c4cce4", 3);
+    const c = renderer.ctx;
+    c.fillStyle = "#efca83";
+    for (let x = piece.x - piece.width / 2 + 30; x < piece.x + piece.width / 2; x += 95)
+      c.fillRect(x, course.groundY + 48, 26, 35);
+    renderer.pieceSign(piece); return true;
+  },
+});
+
+const reopening = defineTheme({
+  id: "grand-reopening", accent: "#ffcf72",
+  ground: { fill: "#343447", edge: "#ddbf88", lines: "#53516b" },
+  ramp: { fill: "#522e42", stripes: "#f2c572", edge: "#ffda91" },
+  sponsors: [["SANTOR VAULT", "GRAND REOPENING", "#ffd387"], ["WELCOME HOME", "EIGHT STOPS · ONE CART", "#ff8799"]],
+  backdrop(ctx, { width: w, height: h, label, time, reducedMotion }) {
+    const t = reducedMotion ? 0 : time;
+    ctx.fillStyle = "#11132a"; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 3; i++) {
+      const x = w * (0.2 + i * 0.3), sweep = Math.sin(t * 0.4 + i) * w * 0.2;
+      ctx.fillStyle = "#fff0bd12"; ctx.beginPath(); ctx.moveTo(x, h * 0.78);
+      ctx.lineTo(x + sweep - 60, 0); ctx.lineTo(x + sweep + 60, 0); ctx.fill();
+    }
+    // Four bounded bursts, analytic in recorded time so replays match.
+    for (let i = 0; i < 4; i++) {
+      const phase = reducedMotion ? 0.6 : ((t * 0.55 + i * 0.27) % 1);
+      const x = w * (0.15 + i * 0.23), y = h * (0.17 + i % 2 * 0.1);
+      ctx.strokeStyle = ["#ffc86e", "#ff8baf", "#92dcfc", "#b8f18b"][i];
+      ctx.globalAlpha = 1 - phase * 0.8; ctx.lineWidth = 2;
+      for (let ray = 0; ray < 12; ray++) {
+        const a = ray * Math.PI / 6, radius = 10 + phase * 65;
+        ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * radius * 0.6, y + Math.sin(a) * radius * 0.6);
+        ctx.lineTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#383043"; ctx.fillRect(w * 0.18, h * 0.4, w * 0.64, h * 0.43);
+    ctx.fillStyle = "#b79769"; ctx.fillRect(w * 0.18, h * 0.4, w * 0.64, 9);
+    ctx.fillStyle = "#15172b"; ctx.fillRect(w * 0.41, h * 0.58, w * 0.18, h * 0.25);
+    label("THE SANTOR VAULT", w / 2, h * 0.51, Math.min(27, w / 22), "#ffda91", "center");
+    label("GRAND REOPENING", w / 2, h * 0.56, 13, "#ff93a2", "center");
+    for (let x = 14; x < w; x += 26) {
+      ctx.fillStyle = "#182335"; ctx.beginPath(); ctx.arc(x, h * 0.76, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(x - 7, h * 0.76, 14, 28);
+    }
+    ctx.fillStyle = "#a0a5bc"; ctx.fillRect(0, h * 0.8, w, 5);
+    for (let x = 0; x < w; x += 55) ctx.fillRect(x, h * 0.8, 4, 27);
+  },
+});
+
 export const THEMES = Object.freeze({
   [DEFAULT_THEME.id]: DEFAULT_THEME, [freezer.id]: freezer, [comedy.id]: comedy,
   [nightRoad.id]: nightRoad, [library.id]: library,
   [factory.id]: factory, [warehouse.id]: warehouse,
+  [rooftops.id]: rooftops, [reopening.id]: reopening,
 });
 
 export class ThemePainter {

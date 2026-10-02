@@ -193,6 +193,12 @@ export function defineCourse(raw) {
     // Long-jump distance markings along the landing strip.
     distanceMarkers: raw.distanceMarkers !== false,
     pieces,
+    // A non-solid ceremonial band. Only a grounded cart can cut it.
+    ribbon: raw.ribbon ? {
+      x: number(raw.ribbon.x, "ribbon.x"), y: number(raw.ribbon.y, "ribbon.y"),
+      width: number(raw.ribbon.width, "ribbon.width"),
+      height: number(raw.ribbon.height, "ribbon.height"),
+    } : null,
     // Optional high-jump bar: x is its centre; its height is set per attempt.
     bar: raw.bar
       ? {
@@ -237,6 +243,19 @@ export function pinLayout(pins, groundY) {
 }
 
 export const COURSES = freeze({
+  "rooftop-delivery": defineCourse({
+    id: "rooftop-delivery", name: "Rooftop Delivery", theme: "rooftop-delivery",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330, startX: -3000,
+    pieces: [
+      { type: "pit", label: "city-gap", x: 6040, width: 9920, depth: 220, sign: "EXPRESS DELIVERY →" },
+      { type: "platform", label: "far-roof", x: 4250, y: 620, width: 2300, height: 240, sign: "MUG RECEIVING · FAR ROOF" },
+    ],
+  }),
+  "grand-reopening": defineCourse({
+    id: "grand-reopening", name: "Grand Reopening", theme: "grand-reopening",
+    groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330, startX: -3000,
+    ribbon: { x: 3650, y: 482, width: 2200, height: 16 },
+  }),
   "siemens-floor": defineCourse({
     id: "siemens-floor", name: "Siemens Floor", theme: "siemens-floor",
     groundY: 520, rampStart: 730, rampEnd: 1080, rampTop: 330,

@@ -1,3 +1,4 @@
+import { ROOFTOP_FALL_LINE } from "./santor-tour.js";
 import { SYNC_CONFIG, SYNC_KEYS } from "./sync-config.js";
 import { SyncSequence } from "./sync.js";
 import { SyncSave, syncRoll } from "./sync-save.js";
@@ -656,7 +657,8 @@ class Game {
     this.ui.overlay.hidden = true;
     this.ui.hud.hidden = true;
     document.getElementById("replay-banner").hidden = false;
-    this.ui.say(this.session.lastScore.crashed
+    this.ui.say(this.recording.scene.course.id === "rooftop-delivery" && this.session.lastScore.crashCause === "pit-fall"
+      ? ROOFTOP_FALL_LINE : this.session.lastScore.crashed
       ? "JOHN: ROLL THAT BACK. THE CART WOULD LIKE A SECOND OPINION!"
       : "JOHN: ONCE MORE FOR THE PEOPLE MEASURING THE LANDING!");
     this.renderer.resetCamera();

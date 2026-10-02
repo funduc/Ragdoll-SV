@@ -1,5 +1,6 @@
 // SANTOR ON TOUR — optional, per-character medals in the existing save catalog.
 // Like After Hours, this chapter is separate from the ten main lessons.
+import { CHAPTER_LEVELS } from "./campaign-chapter.js";
 const arena = { id: "santor-vault", gravity: 1.05 };
 const goal = (label, all) => ({ label, all });
 export const QUIET_IMPACT_LIMIT = 950; // First-contact normal speed, world pixels/second.
@@ -205,7 +206,78 @@ export const TOUR_LEVELS = [
       },
     },
   },
+  {
+    id: "rooftop-delivery", name: "ROOFTOP DELIVERY",
+    chapter: "santor-on-tour", bonus: true, estimatedMinutes: 3,
+    description: "Deliver John's ceremonial mug across the rooftop gap. Build speed and aim for the far roof; a fall completes Bronze only. Keep wheels down and brace before landing to protect the mug.",
+    objective: "Silver needs first contact on the far roof. Gold needs Clean with the mug still secured at the finish; add a trick for Santor. A steady Clean Flight counts; flips can spill the mug.",
+    arena: { ...arena, course: "rooftop-delivery", cargo: CHAPTER_LEVELS.find((l) => l.id === "fragile-cargo").arena.cargo },
+    condition: null, optionalObjective: "attached-landing", upgradeReward: false,
+    modifier: { id: "rooftop-coach", focus: "cargo", name: "Express Mug Delivery" },
+    bronze: goal("Complete the jump: reach the roof or fall into the gap.", { rooftopJump: true }),
+    silver: goal("Land on the far roof.", { farRoofLanding: true }),
+    gold: goal("Land Clean on the far roof and deliver the mug.", {
+      farRoofLanding: true, controlledLanding: true, cargoRetained: true,
+    }),
+    santorMedal: goal("Gold with a trick.", {
+      farRoofLanding: true, controlledLanding: true, cargoRetained: true, uniqueTricks: 1,
+    }),
+    prerequisites: ["temu-warehouse"],
+    john: {
+      introduction: "The mug is going across town. The mug is going across town the fast way.",
+      characters: {
+        jake: "Jake, express delivery does not include a street-level detour.",
+        brandon: "Brandon, the mug needs a landing. The dedication can wait.",
+        owen: "Owen, this parcel cannot be left with a neighbour. I am the neighbour.",
+      },
+      results: {
+        none: "The mug is still waiting for dispatch.",
+        bronze: "DELIVERY ATTEMPTED. MY CEREMONIAL MUG HAS REQUESTED A DIFFERENT COURIER.",
+        silver: "Roof reached. Mug status: awaiting a strongly worded inventory.",
+        gold: "MY MUG! CLEAN DELIVERY! THE ENTIRE CITY MAY NOW HAVE A TEA BREAK.",
+      },
+    },
+  },
+  {
+    id: "grand-reopening", name: "GRAND REOPENING",
+    chapter: "santor-on-tour", bonus: true, estimatedMinutes: 6,
+    description: "Three heats bring the Tour home: Freezer Aisle, Siemens Floor, then the Vault's red ribbon. Bank all three scores; retry restarts heat 1.",
+    objective: "Land on the freezer lids, survive the backward conveyor's four-second cycle, then land through the ribbon outside the Vault. Gold needs three successful landings and the ribbon cut.",
+    arena: { ...arena, course: "grand-reopening" }, condition: null,
+    optionalObjective: "attached-landing", upgradeReward: false,
+    modifier: { id: "tour-finale-coach", focus: "gauntlet", name: "The Homecoming" },
+    stages: [
+      { name: "FREEZER AISLE", arena: { ...arena, course: "freezer-aisle" }, condition: "icy-ramp", optionalObjective: "attached-landing",
+        introduction: "One last cold open: icy run-up, five lids, real gaps. Wheels down and brace before contact." },
+      { name: "SIEMENS FLOOR", arena: { ...arena, course: "siemens-floor" }, condition: "wrate-issue", optionalObjective: "attached-landing",
+        introduction: "The factory has approved a return visit. Recover from the Wrate Issue and stay on the backward belt until its four-second cycle stops." },
+      { name: "THE RIBBON", arena: { ...arena, course: "grand-reopening" }, condition: null, optionalObjective: "attached-landing",
+        introduction: "Home at last. Land inside the red ribbon zone to cut it. Scissors were considered insufficiently ceremonial." },
+    ],
+    bronze: goal("Complete all 3 jumps and bank 1,200 points.", { completedJumps: 3, combinedScore: 1200 }),
+    silver: goal("Bank 2,500 points and 2 successful landings.", { combinedScore: 2500, successfulLandings: 2 }),
+    gold: goal("Bank 3,500 points, 3 successful landings and cut the ribbon.", { combinedScore: 3500, successfulLandings: 3, ribbonCut: true }),
+    santorMedal: goal("Bank 4,300 points with 3 Clean landings.", { combinedScore: 4300, controlledLandings: 3 }),
+    prerequisites: ["rooftop-delivery"],
+    john: {
+      introduction: "THE VAULT IS OPEN AGAIN. THE TOUR HAS COME HOME. SOMEHOW, SO HAS THE CART.",
+      characters: {
+        jake: "Jake, the ribbon is not an ice-cream queue. Keep moving.",
+        brandon: "Brandon, the closing speech is mine. You may supply one dignified wheel squeak.",
+        owen: "Owen, everything has arrived. Please stop ordering venues.",
+      },
+      results: {
+        none: "The opening committee has requested one more rehearsal.",
+        bronze: "THREE HEATS. EIGHT STOPS. ONE VERY CONCERNED INSURANCE FOLDER.",
+        silver: "THE TOUR IS HOME. THE NEIGHBOURS HAVE NOTICED.",
+        gold: "RIBBON CUT. VAULT OPEN. SANTOR ON TOUR: OFFICIALLY LEGENDARY.",
+      },
+    },
+  },
 ];
+
+export const TOUR_CLOSING = "Jake brought the courage. Brandon brought enough words for eight venues. Owen brought everything else in thirty-six boxes. You brought them home. The Santor Vault is open. The mug gets the rest of the night off.";
+export const ROOFTOP_FALL_LINE = "THE MUG! THE ROOF WAS RIGHT THERE! THIS IS NOT THE GROUND-FLOOR DELIVERY OPTION!";
 
 export const libraryTooLoud = (world) => world.impactLoudness > QUIET_IMPACT_LIMIT;
 export const noisePercent = (world) => Math.ceil((world.impactLoudness ?? 0) / QUIET_IMPACT_LIMIT * 100);
@@ -243,6 +315,11 @@ export function tourFacts(world) {
   const conveyorLanding = world.course.id === "siemens-floor" &&
     world.firstLandingOnTop && world.firstLandingPiece?.label === "factory-belt";
   return {
+    rooftopJump: world.course.id === "rooftop-delivery" && world.launched &&
+      (world.landed || world.crashClassification === "pit-fall"),
+    farRoofLanding: world.course.id === "rooftop-delivery" && world.landed &&
+      world.firstLandingOnTop && world.firstLandingPiece?.label === "far-roof" && world.crashClassification !== "pit-fall",
+    ribbonCut: world.ribbonCut === true,
     freezerLidLanding: Boolean(freezerLidLanding),
     farthestFreezerLanding: Boolean(freezerLidLanding && world.firstLandingPiece === lids.at(-1)),
     micUntouched: world.course.id === "open-mic" && world.obstacleHits.size === 0,
