@@ -1,3 +1,4 @@
+import { syncStatus } from "./sync.js";
 import { CHARACTERS } from "./characters.js";
 import { State } from "./tournament.js";
 import { ATTEMPT_LIMIT } from "./physics.js";
@@ -93,6 +94,7 @@ export class UI {
     this.root.addEventListener("error", this.onImageError, true);
     this.hudName = document.getElementById("hud-name");
     this.hudPhase = document.getElementById("hud-phase");
+    this.syncStatus = document.getElementById("sync-status");
     this.hudDistance = document.getElementById("hud-distance");
     this.hudDistanceLabel = document.getElementById("hud-distance-label");
     this.eventLabel = document.getElementById("event-label");
@@ -195,6 +197,8 @@ export class UI {
       ?.focus({ preventScroll: true });
   }
   render(t) {
+    this.syncStatus.hidden = true;
+    this.syncStatus.textContent = "";
     this.root.dataset.state = t.state;
     this.root.dataset.introduction = "false";
     this.overlay.classList.remove("intro-overlay");
@@ -349,6 +353,9 @@ export class UI {
       .join("");
   }
   update(world) {
+    const status = syncStatus(world);
+    if (this.syncStatus.textContent !== status) this.syncStatus.textContent = status;
+    this.syncStatus.hidden = !status;
     updateCampaignCoach(world, this.campaignSession);
     if (!this.campaignSession && world.runEffects) updateRunStatus(world);
     this.skillMeter.update(worldSkillView(world));

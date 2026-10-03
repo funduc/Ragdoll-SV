@@ -146,13 +146,15 @@ export function syncLandingETA(world) {
 }
 
 export function syncMoment(world, { hard = false, lastPattern = "", serial = 0 } = {}) {
-  if (!world.launched || world.landed || world.crashed || world.finished || world.syncTriggered ||
+  if (world.syncTriggered || world.syncMissedAt !== undefined ||
       world.skills.takeoff !== "Perfect" || world.skills.pushes.Perfect < C.minimumPerfectPushes) return null;
+  world.syncReady = true;
+  if (!world.launched) return null;
   const gravity = world.engine.gravity.y * world.engine.gravity.scale * 1e6;
   const vy = world.M.Body.getVelocity(world.cart).y * 60;
-  // Do not interrupt a committed flip or a cart already needing recovery.
-  if (vy < -gravity * C.apexLead || vy > 0 || Math.abs(Math.atan2(Math.sin(world.cart.angle), Math.cos(world.cart.angle))) > 0.45 ||
-      Math.abs(world.cart.angularVelocity) > 0.025 || !world.attached) return null;
+  // Once the apex window opens, keep the earned opportunity through a flip.
+  if (vy < -gravity * C.apexLead && !world.syncWindowOpen) return null;
+  world.syncWindowOpen = true;
   const eta = syncLandingETA(world);
   const c = C.characters[world.character.id];
   let count = eta > 1.6 ? 5 : hard || eta > 1.3 ? 4 : 3;
@@ -160,7 +162,19 @@ export function syncMoment(world, { hard = false, lastPattern = "", serial = 0 }
     const pool = c.patterns.map((p) => p.slice(0, count)).filter((p) => p.join("") !== lastPattern);
     const pattern = pool[serial % pool.length];
     const sequence = new SyncSequence(world.character.id, pattern);
-    if (eta >= C.recoverySeconds + C.safetyMargin + sequence.physicsTime(sequence.duration)) return sequence;
+    if (eta >= C.recoverySeconds + C.safetyMargin + sequence.physicsTime(sequence.duration)) {
+      // No angle or input gate: small steering and a tilted cart remain eligible.
+      return Math.abs(world.cart.angularVelocity) <= C.maximumSpin && world.attached ? sequence : null;
+    }
   }
+  world.syncReady = false;
+  world.syncMissedAt = world.elapsed;
   return null;
+}
+
+export function syncStatus(world) {
+  if (world.syncTriggered) return "";
+  if (world.syncMissedAt !== undefined)
+    return world.elapsed - world.syncMissedAt < C.missedSeconds ? "SYNC MISSED: NOT ENOUGH AIR" : "";
+  return world.syncReady ? "SYNC READY" : "";
 }

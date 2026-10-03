@@ -136,7 +136,7 @@ test("Actual mic contacts latch for any cart/rider part, and head/torso contacts
 test("Applause tracks recognized unique tricks, drops on a crash and resets on a fresh attempt", () => {
   const hud = Object.create(UI.prototype);
   Object.assign(hud, { skillMeter: { update() {} }, campaignSession: null });
-  for (const key of ["passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
+  for (const key of ["syncStatus", "passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
   const w = makeWorld(mic), seen = new Set();
   for (let frame = 0; frame < 1250 && !w.finished; frame++) {
     const controls = chapterControls(w, mic, { flip: true });
@@ -153,6 +153,13 @@ test("Applause tracks recognized unique tricks, drops on a crash and resets on a
   assert.match(hud.hudRotation.innerHTML, /value="0"/);
   const ordinary = new PhysicsWorld(CHARACTERS[0]); hud.update(ordinary);
   assert.equal(hud.hudRotationLabel.textContent, "AIR ROTATION");
+  ordinary.syncReady = true; hud.update(ordinary);
+  assert.equal(hud.syncStatus.textContent, "SYNC READY"); assert.equal(hud.syncStatus.hidden, false);
+  ordinary.syncReady = false; ordinary.syncMissedAt = ordinary.elapsed; hud.update(ordinary);
+  assert.equal(hud.syncStatus.textContent, "SYNC MISSED: NOT ENOUGH AIR");
+  ordinary.elapsed += 2; hud.update(ordinary); assert.equal(hud.syncStatus.hidden, true);
+  ordinary.syncReady = true; ordinary.syncMissedAt = undefined; ordinary.syncTriggered = true;
+  hud.update(ordinary); assert.equal(hud.syncStatus.hidden, true);
   w.dispose(); fresh.dispose(); ordinary.dispose();
 });
 
@@ -305,7 +312,7 @@ test("Book kicker and loose books collide; clearing them leaves all books standi
 test("Measured library noise costs Gold on a hard landing, updates HUD, and shushes once per attempt", () => {
   const hud = Object.create(UI.prototype);
   Object.assign(hud, { skillMeter: { update() {} }, campaignSession: null });
-  for (const key of ["passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
+  for (const key of ["syncStatus", "passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
   const w = makeWorld(library), cues = [], p = Object.create(Presentation.prototype);
   Object.assign(p, { effects: new Effects(), audio: { resetAttempt() {}, play: (cue) => cues.push(cue) } });
   hud.update(w); assert.match(hud.hudRotation.innerHTML, /AWAITING LANDING/);
@@ -404,7 +411,7 @@ test("Warehouse boxes stay standing before contact, show a live count and Owen's
   Object.assign(hud, { skillMeter: { update() {} }, campaignSession: null,
     trickDisplay: { observe() {}, reset() {} }, commentator: { enqueue() {}, tick() { return "John"; }, resetAttempt() {} },
     say: line => lines.push(line) });
-  for (const key of ["passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
+  for (const key of ["syncStatus", "passiveStatus", "hudPhase", "hudDistanceLabel", "hudDistance", "hudRotationLabel", "hudRotation", "hudTime", "hint"]) hud[key] = node();
   hud.resetAttempt();
   for (let frame = 0; frame < 1250 && !w.finished; frame++) {
     const input = chapterControls(w, warehouse); w.step(input); w.step({ ...input, pushes: 0, brace: false });

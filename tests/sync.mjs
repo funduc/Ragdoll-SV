@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 import { SYNC_CONFIG as C, syncResult, syncReward } from "../js/sync-config.js";
-import { SyncSequence, syncMoment, syncLandingETA } from "../js/sync.js";
+import { SyncSequence, syncMoment, syncLandingETA, syncStatus } from "../js/sync.js";
 import { SyncSave, SYNC_SAVE_KEY } from "../js/sync-save.js";
 import { Input } from "../js/input.js";
 import { ALL_CONDITION_IDS } from "../js/run-config.js";
@@ -15,6 +15,7 @@ import { ReplayRecording } from "../js/replay.js";
 import { attemptAchievementFacts } from "../js/achievement-events.js";
 import { Effects } from "../js/effects.js";
 import { scoreAttempt, assertScore } from "../js/scoring.js";
+import { timedInputs } from "./skill-helpers.mjs";
 import { chapterControls } from "./chapter-helpers.mjs";
 import { AchievementManager, ACHIEVEMENT_SAVE_KEY } from "../js/achievements.js";
 let groups = 0;
@@ -79,6 +80,27 @@ check("Readable lead-in, count-in, result hold and exact easing budget at differ
   assert.equal(syncMoment(fixture((budget(three) + budget(four)) / 2), { hard: true }).notes.length, 3, "shorter pattern keeps the same leisurely timing");
   assert.equal(syncMoment(fixture(budget(three) - .001)), null, "skip if complete presentation and landing recovery cannot fit");
 });
+check("Earned status survives steering and spins, then triggers on descent or expires once", () => {
+  let vy = -500;
+  const w = { elapsed: 1, launched: false, attached: true, skills: { takeoff: "Perfect", pushes: { Perfect: 5 } },
+    character: CHARACTERS[0], cart: { angle: 1, angularVelocity: .01, position: { x: 0 } },
+    dynamic: [{ bounds: { max: { y: 0 } } }], M: { Body: { getVelocity: () => ({ x: 0, y: vy / 60 }) } },
+    engine: { gravity: { y: 1, scale: .001 } }, course: { groundY: 2000 }, coursePieces: [], looseProps: [] };
+  assert.equal(syncMoment(w), null); assert.equal(syncStatus(w), "SYNC READY");
+  w.launched = true; assert.equal(syncMoment(w), null, "wait for apex");
+  vy = -100; w.cart.angularVelocity = .1;
+  assert.equal(syncMoment(w), null); assert.equal(syncStatus(w), "SYNC READY");
+  vy = 100; w.cart.angularVelocity = .01;
+  assert.ok(syncMoment(w), "tilted, slowly steering cart can trigger AFTER apex");
+  w.syncTriggered = true; assert.equal(syncStatus(w), ""); assert.equal(syncMoment(w), null);
+  w.syncTriggered = false; w.cart.angularVelocity = .1; w.course.groundY = 100;
+  assert.equal(syncMoment(w), null); assert.equal(syncStatus(w), "SYNC MISSED: NOT ENOUGH AIR");
+  const missedAt = w.syncMissedAt;
+  w.course.groundY = 2000; w.cart.angularVelocity = 0;
+  assert.equal(syncMoment(w), null, "missed opportunity never re-arms on this jump");
+  w.elapsed += C.missedSeconds; assert.equal(syncStatus(w), ""); assert.equal(w.syncMissedAt, missedAt);
+  assert.equal(syncStatus({}), "", "fresh attempts have no stale status");
+});
 check("Old random/pity/pending saves migrate; progress, patterns, denied and future storage survive", () => {
   const st = storage(), run = { characterId: "jake", seed: 42 };
   const old = { version: 1, scope: "jake:42", occurrences: 2, pity: 5,
@@ -109,20 +131,20 @@ globalThis.document = { hidden: false, getElementById: () => ({ focus() {} }) };
 globalThis.requestAnimationFrame = () => 1;
 const poses = w => w.dynamic.map(b => [b.position.x, b.position.y, b.angle, b.velocity.x, b.velocity.y]);
 function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = "Perfect", hard = false,
-    syncSave = new SyncSave(storage()), fewerPushes = false, disabled = false, interruption = false, runSpec = null } = {}) {
+    syncSave = new SyncSave(storage()), fewerPushes = false, disabled = false, interruption = false, runSpec = null, controlPolicy = null } = {}) {
   const arena = { id: "santor-vault", gravity }, world = new PhysicsWorld(character, arena, runSpec);
   const campaign = new Campaign(new CampaignSave(null), { seedFactory: () => 42 });
   campaign.select(character.id); campaign.confirm(); campaign.startLevel("orientation-day"); campaign.confirm();
   const tournament = new Tournament(); tournament.state = State.ACTIVE;
   if (hard) Object.defineProperty(campaign, "level", { value: { ...campaign.level, bonus: true } });
-  const controls = [], clocks = [], sequences = [], cues = [], lines = [], ducks = [];
+  const controls = [], clocks = [], sequences = [], cues = [], lines = [], ducks = [], statuses = [];
   let syncEnd = null, paused = false, lastSequence = null;
   const game = Object.assign(Object.create(Game.prototype), {
     mode, campaign, tournament, world, syncSave, syncSequence: null, syncSerial: 0,
     recording: new ReplayRecording(world), lastTime: 0, accumulator: 0, suspended: false,
     introduction: { active: false }, biographyReader: { tick() {} },
     input: { consume() {
-      const control = chapterControls(world, { id: "orientation-day" }, { target });
+      const control = controlPolicy ? controlPolicy(world) : chapterControls(world, { id: "orientation-day" }, { target });
       if (fewerPushes && world.cart.position.x < world.skills.config.takeoff.armedX && world.skills.pushes.Perfect >= 4) control.pushes = 0;
       return control;
     } }, touch: { merge: v => v, sync() {} }, clearControls() {}, achievements: { send() {} },
@@ -152,6 +174,8 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
     }
     lastSequence = game.syncSequence;
     game.frame(time += 1000 / 120);
+    const status = syncStatus(world);
+    if (statuses.at(-1) !== status) statuses.push(status);
     if (lastSequence && !game.syncSequence) syncEnd = world.elapsed;
   }
   assert.ok(world.finished && world.hasFiniteBodies());
@@ -169,10 +193,22 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
   assert.equal(score.landingPoints, ordinary.landingPoints);
   assert.equal(score.attachedPoints, ordinary.attachedPoints);
   const facts = attemptAchievementFacts(world, score, mode === "vault" ? campaign : null);
-  const answer = { facts, score, sequences, clocks, syncEnd, landingTime: world.landingTime, cues, lines, ducks, pose: poses(world),
+  const answer = { facts, score, sequences, statuses, clocks, syncEnd, landingTime: world.landingTime, cues, lines, ducks, pose: poses(world),
     pushes: world.skills.pushes, takeoff: world.skills.takeoff };
   world.dispose(); return answer;
 }
+check("Real steering and flips keep an earned opportunity in both modes", () => {
+  for (const mode of ["vault", "party"]) for (const character of CHARACTERS) {
+    const steered = fly(character, { mode });
+    assert.ok(steered.statuses.includes("SYNC READY")); assert.equal(steered.sequences.length, 1);
+    const tilted = fly(character, { mode, controlPolicy: w => timedInputs(w, 0, true) });
+    assert.equal(tilted.sequences.length, 1, "natural cart tilt must not disqualify " + character.id);
+    const flipped = fly(character, { mode, controlPolicy: w => chapterControls(w, { id: "orientation-day" }, { flip: true }) });
+    assert.ok(flipped.statuses.includes("SYNC READY"));
+    assert.ok(flipped.sequences.length === 1 || flipped.statuses.includes("SYNC MISSED: NOT ENOUGH AIR"));
+    if (flipped.sequences.length) assert.ok(flipped.landingTime - flipped.syncEnd >= .8);
+  }
+});
 check("Real Vault and Party flights: eligibility, once per jump, eased slow motion, safe recovery, ignore or Perfect", () => {
   for (const mode of ["vault", "party"]) for (const character of CHARACTERS) {
     const ignored = fly(character, { mode, interruption: true });

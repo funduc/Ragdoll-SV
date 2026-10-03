@@ -9,6 +9,8 @@ export const SYNC_CONFIG = freeze({
   recoverySeconds: 0.8,
   safetyMargin: 0.12,
   apexLead: 0.28,
+  maximumSpin: 0.025, // Matter angular velocity; steering never disqualifies a jump.
+  missedSeconds: 2,
   // All presentation timings are real seconds; flight uses the configured timeScale.
   easeInSeconds: 0.5,
   easeInPower: 5,
