@@ -124,3 +124,37 @@ assert.equal(records.submitEvent("jake","bowling",20),true);
 assert.equal(new Records(storage).submitEvent("jake","bowling",15),false);
 assert.equal(new Records(storage).levelBest("jake","orientation-day").points,100);
 console.log("PASS Pack assets, mutually exclusive tiers/landings/combos, note ladder/misses, and compatible persistent event bests");
+
+// Keep the real Presentation.onDuck wiring: a mocked callback missed the
+// missing config import that permanently disabled effects on the first big cue.
+const originalContext = globalThis.AudioContext;
+globalThis.AudioContext = Context;
+try {
+  const presentation = new Presentation({ dataset: {} }, null);
+  const captions = [];
+  presentation.onCommentaryDuck = value => captions.push(value);
+  presentation.audio.unlock();
+  presentation.audio.clips.set("combo3.mp3", { duration: 3 });
+  presentation.audio.clips.set("menu-confirm.mp3", { duration: 1 });
+  for (let attempt = 0; attempt < 5; attempt++) {
+    presentation.replaceWorld({});
+    presentation.audio.play("syncCombo3");
+    assert.equal(presentation.audio.failed, false, "ducking must never disable later effects");
+    assert.equal(presentation.audio.customVoices.size, 1);
+    assert.equal(presentation.music.effectsDuck, SFX_RULES.musicDuck);
+    assert.equal(captions.at(-1), true);
+    time += SFX_RULES.duckSeconds + .01;
+    presentation.frame({ invalid: true }, false, false, .01, 16);
+    assert.equal(presentation.music.effectsDuck, 1);
+    assert.equal(captions.at(-1), false);
+    presentation.audio.resetAttempt();
+    presentation.audio.play("menuConfirm", "click");
+    assert.equal(presentation.audio.customVoices.size, 1, "next-level cues still play");
+    assert.equal(presentation.audio.failed, false);
+  }
+  presentation.destroy();
+} finally {
+  if (originalContext === undefined) delete globalThis.AudioContext;
+  else globalThis.AudioContext = originalContext;
+}
+console.log("PASS Real presentation ducking restores music/captions and keeps SFX alive across five attempts");

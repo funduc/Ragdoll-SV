@@ -1,3 +1,4 @@
+import { SFX_RULES } from "./sfx-config.js";
 import { scoreAttempt } from "./scoring.js";
 import { crashSound, landingSounds } from "./sound-events.js";
 import { SYNC_CONFIG } from "./sync-config.js";
