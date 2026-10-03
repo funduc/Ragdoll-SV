@@ -74,6 +74,7 @@ export class MusicPlayer {
     this.enabled = false;
     this.paused = false;
     this.duck = 1;
+    this.effectsDuck = 1;
     this.destroyed = false;
     this.failed = new Set();
     this.wanted = "menu";
@@ -123,6 +124,10 @@ export class MusicPlayer {
     this.paused = paused;
     this.sync();
   }
+  setEffectsDuck(value = 1) {
+    this.effectsDuck = value;
+    this.sync();
+  }
   setDuck(value = 1) {
     this.duck = Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 1;
     this.sync();
@@ -148,7 +153,7 @@ export class MusicPlayer {
     this.setLevel(
       silent
         ? 0
-        : this.duck *
+        : this.duck * this.effectsDuck *
             MUSIC_MASTER_GAIN *
             this.preferences.music *
             10 ** (MUSIC_TRACKS[this.current].gainDb / 20),

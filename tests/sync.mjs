@@ -217,7 +217,8 @@ check("Real Vault and Party flights: eligibility, once per jump, eased slow moti
     assert.ok(ignored.landingTime - ignored.syncEnd >= .8, JSON.stringify(ignored));
     assert.ok(ignored.sequences[0].done, "the result hold and exit finish before returning control");
     assert.ok(ignored.cues.includes("sync-whoosh"));
-    assert.equal(ignored.cues.filter(cue => cue === "sync-beat").length, ignored.sequences[0].notes.length + C.countInTicks);
+    assert.equal(ignored.cues.filter(cue => cue === "sync-beat").length, ignored.sequences[0].notes.length);
+    assert.equal(ignored.cues.filter(cue => cue === "syncCountIn").length, C.countInTicks);
     assert.ok(ignored.ducks[0] > C.musicDuck && ignored.ducks[0] < 1);
     assert.equal(Math.min(...ignored.ducks), C.musicDuck); assert.equal(ignored.ducks.at(-1), 1);
     assert.ok(["Clean", "Scrappy"].includes(ignored.score.landingQuality), character.id + " ignored: " + ignored.score.landingQuality);

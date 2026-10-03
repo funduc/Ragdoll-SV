@@ -103,8 +103,15 @@ export class UI {
     this.hudTime = document.getElementById("hud-time");
     this.passiveStatus = document.getElementById("passive-status");
   }
+  setCommentaryDucked(ducked) {
+    this.commentaryDucked = ducked;
+    if (!ducked && this.deferredCommentary) {
+      const text = this.deferredCommentary; this.deferredCommentary = null; this.say(text);
+    }
+  }
   say(text) {
     if (!text) return;
+    if (this.commentaryDucked) { this.deferredCommentary = text; return; }
     this.commentary.textContent = text;
     this.commentator.lastLine = text;
   }

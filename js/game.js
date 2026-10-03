@@ -72,6 +72,7 @@ class Game {
       document.getElementById("mute-button"),
       () => this.renderer.themes.unlock(),
     );
+    this.presentation.onCommentaryDuck = value => this.ui.setCommentaryDucked(value);
     this.presentation.replaceWorld(this.world);
     this.recording = new ReplayRecording(this.world);
     this.replayPlayer = null;
@@ -509,7 +510,7 @@ class Game {
     const elapsed = sequence.tick(gap / 1000) || 0;
     const duck = (1 - sequence.timeScale) / (1 - SYNC_CONFIG.timeScale);
     this.presentation.music.setDuck(1 - (1 - SYNC_CONFIG.musicDuck) * duck);
-    for (const beat of sequence.beats.splice(0)) this.presentation.audio.play("sync-beat");
+    for (const beat of sequence.beats.splice(0)) this.presentation.audio.play(beat === "count-in" ? "syncCountIn" : "sync-beat", "sync-beat");
     if (sequence.result && !this.world.syncResult) {
       this.world.syncResult = sequence.result;
       this.ui.say(SYNC_CONFIG.lines[sequence.result.grade]);
@@ -629,7 +630,7 @@ class Game {
   showAchievementsAfterAttempt() {
     applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
     if ([State.RESULTS, State.FINAL].includes(this.session.state)) {
-      showAchievementNotice(this.ui, this.achievements);
+      if (showAchievementNotice(this.ui, this.achievements)) this.presentation.audio.play("achievement");
       const line = this.achievements.cosmeticValues().commentary;
       if (line) this.ui.say(line);
     }

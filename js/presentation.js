@@ -1,3 +1,6 @@
+import { PIXELS_PER_METRE } from "./scoring.js";
+import { SYNC_CONFIG } from "./sync-config.js";
+import { SFX_RULES } from "./sfx-config.js";
 import { SynthAudio } from "./audio.js";
 import { Effects } from "./effects.js";
 import { State } from "./tournament.js";
@@ -14,6 +17,10 @@ export class Presentation {
       getContext: () => this.audio.context,
       onAvailable: (value) => this.audio.setMusicAvailable(value),
     });
+    this.audio.onDuck = ducked => {
+      this.music.setEffectsDuck(ducked ? SFX_RULES.musicDuck : 1);
+      this.onCommentaryDuck?.(ducked);
+    };
     this.audio.onGesture = () => {
       this.music.retryFromGesture();
       onGesture();
@@ -33,6 +40,8 @@ export class Presentation {
     this.lostParts = 0;
     this.nextImpact = 0;
     this.skillSerial = 0;
+    this.soundEvents = new Set();
+    this.perfectStreak = 0;
     this.effects.clear();
     this.audio.resetAttempt();
   }
@@ -55,8 +64,11 @@ export class Presentation {
       this.audio.play(t.level?.id === "open-mic" ? crowdCue(t.lastScore) : "crowd");
     if (t.state === State.FINAL) {
       this.effects.victory();
-      this.audio.play("victory");
+      this.audio.play("finalResults", "victory");
     }
+    if (t.state === "campaign-upgrades") this.audio.play("upgradeScreen");
+    if (t.state === State.READY && t.chaos) this.audio.play("chaosRoll");
+    if (t.state === State.RESULTS && t.lastMedal?.upgraded) this.audio.play("medal");
     if (t.state === State.TITLE) this.effects.clear();
   }
   observe(world) {
@@ -65,6 +77,16 @@ export class Presentation {
       this.effects.clear();
       return;
     }
+    const once = (event, condition) => {
+      if (condition && !this.soundEvents.has(event)) { this.soundEvents.add(event); this.audio.play(event); }
+    };
+    once("syncReady", world.skills.takeoff === "Perfect" && world.skills.pushes.Perfect >= SYNC_CONFIG.minimumPerfectPushes);
+    once("doubleFlip", world.tricks.counts.double > 0);
+    once("bigJump", world.distancePixels / PIXELS_PER_METRE > SFX_RULES.bigJumpMetres);
+    once("maxCarnage", world.crashed && world.damage.summary().total >= SFX_RULES.maxCarnage);
+    once("headImpact", world.crashClassification === "head-impact");
+    once("wrateWarning", world.events.includes("wrateWarning"));
+    once("comboLanding", world.landed && !world.crashed && world.tricks.bestCombo > 1);
     const feedback = world.skills.feedback;
     if (world.course.id === "quiet-please" && libraryTooLoud(world) && !this.shushed) {
       this.shushed = true;
@@ -73,14 +95,14 @@ export class Presentation {
     if (feedback && feedback.serial !== this.skillSerial) {
       this.skillSerial = feedback.serial;
       const good = ["Perfect", "Perfect Brace"].includes(feedback.grade);
+      if (feedback.kind === "push") {
+        this.perfectStreak = good ? this.perfectStreak + 1 : 0;
+        once("onFireStreak", this.perfectStreak >= SFX_RULES.perfectStreak);
+      }
+      const fallback = good ? "skill-perfect" : ["Good", "Good Brace", "Braced", "Boost", "Assist"].includes(feedback.grade) ? "skill-good" : "skill-miss";
       this.audio.play(
-        good
-          ? "skill-perfect"
-          : ["Good", "Good Brace", "Braced", "Boost", "Assist"].includes(
-                feedback.grade,
-              )
-            ? "skill-good"
-            : "skill-miss",
+        good && feedback.kind === "push" ? "perfectPush" : good && feedback.kind === "takeoff" ? "perfectTakeoff" : fallback,
+        fallback,
       );
       if (feedback.kind === "takeoff" && good)
         this.effects.burst(
@@ -121,14 +143,14 @@ export class Presentation {
       if (speed > 9 && world.crashed) this.effects.shake();
     }
     if (world.crashed && !this.crashed) {
-      this.audio.play("impact");
+      this.audio.play("crash", "impact");
       const speed = world.preSpeeds?.get(world.head.id);
       if (!world.attached || (speed && Math.hypot(speed.x, speed.y) > 6))
         this.effects.shake();
     }
     if (world.damage.lostParts.size > this.lostParts) {
       this.effects.burst("spark", world.cart.position.x, world.cart.position.y, 24);
-      this.audio.play("impact");
+      this.audio.play("partLoss", "impact");
       this.lostParts = world.damage.lostParts.size;
     }
     this.launched = world.launched;
@@ -136,6 +158,7 @@ export class Presentation {
     this.crashed = world.crashed;
   }
   frame(world, active, paused, dt, gap) {
+    this.audio.updateDuck();
     this.music.setPaused(paused);
     this.audio.setPaused(paused);
     if (gap > 250) {

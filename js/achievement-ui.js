@@ -78,6 +78,7 @@ export function showAchievementNotice(ui, manager) {
       ? ` · +${ids.length - visible.length} more in the Achievement Vault`
       : "");
   ui.overlay.querySelector(".menu-panel")?.prepend(node);
+  return true;
 }
 export function applyAchievementCosmetics(ui, renderer, manager) {
   const values = manager.cosmeticValues();

@@ -1,9 +1,14 @@
+import { SFX_CONFIG, SFX_RULES } from "./sfx-config.js";
 import { SYNC_CONFIG } from "./sync-config.js";
 // Original synthesized cues. One lazy context; sound is never a gameplay dependency.
 import { AudioPreferences } from "./audio-preferences.js";
 export const MAX_VOICES = 24;
 export class SynthAudio {
-  constructor(button, env = globalThis) {
+  constructor(button, env = globalThis, pack = SFX_CONFIG) {
+    this.pack = pack;
+    this.clips = new Map();
+    this.customVoices = new Map();
+    this.duckUntil = 0;
     this.env = env;
     this.button = button;
     this.context = null;
@@ -34,6 +39,7 @@ export class SynthAudio {
       )
         return;
       this.unlock();
+      this.loadPack();
       this.onGesture?.();
     };
     this.click = () => this.toggle();
@@ -195,8 +201,10 @@ export class SynthAudio {
       } catch {}
     }
     this.voices.delete(voice);
+    if (this.customVoices.get(voice.event) === voice) this.customVoices.delete(voice.event);
+    this.updateDuck();
   }
-  play(cue) {
+  play(cue, fallback = cue) {
     if (
       this.destroyed ||
       this.failed ||
@@ -207,10 +215,11 @@ export class SynthAudio {
     )
       return;
     const now = this.context.currentTime;
-    if (now - (this.lastCues.get(cue) ?? -Infinity) < 0.07) return;
-    this.lastCues.set(cue, now);
     try {
-      switch (cue) {
+      if (this.playCustom(cue)) return;
+      if (now - (this.lastCues.get(fallback) ?? -Infinity) < 0.07) return;
+      this.lastCues.set(fallback, now);
+      switch (fallback) {
         case "sync-whoosh":
           this.voice("noise", 1500, 0, SYNC_CONFIG.easeInSeconds, 0.12, 180);
           break;
@@ -298,12 +307,54 @@ export class SynthAudio {
     }
   }
   stopAll() {
+    this.duckUntil = 0;
     for (const voice of [...this.voices]) {
       try {
         voice.source.stop();
       } catch {}
       this.release(voice);
     }
+  }
+  loadPack() {
+    if (!this.context || this.packLoaded || !this.env.fetch) return;
+    this.packLoaded = true;
+    this.packAbort = new AbortController();
+    const files = [...new Set(Object.values(this.pack).flatMap(event => event.files || []))];
+    this.loadingPack = Promise.all(files.map(async file => {
+      // Keep all custom assets local to the pack folder, including on GitHub Pages.
+      if (typeof file !== "string" || file.includes("..") || /[:\\?#]/.test(file) || file.startsWith("/")) return;
+      try {
+        const response = await this.env.fetch(new URL("../assets/audio/sfx/" + file, import.meta.url), { signal: this.packAbort.signal });
+        if (!response.ok) return;
+        const buffer = await this.context.decodeAudioData(await response.arrayBuffer());
+        if (!this.destroyed && buffer.duration <= SFX_RULES.maxClipSeconds) this.clips.set(file, buffer);
+      } catch { /* Missing, unsupported and aborted clips retain the original cue. */ }
+    }));
+  }
+  playCustom(event) {
+    const config = this.pack[event];
+    const files = (config?.files || []).filter(file => this.clips.has(file));
+    if (!files.length || Math.random() >= 1 / Math.max(1, config.rarity || 1)) return false;
+    const previous = this.customVoices.get(event);
+    if (previous) { previous.source.stop(); this.release(previous); }
+    if (this.voices.size >= MAX_VOICES) return false;
+    const ctx = this.context, source = ctx.createBufferSource(), gain = ctx.createGain();
+    source.buffer = this.clips.get(files[Math.floor(Math.random() * files.length)]);
+    const voice = { source, gain, event };
+    gain.gain.setValueAtTime(Math.max(0, Math.min(2, Number.isFinite(config.volume) ? config.volume : 1)), ctx.currentTime);
+    source.connect(gain); gain.connect(this.master);
+    this.voices.add(voice); this.customVoices.set(event, voice);
+    source.onended = () => this.release(voice);
+    source.start(ctx.currentTime); source.stop(ctx.currentTime + source.buffer.duration);
+    this.duckUntil = Math.max(this.duckUntil, ctx.currentTime + Math.min(SFX_RULES.duckSeconds, source.buffer.duration));
+    this.updateDuck();
+    return true;
+  }
+  updateDuck() {
+    const ducked = this.customVoices.size > 0 && this.context.currentTime < this.duckUntil;
+    if (ducked === this.ducked) return;
+    this.ducked = ducked;
+    this.onDuck?.(ducked);
   }
   resetAttempt() {
     this.stopAll();
@@ -323,6 +374,8 @@ export class SynthAudio {
     if (this.destroyed) return;
     this.destroyed = true;
     this.unsubscribe();
+    this.packAbort?.abort();
+    this.clips.clear();
     this.stopAll();
     this.env.removeEventListener?.("pointerdown", this.gesture, true);
     this.env.removeEventListener?.("keydown", this.gesture, true);
