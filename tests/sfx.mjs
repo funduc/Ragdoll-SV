@@ -1,3 +1,6 @@
+import { crashSound, landingSounds, syncSounds } from "../js/sound-events.js";
+import { SyncSequence } from "../js/sync.js";
+import { Records, RECORDS_SAVE_KEY } from "../js/records.js";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
 import { Presentation } from "../js/presentation.js";
@@ -19,7 +22,7 @@ const env = new EventTarget(), fetched = [];
 env.AudioContext = Context;
 env.fetch = async url => { fetched.push(String(url)); return { ok: !String(url).includes("missing"), arrayBuffer: async () => String(url).includes("bad") ? "bad" : String(url).includes("long") ? "long" : "good" }; };
 const audio = new SynthAudio(null, env, {
-  crash: { files: ["a.mp3", "b.ogg"], volume: .6 },
+  crash: { files: ["a.mp3", "b.ogg"], volume: .6, duck: true },
   rare: { files: ["a.mp3"], rarity: 20 },
   absent: { files: ["missing.mp3", "bad.ogg", "long.mp3", "../escape.mp3"] },
 });
@@ -51,7 +54,7 @@ audio.preferences.setMuted(false); audio.play("crash"); assert.equal(audio.custo
 audio.resetAttempt(); assert.equal(audio.customVoices.size, 0); assert.equal(audio.ducked, false);
 audio.preferences.setVolume("effects", 0, false); audio.play("crash"); assert.equal(audio.voices.size, 0);
 audio.destroy(); assert.equal(audio.clips.size, 0);
-const empty = new SynthAudio(null, env, SFX_CONFIG); env.dispatchEvent(new Event("pointerdown")); await empty.loadingPack;
+const empty = new SynthAudio(null, env, {}); env.dispatchEvent(new Event("pointerdown")); await empty.loadingPack;
 assert.equal(fetched.length, 5, "empty default pack makes no requests"); empty.play("crash", "impact"); assert.ok(empty.voices.size); empty.destroy();
 const ui = Object.assign(Object.create(UI.prototype), { commentary: { textContent: "old line" }, commentator: {} });
 ui.setCommentaryDucked(true); ui.say("new line"); assert.equal(ui.commentary.textContent, "old line");
@@ -68,16 +71,17 @@ const cues = [], observer = Object.assign(Object.create(Presentation.prototype),
 });
 const world = new PhysicsWorld(CHARACTERS[0]); observer.replaceWorld(world);
 for (let i = 0; i < 2500 && !world.finished; i++) { world.step(chapterControls(world, { id: "orientation-day" })); observer.observe(world); world.drainEvents(); }
-for (const event of ["perfectPush", "perfectTakeoff", "syncReady", "onFireStreak", "bigJump"]) assert.ok(cues.some(c => c[0] === event), event);
+for (const event of ["perfectPush", "perfectTakeoff", "syncReady", "onFireStreak"]) assert.ok(cues.some(c => c[0] === event), event);
 assert.equal(cues.filter(c => c[0] === "perfectPush").length, world.skills.pushes.Perfect);
 assert.ok(cues.filter(c => c[0] === "perfectPush").every(c => c[1] === "skill-perfect"));
 // Observer-only fixtures for rare milestones; never feed fabricated facts to scoring.
-world.tricks.counts.double = 1; world.tricks.bestCombo = 1.25; world.landed = true; world.crashed = false;
+world.tricks.forward = 2; world.tricks.bestCombo = 1.25; world.landed = true; world.crashed = false;
 observer.observe(world);
 world.crashed = true; world.crashClassification = "head-impact"; world.events.push("wrateWarning");
-world.damage.lostParts.add("front-wheel"); world.damage.summary = () => ({ total: 1000 });
+world.damage.lostParts.add("front-wheel"); observer.headFirst = true;
+observer.soundEvents.delete("landingBanked");
 observer.observe(world); observer.observe(world);
-for (const event of ["doubleFlip", "comboLanding", "crash", "headImpact", "partLoss", "maxCarnage", "wrateWarning"]) assert.equal(cues.filter(c => c[0] === event).length, 1, event);
+for (const event of ["flip1", "flip2", "crashLight", "headImpact", "partLoss", "syncMiss", "wrateWarning"]) assert.equal(cues.filter(c => c[0] === event).length, 1, event);
 for (const state of ["campaign-upgrades", "ready", "attempt-results", "scoreboard", "final-results"]) {
   observer.state({ state, chaos: true, lastMedal: { upgraded: true }, lastEliminated: "p1" });
   observer.state({ state, chaos: true, lastMedal: { upgraded: true }, lastEliminated: "p1" });
@@ -85,3 +89,38 @@ for (const state of ["campaign-upgrades", "ready", "attempt-results", "scoreboar
 for (const event of ["upgradeScreen", "chaosRoll", "medal", "elimination", "finalResults"]) assert.equal(cues.filter(c => c[0] === event).length, 1, event);
 world.dispose();
 console.log("PASS SFX hooks: real run-up, launch, distance and one-shot crash/trick/menu milestones");
+
+for (let parts = 0; parts <= 4; parts++) for (const ejected of [false, true]) {
+  const w = { damage: { lostParts: new Set(Array.from({length:parts},(_,i)=>i)), ejected } };
+  assert.equal(crashSound(w), parts === 4 && ejected ? "crashMax" : parts >= 3 ? "crashHeavy" : parts === 2 ? "crashMedium" : "crashLight");
+}
+const landing = { skills: { brace: "Perfect Brace" }, syncSoundStep: 6 };
+const score = { crashed: false, landingQuality: "Clean", tricks: { unique: 3 }, distanceMetres: 71 };
+assert.deepEqual(landingSounds(landing, score), ["syncCombo5", "landPerfect", "crowdCheer"]);
+landing.syncSoundStep = 3; landing.skills.brace = "Good Brace";
+assert.deepEqual(landingSounds(landing, score), ["syncCombo3", "landClean", "crowdCheer"]);
+landing.syncSoundStep = 0; assert.deepEqual(landingSounds(landing, score), ["trickCombo", "landClean", "crowdCheer"]);
+assert.deepEqual(landingSounds(landing, {...score, crashed:true}), []);
+const seq = new SyncSequence("jake"), sw = {}, sounds = [], play = event => sounds.push(event);
+for (const note of seq.notes) {
+  while(seq.time < note.at) seq.tick(Math.min(1/120, note.at-seq.time));
+  seq.hit(note.lane); syncSounds(seq, sw, play); syncSounds(seq, sw, play);
+}
+while(seq.time <= seq.end + .01) seq.tick(1/120);
+syncSounds(seq, sw, play); assert.deepEqual(sounds, ["syncStep1","syncStep2","syncStep3","syncStep6"]); assert.equal(sw.syncSoundStep,6);
+const missed = new SyncSequence("jake"), mw={syncSoundStep:3}, misses=[];
+while(missed.time <= missed.notes[0].at + missed.goodWindow + .2) missed.tick(1/120);
+syncSounds(missed,mw,event=>misses.push(event)); assert.deepEqual(misses,["syncMiss"]); assert.equal(mw.syncSoundStep,0);
+assert.equal(SFX_CONFIG.carnageExplosion.rarity,15);
+for(const config of Object.values(SFX_CONFIG)) for(const file of config.files) {
+  assert.ok(file.endsWith(".mp3") && file === file.toLowerCase());
+  assert.ok(readFileSync(new URL("../assets/audio/sfx/"+file,import.meta.url)).length > 100);
+}
+const saved = new Map([[RECORDS_SAVE_KEY, JSON.stringify({version:1, levels:{jake:{"orientation-day":{points:100,metres:10}}}})]]);
+const storage = {getItem:key=>saved.get(key),setItem:(key,v)=>saved.set(key,v)};
+const records = new Records(storage); assert.equal(records.levelBest("jake","orientation-day").points,100);
+assert.equal(records.submitEvent("jake","bowling",10),false); assert.equal(records.submitEvent("jake","bowling",10),false);
+assert.equal(records.submitEvent("jake","bowling",20),true);
+assert.equal(new Records(storage).submitEvent("jake","bowling",15),false);
+assert.equal(new Records(storage).levelBest("jake","orientation-day").points,100);
+console.log("PASS Pack assets, mutually exclusive tiers/landings/combos, note ladder/misses, and compatible persistent event bests");

@@ -335,18 +335,19 @@ export class SynthAudio {
     const config = this.pack[event];
     const files = (config?.files || []).filter(file => this.clips.has(file));
     if (!files.length || Math.random() >= 1 / Math.max(1, config.rarity || 1)) return false;
-    const previous = this.customVoices.get(event);
+    const channel = config.channel || event;
+    const previous = this.customVoices.get(channel);
     if (previous) { previous.source.stop(); this.release(previous); }
     if (this.voices.size >= MAX_VOICES) return false;
     const ctx = this.context, source = ctx.createBufferSource(), gain = ctx.createGain();
     source.buffer = this.clips.get(files[Math.floor(Math.random() * files.length)]);
-    const voice = { source, gain, event };
+    const voice = { source, gain, event: channel };
     gain.gain.setValueAtTime(Math.max(0, Math.min(2, Number.isFinite(config.volume) ? config.volume : 1)), ctx.currentTime);
     source.connect(gain); gain.connect(this.master);
-    this.voices.add(voice); this.customVoices.set(event, voice);
+    this.voices.add(voice); this.customVoices.set(channel, voice);
     source.onended = () => this.release(voice);
     source.start(ctx.currentTime); source.stop(ctx.currentTime + source.buffer.duration);
-    this.duckUntil = Math.max(this.duckUntil, ctx.currentTime + Math.min(SFX_RULES.duckSeconds, source.buffer.duration));
+    if (config.duck) this.duckUntil = Math.max(this.duckUntil, ctx.currentTime + Math.min(SFX_RULES.duckSeconds, source.buffer.duration));
     this.updateDuck();
     return true;
   }

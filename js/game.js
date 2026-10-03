@@ -1,3 +1,5 @@
+import { Records } from "./records.js";
+import { syncSounds } from "./sound-events.js";
 import { ROOFTOP_FALL_LINE } from "./santor-tour.js";
 import { SYNC_CONFIG, SYNC_KEYS, syncResult } from "./sync-config.js";
 import { syncMoment, syncLandingETA } from "./sync.js";
@@ -185,7 +187,7 @@ class Game {
     else this.tutorial.act();
     this.clearControls();
     this.updatePractice();
-    this.presentation.audio.play("click");
+    this.presentation.audio.play("menuConfirm", "click");
   }
   updatePractice() {
     this.practiceMeter?.update(this.tutorial.view());
@@ -225,8 +227,8 @@ class Game {
       if (choice) this.menuAction(choice);
       return;
     }
-    this.presentation.audio.play("click");
     if (this.introduction.active) {
+      this.presentation.audio.play("menuConfirm", "click");
       this.dismissIntroduction();
       return;
     }
@@ -254,7 +256,10 @@ class Game {
       this.ui.setPaused(false);
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
-    if (previous !== this.tournament.state) this.renderState();
+    if (previous !== this.tournament.state) {
+      this.renderState();
+      this.presentation.audio.play("menuConfirm", "click");
+    }
   }
   enterVault() {
     if (
@@ -364,7 +369,7 @@ class Game {
       if (this.mode !== "party" || this.tournament.state !== State.TITLE) return;
       if (this.tournament.setEvent(button.dataset.event)) {
         savePartySetup(this.campaign.save.storage, this.tournament.setup);
-        this.presentation.audio.play("click");
+        this.presentation.audio.play("menuConfirm", "click");
         this.replaceWorld(CHARACTERS[0]);
         this.renderState();
         document
@@ -383,7 +388,7 @@ class Game {
       if (this.mode !== "party" || this.tournament.state !== State.TITLE)
         return;
       this.clearControls();
-      this.presentation.audio.play("click");
+      this.presentation.audio.play("menuConfirm", "click");
       if (mode === "vault") {
         // Retain the save owner even if localStorage is unavailable this session.
         this.campaign = new Campaign(this.campaign.save, {
@@ -401,6 +406,7 @@ class Game {
     switch (button.dataset.campaign) {
       case "select":
         this.campaign.select(button.dataset.value);
+        this.presentation.audio.play("characterSelect", "click");
         break;
       case "confirm":
         this.confirm();
@@ -430,8 +436,8 @@ class Game {
         if (this.campaign.confirmNewRun()) this.syncSave.resetRun();
         break;
       case "upgrade":
-        this.campaign.chooseUpgrade(button.dataset.value);
-        break;
+        if (this.campaign.chooseUpgrade(button.dataset.value)) this.finishCampaignTransition(previous, "upgradeChoice");
+        return;
       case "skip-upgrade":
         this.campaign.skipUpgrade();
         break;
@@ -448,9 +454,8 @@ class Game {
     }
     this.finishCampaignTransition(previous);
   }
-  finishCampaignTransition(previous) {
+  finishCampaignTransition(previous, cue = "menuConfirm") {
     if (previous === this.campaign.state) return;
-    this.presentation.audio.play("click");
     this.clearControls();
     if (
       (this.campaign.active && previous !== State.READY) ||
@@ -468,6 +473,7 @@ class Game {
       document.getElementById("game-canvas").focus({ preventScroll: true });
     }
     this.renderState();
+    this.presentation.audio.play(cue, "click");
   }
   startSync() {
     if (!this.session.active || this.syncSequence) return false;
@@ -491,12 +497,8 @@ class Game {
   }
   hitSync(lane) {
     if (!this.syncSequence || this.suspended) return;
-    const before = this.syncSequence.serial;
     this.syncSequence.hit(lane);
-    if (before !== this.syncSequence.serial)
-      this.presentation.audio.play(
-        `skill-${this.syncSequence.feedback.toLowerCase()}`,
-      );
+    syncSounds(this.syncSequence, this.world, (event, fallback) => this.presentation.audio.play(event, fallback));
     this.syncUI.update(this.syncSequence);
   }
   clearSync() {
@@ -508,14 +510,15 @@ class Game {
   tickSync(gap) {
     const sequence = this.syncSequence;
     const elapsed = sequence.tick(gap / 1000) || 0;
+    syncSounds(sequence, this.world, (event, fallback) => this.presentation.audio.play(event, fallback));
     const duck = (1 - sequence.timeScale) / (1 - SYNC_CONFIG.timeScale);
     this.presentation.music.setDuck(1 - (1 - SYNC_CONFIG.musicDuck) * duck);
     for (const beat of sequence.beats.splice(0)) this.presentation.audio.play(beat === "count-in" ? "syncCountIn" : "sync-beat", "sync-beat");
     if (sequence.result && !this.world.syncResult) {
       this.world.syncResult = sequence.result;
       this.ui.say(SYNC_CONFIG.lines[sequence.result.grade]);
-      if (sequence.result.perfect + sequence.result.good > 0)
-        this.presentation.audio.play(sequence.result.grade === "PERFECT SYNC" ? "sync-drop" : "skill-good");
+      if (sequence.result.grade !== "PERFECT SYNC" && sequence.result.perfect + sequence.result.good > 0)
+        this.presentation.audio.play("skill-good");
     }
     this.syncUI.update(sequence);
     return elapsed * 1000;
@@ -541,7 +544,7 @@ class Game {
     const t = this.tournament,
       index = Number(button.dataset.index);
     this.clearControls();
-    this.presentation.audio.play("click");
+    this.presentation.audio.play("menuConfirm", "click");
     switch (button.dataset.setup || button.dataset.party) {
       case "add":
         if (!t.editSetup({ type: "add" })) return;
@@ -573,6 +576,7 @@ class Game {
       index: Number(field.dataset.index),
       value: type === "chaos" ? field.checked : field.value,
     });
+    if (changed && type === "character") this.presentation.audio.play("characterSelect", "click");
     if (changed && type !== "name") this.ui.renderStandings(this.tournament);
   }
   clearControls() {
@@ -584,7 +588,7 @@ class Game {
     const action = button.dataset.achievement;
     if (action !== "open" && !this.vaultOpen) return;
     this.clearControls();
-    this.presentation.audio.play("click");
+    this.presentation.audio.play("menuConfirm", "click");
     switch (action) {
       case "open":
         this.vaultOpen = true;
@@ -645,7 +649,7 @@ class Game {
       automatic, reducedMotion: this.reducedMotion,
     });
     this.clearControls();
-    this.presentation.audio.stopAll();
+    if (!automatic) this.presentation.audio.stopAll();
     this.ui.overlay.hidden = true;
     this.ui.hud.hidden = true;
     document.getElementById("replay-banner").hidden = false;
@@ -673,6 +677,9 @@ class Game {
     const gap = this.lastTime === null ? 0 : Math.max(0, time - this.lastTime);
     this.lastTime = time;
     if (this.replayPlayer) {
+      this.presentation.audio.setPaused(this.suspended || document.hidden);
+      this.presentation.music.setPaused(this.suspended || document.hidden);
+      this.presentation.audio.updateDuck();
       this.replayPlayer.reducedMotion = this.reducedMotion;
       if (!this.suspended && !document.hidden && gap <= 250)
         this.replayPlayer.advance(gap / 1000);
@@ -734,6 +741,22 @@ class Game {
           finishedScore = score;
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);
+          this.soundRecords ||= new Records(this.campaign.save.storage);
+          let personalBest = false;
+          if (!this.world.invalid && this.world.launched) {
+            if (this.mode === "vault") {
+              if (!this.campaign.level.stages) personalBest = Boolean(this.soundRecords.submit({ mode: "vault", characterId: this.world.character.id, levelId: this.campaign.level.id, score, launched: true, landed: this.world.landed })?.levelBest);
+              else if (this.campaign.levelFinished) {
+                const previous = this.soundRecords.levelBest(this.world.character.id, this.campaign.level.id);
+                personalBest = this.soundRecords.submitLevelTotal(this.world.character.id, this.campaign.level.id, this.campaign.heats.reduce((n, h) => n + h.score.total, 0)) && Boolean(previous);
+              }
+            } else {
+              const event = this.tournament.event || "long-jump";
+              const value = event === "high-jump" ? (score.highJump?.cleared ? score.highJump.height : 0) : event === "bowling" ? score.bowling.points : score.total;
+              personalBest = this.soundRecords.submitEvent(this.world.character.id, event, value);
+            }
+          }
+          if (personalBest) this.presentation.audio.play("personalBest");
           this.achievements.send(
             "attempt-ended",
             attemptAchievementFacts(

@@ -228,7 +228,7 @@ check("Real Vault and Party flights: eligibility, once per jump, eased slow moti
     assert.ok(perfect.facts.syncCompleted && perfect.facts.syncPerfect && perfect.facts.syncBoosted);
     assert.ok(ignored.facts.syncAllMiss && !ignored.facts.syncBoosted);
     assert.equal(fly(character, { gravity: 1.5 }).sequences.length, 0, "short flights keep controls throughout");
-    assert.ok(perfect.lines.includes(C.lines["PERFECT SYNC"])); assert.ok(perfect.cues.includes("sync-drop"));
+    assert.ok(perfect.lines.includes(C.lines["PERFECT SYNC"])); assert.ok(perfect.cues.includes("syncStep6"));
     assert.equal(fly(character, { mode, target: "Good" }).sequences.length, 0, "Good takeoff is ineligible");
     const fewer = fly(character, { mode, fewerPushes: true });
     assert.ok(fewer.pushes.Perfect < 5); assert.equal(fewer.sequences.length, 0);
@@ -319,7 +319,7 @@ check(
 check("Real keyboard router consumes notes and requires release before normal rotation or brace", () => {
   globalThis.window = new EventTarget(); globalThis.document = new EventTarget(); document.hidden = false;
   const sequence = new SyncSequence("jake"), game = Object.assign(Object.create(Game.prototype), {
-    mode: "party", syncSequence: sequence, suspended: false,
+    mode: "party", syncSequence: sequence, suspended: false, world: {},
     presentation: { audio: { play() {} } }, syncUI: { update() {} },
   });
   let confirms = 0;

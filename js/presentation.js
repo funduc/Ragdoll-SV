@@ -1,6 +1,6 @@
-import { PIXELS_PER_METRE } from "./scoring.js";
+import { scoreAttempt } from "./scoring.js";
+import { crashSound, landingSounds } from "./sound-events.js";
 import { SYNC_CONFIG } from "./sync-config.js";
-import { SFX_RULES } from "./sfx-config.js";
 import { SynthAudio } from "./audio.js";
 import { Effects } from "./effects.js";
 import { State } from "./tournament.js";
@@ -42,6 +42,9 @@ export class Presentation {
     this.skillSerial = 0;
     this.soundEvents = new Set();
     this.perfectStreak = 0;
+    this.flipCount = 0;
+    this.riderAirborne = false;
+    this.headFirst = null;
     this.effects.clear();
     this.audio.resetAttempt();
   }
@@ -62,9 +65,11 @@ export class Presentation {
       this.audio.play("elimination");
     if (t.state === State.RESULTS && t.level?.id !== "quiet-please")
       this.audio.play(t.level?.id === "open-mic" ? crowdCue(t.lastScore) : "crowd");
+    if (t.kind !== "campaign" && t.state === State.SCOREBOARD) this.audio.play("crowdCheer", "crowd");
     if (t.state === State.FINAL) {
       this.effects.victory();
       this.audio.play("finalResults", "victory");
+      if (t.kind !== "campaign") this.audio.play("crowdCheer", "crowd");
     }
     if (t.state === "campaign-upgrades") this.audio.play("upgradeScreen");
     if (t.state === State.READY && t.chaos) this.audio.play("chaosRoll");
@@ -81,12 +86,34 @@ export class Presentation {
       if (condition && !this.soundEvents.has(event)) { this.soundEvents.add(event); this.audio.play(event); }
     };
     once("syncReady", world.skills.takeoff === "Perfect" && world.skills.pushes.Perfect >= SYNC_CONFIG.minimumPerfectPushes);
-    once("doubleFlip", world.tricks.counts.double > 0);
-    once("bigJump", world.distancePixels / PIXELS_PER_METRE > SFX_RULES.bigJumpMetres);
-    once("maxCarnage", world.crashed && world.damage.summary().total >= SFX_RULES.maxCarnage);
-    once("headImpact", world.crashClassification === "head-impact");
+    if (world.launched && this.headFirst === null) {
+      const contacts = (world.engine.pairs.collisionStart || []).flatMap(pair => {
+        const a = pair.bodyA.parent, b = pair.bodyB.parent;
+        return world.landingSurfaces.has(a) ? [b] : world.landingSurfaces.has(b) ? [a] : [];
+      }).filter(body => body === world.cart || world.wheels.includes(body) || world.rider.includes(body));
+      if (contacts.length) this.headFirst = contacts.includes(world.head);
+    }
+    const flips = world.tricks.forward + world.tricks.backward;
+    while (this.flipCount < flips) this.audio.play("flip" + Math.min(4, ++this.flipCount));
+    if (world.damage.ejected) {
+      const grounded = world.engine.pairs.list.some(pair => pair.isActive && (
+        (world.rider.includes(pair.bodyA.parent) && world.landingSurfaces.has(pair.bodyB.parent)) ||
+        (world.rider.includes(pair.bodyB.parent) && world.landingSurfaces.has(pair.bodyA.parent))));
+      if (!grounded) this.riderAirborne = true;
+      once("riderImpact", this.riderAirborne && grounded);
+    }
+    if (world.finished && !this.soundEvents.has("landingBanked")) {
+      this.soundEvents.add("landingBanked");
+      // Damage can continue after the first impact: choose exactly one final tier.
+      if (world.crashed) {
+        const tier = crashSound(world);
+        this.audio.play(tier, "impact");
+        if (this.headFirst === true) this.audio.play("headImpact");
+        if (["crashHeavy", "crashMax"].includes(tier)) this.audio.play("carnageExplosion");
+      }
+      for (const event of landingSounds(world, scoreAttempt(world.metrics(), world.character))) this.audio.play(event);
+    }
     once("wrateWarning", world.events.includes("wrateWarning"));
-    once("comboLanding", world.landed && !world.crashed && world.tricks.bestCombo > 1);
     const feedback = world.skills.feedback;
     if (world.course.id === "quiet-please" && libraryTooLoud(world) && !this.shushed) {
       this.shushed = true;
@@ -97,7 +124,7 @@ export class Presentation {
       const good = ["Perfect", "Perfect Brace"].includes(feedback.grade);
       if (feedback.kind === "push") {
         this.perfectStreak = good ? this.perfectStreak + 1 : 0;
-        once("onFireStreak", this.perfectStreak >= SFX_RULES.perfectStreak);
+        once("onFireStreak", this.perfectStreak >= 3);
       }
       const fallback = good ? "skill-perfect" : ["Good", "Good Brace", "Braced", "Boost", "Assist"].includes(feedback.grade) ? "skill-good" : "skill-miss";
       this.audio.play(
@@ -143,7 +170,9 @@ export class Presentation {
       if (speed > 9 && world.crashed) this.effects.shake();
     }
     if (world.crashed && !this.crashed) {
-      this.audio.play("crash", "impact");
+      this.audio.play("impact");
+      if (world.syncSoundStep > 0 || world.tricks.bestCombo > 1) this.audio.play("syncMiss", "skill-miss");
+      world.syncSoundStep = 0;
       const speed = world.preSpeeds?.get(world.head.id);
       if (!world.attached || (speed && Math.hypot(speed.x, speed.y) > 6))
         this.effects.shake();

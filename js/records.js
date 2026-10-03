@@ -41,6 +41,7 @@ export const freshRecords = () => ({
   bestScore: null,
   mostRotations: null,
   levels: {},
+  events: {},
   careers: Object.fromEntries(characterIds.map((id) => [id, freshCareer()])),
 });
 
@@ -60,6 +61,10 @@ export class Records {
     }
   }
   load(raw) {
+    for (const c of characterIds) for (const event of ["long-jump", "high-jump", "bowling"]) {
+      const value = raw.events?.[c]?.[event];
+      if (Number.isFinite(value) && value >= 0) (this.data.events[c] ||= {})[event] = num(value, MAX_POINTS);
+    }
     this.data.longestJump = holder(raw.longestJump, "metres", MAX_METRES);
     this.data.bestScore = holder(raw.bestScore, "points", MAX_POINTS);
     this.data.mostRotations = holder(raw.mostRotations, "rotations", 100);
@@ -91,6 +96,14 @@ export class Records {
     } catch {
       return false;
     }
+  }
+  submitEvent(characterId, event, value) {
+    if (!characterIds.includes(characterId) || !["long-jump", "high-jump", "bowling"].includes(event) || !Number.isFinite(value) || value <= 0) return false;
+    const entries = this.data.events[characterId] ||= {};
+    const previous = entries[event];
+    if (previous !== undefined && value <= previous) return false;
+    entries[event] = num(value, MAX_POINTS); this.write();
+    return previous !== undefined;
   }
   levelBest(characterId, levelId) {
     return this.data.levels[characterId]?.[levelId] || null;
