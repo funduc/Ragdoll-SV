@@ -1,3 +1,4 @@
+import { SYNC_CONFIG } from "./sync-config.js";
 // Original synthesized cues. One lazy context; sound is never a gameplay dependency.
 import { AudioPreferences } from "./audio-preferences.js";
 export const MAX_VOICES = 24;
@@ -210,6 +211,9 @@ export class SynthAudio {
     this.lastCues.set(cue, now);
     try {
       switch (cue) {
+        case "sync-whoosh":
+          this.voice("noise", 1500, 0, SYNC_CONFIG.easeInSeconds, 0.12, 180);
+          break;
         case "sync-beat":
           this.voice("triangle", 700, 0, 0.06, 0.12, 240);
           break;

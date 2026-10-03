@@ -29,25 +29,55 @@ check("Three to five notes, all characters and grades, symmetric windows and bou
     for (const [grade, expected] of [["M", "MISS"], ["G", "GOOD"], ["P", "PERFECT SYNC"]]) {
       const s = new SyncSequence(c.id, C.characters[c.id].patterns[0].slice(0, count));
       for (const n of s.notes) {
-        advance(s, n.at + (grade === "G" ? s.perfectWindow + .02 : 0));
+        advance(s, n.at + (grade === "G" ? n.perfectWindow + .02 : 0));
         if (grade !== "M") s.hit(n.lane);
       }
       advance(s, s.end + .02);
-      assert.equal(s.result.grade, expected); assert.ok(s.done); assert.equal(s.result.notes, count);
+      assert.equal(s.result.grade, expected); assert.equal(s.done, false, "result stays visible");
+      advance(s, s.duration + .02); assert.ok(s.done); assert.equal(s.result.notes, count);
       assert.equal(syncReward(s.result).points, grade === "P" ? 180 : grade === "G" ? 126 : 0);
     }
   }
   assert.equal(syncResult(2, 1, 0, 3).grade, "GREAT");
-  for (const offset of [-.11, .11]) {
-    const s = new SyncSequence("brandon"); advance(s, C.firstBeat + offset);
+  for (const offset of [-.18, .18]) {
+    const s = new SyncSequence("brandon"); advance(s, s.notes[0].at + offset);
     s.hit(s.notes[0].lane); assert.equal(s.notes[0].grade, "Good");
   }
-  const s = new SyncSequence("jake"); advance(s, C.firstBeat); s.hit(3);
+  const s = new SyncSequence("jake"); advance(s, s.notes[0].at); s.hit(3);
   assert.equal(s.notes[0].grade, "Miss");
   for (let i = 0; i < 1100; i++) s.hit(0);
   assert.equal(s.extra, C.maximumExtraMisses);
   const time = s.time; s.tick(Infinity); s.tick(20); assert.equal(s.time, time);
   assert.equal(syncResult(NaN, Infinity).accuracy, 0);
+});
+check("Readable lead-in, count-in, result hold and exact easing budget at different frame rates", () => {
+  const s = new SyncSequence("brandon");
+  assert.equal(s.timeScale, 1); assert.equal(s.phase, "enter");
+  s.hit(0); assert.equal(s.extra, 0, "intro practice taps are ignored");
+  advance(s, C.easeInSeconds / 2); assert.ok(s.timeScale > C.timeScale && s.timeScale < 1);
+  advance(s, C.easeInSeconds + .001); assert.equal(s.phase, "intro"); assert.equal(s.timeScale, C.timeScale);
+  advance(s, s.countInStart - .001); assert.equal(s.beats.length, 0);
+  advance(s, s.notesStart); assert.equal(s.beats.filter(b => b === "count-in").length, 2);
+  assert.ok(s.notes[0].at >= 2.7 - 1e-9, "first note allows time to understand the event");
+  assert.ok(s.notes[1].at - s.notes[0].at >= .57);
+  for (const n of s.notes) { advance(s, n.at); s.hit(n.lane); }
+  advance(s, s.end + .001); assert.equal(s.result.grade, "PERFECT SYNC"); assert.equal(s.phase, "result");
+  advance(s, s.resultEnd - .001); assert.equal(s.timeScale, C.timeScale); assert.equal(s.done, false);
+  advance(s, s.resultEnd + C.easeOutSeconds / 2); assert.ok(s.timeScale > C.timeScale && s.timeScale < 1);
+  advance(s, s.duration + .001); assert.equal(s.timeScale, 1); assert.ok(s.done);
+  for (const fps of [30, 60, 120]) {
+    const other = new SyncSequence("brandon"); let consumed = 0;
+    while (other.time < other.duration - 1e-9) consumed += other.tick(Math.min(1 / fps, other.duration - other.time));
+    assert.ok(Math.abs(consumed - s.physicsTime(s.duration)) < 1e-10, "frame rate cannot change reserved airtime");
+  }
+  const three = new SyncSequence("jake"), four = new SyncSequence("jake", C.characters.jake.patterns[0].slice(0, 4));
+  const budget = seq => C.recoverySeconds + C.safetyMargin + seq.physicsTime(seq.duration);
+  const fixture = eta => ({ launched: true, attached: true, skills: { takeoff: "Perfect", pushes: { Perfect: 5 } },
+    character: CHARACTERS[0], cart: { angle: 0, angularVelocity: 0, position: { x: 0 } }, dynamic: [{ bounds: { max: { y: 0 } } }],
+    M: { Body: { getVelocity: () => ({ x: 0, y: 0 }) } }, engine: { gravity: { y: 1, scale: .001 } },
+    course: { groundY: 500 * eta * eta }, coursePieces: [], looseProps: [] });
+  assert.equal(syncMoment(fixture((budget(three) + budget(four)) / 2), { hard: true }).notes.length, 3, "shorter pattern keeps the same leisurely timing");
+  assert.equal(syncMoment(fixture(budget(three) - .001)), null, "skip if complete presentation and landing recovery cannot fit");
 });
 check("Old random/pity/pending saves migrate; progress, patterns, denied and future storage survive", () => {
   const st = storage(), run = { characterId: "jake", seed: 42 };
@@ -85,7 +115,7 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
   campaign.select(character.id); campaign.confirm(); campaign.startLevel("orientation-day"); campaign.confirm();
   const tournament = new Tournament(); tournament.state = State.ACTIVE;
   if (hard) Object.defineProperty(campaign, "level", { value: { ...campaign.level, bonus: true } });
-  const controls = [], clocks = [], sequences = [], cues = [], lines = [];
+  const controls = [], clocks = [], sequences = [], cues = [], lines = [], ducks = [];
   let syncEnd = null, paused = false, lastSequence = null;
   const game = Object.assign(Object.create(Game.prototype), {
     mode, campaign, tournament, world, syncSave, syncSequence: null, syncSerial: 0,
@@ -98,7 +128,7 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
     } }, touch: { merge: v => v, sync() {} }, clearControls() {}, achievements: { send() {} },
     syncUI: { show(s) { sequences.push(s); clocks.push([world.elapsed, syncLandingETA(world)]); }, update() {}, hide() {} },
     presentation: { observe() {}, frame() {}, state() {}, effects: new Effects(),
-      audio: { play(cue) { cues.push(cue); }, stopAll() {} }, music: { setDuck() {} } },
+      audio: { play(cue) { cues.push(cue); }, stopAll() {} }, music: { setDuck(value) { ducks.push(value); } } },
     renderer: { cosmetics: {}, resetCamera() {}, draw() {} },
     ui: { root: { dataset: {} }, render() {}, overlay: {}, hud: {}, observeAttempt() {}, update() {}, say(line) { lines.push(line); } },
     showAchievementsAfterAttempt() {}, startReplay() {},
@@ -107,7 +137,7 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
   const step = world.step.bind(world);
   world.step = control => { if (game.syncSequence) assert.deepEqual(control, { pushes: 0, rotate: 0, brace: false }); controls.push({ ...control }); step(control); };
   let time = 0;
-  for (let frame = 0; frame < 2000 && !world.finished; frame++) {
+  for (let frame = 0; frame < 4000 && !world.finished; frame++) {
     const seq = game.syncSequence;
     if (seq && interruption && !paused) {
       const clock = seq.time, pose = poses(world);
@@ -117,7 +147,7 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
       game.suspended = false; paused = true;
     }
     if (seq && grade !== "M") for (const n of seq.notes) {
-      const offset = grade === "G" ? seq.perfectWindow + .025 : 0;
+      const offset = grade === "G" ? n.perfectWindow + .025 : 0;
       if (!n.grade && Math.abs(seq.time - n.at - offset) < 1 / 120 + 1e-9) game.hitSync(n.lane);
     }
     lastSequence = game.syncSequence;
@@ -139,18 +169,23 @@ function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = 
   assert.equal(score.landingPoints, ordinary.landingPoints);
   assert.equal(score.attachedPoints, ordinary.attachedPoints);
   const facts = attemptAchievementFacts(world, score, mode === "vault" ? campaign : null);
-  const answer = { facts, score, sequences, clocks, syncEnd, landingTime: world.landingTime, cues, lines, pose: poses(world),
+  const answer = { facts, score, sequences, clocks, syncEnd, landingTime: world.landingTime, cues, lines, ducks, pose: poses(world),
     pushes: world.skills.pushes, takeoff: world.skills.takeoff };
   world.dispose(); return answer;
 }
-check("Real Vault and Party flights: eligibility, once per jump, 20% physics, safe recovery, ignore or Perfect", () => {
+check("Real Vault and Party flights: eligibility, once per jump, eased slow motion, safe recovery, ignore or Perfect", () => {
   for (const mode of ["vault", "party"]) for (const character of CHARACTERS) {
     const ignored = fly(character, { mode, interruption: true });
     assert.equal(ignored.sequences.length, 1, mode + ":" + character.id + JSON.stringify(ignored.clocks));
-    assert.ok(Math.abs((ignored.syncEnd - ignored.clocks[0][0]) - ignored.sequences[0].time * C.timeScale) <= STEP_MS / 1000 + 1e-9, "real-time notes run over 20% physics time");
+    assert.ok(Math.abs((ignored.syncEnd - ignored.clocks[0][0]) - ignored.sequences[0].physicsTime(ignored.sequences[0].time)) <= STEP_MS / 1000 + 1e-9, "fixed steps follow the exact eased time budget");
     assert.ok(ignored.landingTime - ignored.syncEnd >= .8, JSON.stringify(ignored));
+    assert.ok(ignored.sequences[0].done, "the result hold and exit finish before returning control");
+    assert.ok(ignored.cues.includes("sync-whoosh"));
+    assert.equal(ignored.cues.filter(cue => cue === "sync-beat").length, ignored.sequences[0].notes.length + C.countInTicks);
+    assert.ok(ignored.ducks[0] > C.musicDuck && ignored.ducks[0] < 1);
+    assert.equal(Math.min(...ignored.ducks), C.musicDuck); assert.equal(ignored.ducks.at(-1), 1);
     assert.ok(["Clean", "Scrappy"].includes(ignored.score.landingQuality), character.id + " ignored: " + ignored.score.landingQuality);
-    const perfect = fly(character, { mode, grade: "P" });
+    const perfect = fly(character, { mode, grade: "P", interruption: true });
     assert.equal(perfect.score.sync.grade, "PERFECT SYNC");
     assert.deepEqual(perfect.pose, ignored.pose, "note accuracy cannot change the landing");
     assert.ok(perfect.facts.syncCompleted && perfect.facts.syncPerfect && perfect.facts.syncBoosted);

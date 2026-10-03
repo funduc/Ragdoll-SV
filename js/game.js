@@ -483,8 +483,7 @@ class Game {
     this.ui.root.dataset.sync = "playing";
     this.syncUI.show(sequence);
     this.ui.say(SYNC_CONFIG.lines.intro);
-    this.presentation.music.setDuck(SYNC_CONFIG.musicDuck);
-    this.presentation.audio.play("sync-drop");
+    this.presentation.audio.play("sync-whoosh");
     this.touch.sync();
     this.accumulator = 0;
     return true;
@@ -507,9 +506,18 @@ class Game {
   }
   tickSync(gap) {
     const sequence = this.syncSequence;
-    sequence.tick(gap / 1000);
+    const elapsed = sequence.tick(gap / 1000) || 0;
+    const duck = (1 - sequence.timeScale) / (1 - SYNC_CONFIG.timeScale);
+    this.presentation.music.setDuck(1 - (1 - SYNC_CONFIG.musicDuck) * duck);
     for (const beat of sequence.beats.splice(0)) this.presentation.audio.play("sync-beat");
+    if (sequence.result && !this.world.syncResult) {
+      this.world.syncResult = sequence.result;
+      this.ui.say(SYNC_CONFIG.lines[sequence.result.grade]);
+      if (sequence.result.perfect + sequence.result.good > 0)
+        this.presentation.audio.play(sequence.result.grade === "PERFECT SYNC" ? "sync-drop" : "skill-good");
+    }
     this.syncUI.update(sequence);
+    return elapsed * 1000;
   }
   finishSync() {
     const sequence = this.syncSequence;
@@ -521,8 +529,6 @@ class Game {
     if (result.perfect + result.good > 0) {
       this.world.syncCelebration = { until: this.world.elapsed + SYNC_CONFIG.celebrationSeconds,
         grade: result.grade, started: this.world.elapsed };
-      this.presentation.audio.play(result.grade === "PERFECT SYNC" ? "sync-drop" : "skill-good");
-      this.ui.say(SYNC_CONFIG.lines[result.grade]);
     }
     this.clearControls();
     this.clearSync();
@@ -705,9 +711,7 @@ class Game {
       this.accumulator = 0;
       this.clearControls();
     } else if (this.session.active && !this.suspended) {
-      const momentFrame = Boolean(this.syncSequence);
-      if (momentFrame) this.tickSync(Math.min(gap, 100));
-      this.accumulator += Math.min(gap, 100) * (momentFrame ? SYNC_CONFIG.timeScale : 1);
+      this.accumulator += this.syncSequence ? this.tickSync(Math.min(gap, 100)) : Math.min(gap, 100);
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
         this.world.step(this.syncSequence ? { pushes: 0, rotate: 0, brace: false } : this.touch.merge(this.input.consume()));

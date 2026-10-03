@@ -89,6 +89,7 @@ await check(
     env.dispatchEvent(new Event("pointerdown"));
     const ctx = Context.instances[0];
     for (const cue of [
+      "sync-whoosh",
       "sync-beat",
       "sync-drop",
       "click",

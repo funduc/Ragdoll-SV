@@ -45,7 +45,7 @@ export async function runSyncScenarios(boot, evidence) {
     assert.equal(sequence.time, clock); assert.equal(sequence.extra, 0);
     g.w.dispatchEvent(new g.w.Event("focus")); g.frame();
     for (const note of sequence.notes) {
-      timeTo(g, note.at + (grade === "G" ? sequence.perfectWindow + .025 : 0));
+      timeTo(g, note.at + (grade === "G" ? note.perfectWindow + .025 : 0));
       if (grade === "M") continue;
       const before = sequence.serial;
       if (process.env.MOBILE) {
@@ -60,7 +60,7 @@ export async function runSyncScenarios(boot, evidence) {
     for (let i = 0; g.$("#game").dataset.sync && i < 200; i++) g.frame();
     assert.equal(g.world.syncResult.grade, expected); assert.ok(g.$("#sync-controls").hidden);
     const resumed = g.world.elapsed;
-    assert.ok(resumed > initialTime && resumed - initialTime < .5, "physics advances at 20% during notes");
+    assert.ok(resumed > initialTime && resumed - initialTime < .5, "eased physics leaves time for the landing");
     g.finishAttempt();
     assert.ok(g.world.landingTime - resumed >= C.recoverySeconds);
     assert.equal(g.world.crashed, false, "missing notes does not cause a crash");

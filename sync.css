@@ -156,3 +156,10 @@
   .sync-panel p { margin: 3px 0; }
   .sync-note { width: 25px; height: 24px; font-size: 20px; line-height: 20px; }
 }
+
+/* Clock-driven entry effects pause with the attempt; reduced motion skips them. */
+.sync-panel { overflow: hidden; }
+.sync-overlay[data-phase="intro"] h2,
+.sync-overlay[data-phase="enter"] h2 { color: #b4ef4b; font-size: clamp(21px, 3vw, 36px); }
+.sync-overlay[data-phase="count-in"] .sync-feedback { font-size: 32px; }
+.sync-overlay[data-phase="result"] .sync-feedback { font-size: 26px; }
