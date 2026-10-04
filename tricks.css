@@ -1,19 +1,12 @@
 /* Additive trick feedback only; no changes to the cabinet or input targets. */
 .trick-hud {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 56px;
-  min-height: 56px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
   overflow: hidden;
-  padding: 5px 16px;
-  background: #121e27;
-  border-bottom: 2px solid #080d12;
+  clip-path: inset(50%);
   pointer-events: none;
-  user-select: none;
-  font:
-    700 10px "Courier New",
-    monospace;
 }
 .trick-combo {
   color: var(--blue);
@@ -115,3 +108,6 @@
     animation: none;
   }
 }
+
+.stunt-guide { margin: 12px 0; padding: 10px; border: 1px solid #4c626e; }
+.stunt-guide p { margin: 5px 0; font-size: 13px; }

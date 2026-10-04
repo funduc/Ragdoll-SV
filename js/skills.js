@@ -12,6 +12,7 @@ export class AttemptSkills {
   constructor(config = C) {
     this.config = config;
     this.pushes = { Perfect: 0, Good: 0, Miss: 0 };
+    this.perfectStreak = 0; // Run-up display only; Sync eligibility still uses total Perfects.
     this.lastPush = -Infinity;
     this.lastImpulse = -Infinity;
     this.started = false;
@@ -82,6 +83,7 @@ export class AttemptSkills {
     }
     const grade = pushGrade(rhythmPosition(t), spam);
     this.pushes[grade] += count;
+    this.perfectStreak = grade === "Perfect" ? this.perfectStreak + 1 : 0;
     const first = !this.started;
     this.started = true;
     if (t - this.lastImpulse >= c.minimumInterval) {

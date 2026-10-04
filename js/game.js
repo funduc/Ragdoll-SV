@@ -814,6 +814,7 @@ class Game {
     if (this.session.active || finishedScore)
       this.recording.capture(this.world, this.presentation.effects, this.renderer.cosmetics);
     this.renderer.draw(this.world, drawTime, this.presentation.effects);
+    if (this.session.active || finishedScore) this.ui.trickDisplay?.draw(this.renderer, this.world, this.ui.hud.offsetHeight);
     if (finishedScore) {
       if (this.recording.shouldAutoPlay(finishedScore, this.reducedMotion))
         this.startReplay(true);

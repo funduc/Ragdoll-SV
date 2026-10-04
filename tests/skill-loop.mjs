@@ -1,3 +1,5 @@
+import { worldSkillView } from "../js/skill-ui.js";
+import { pushGrade } from "../js/skill-config.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
@@ -329,3 +331,18 @@ check("New attempts reset every skill field and queued feedback", () => {
 });
 console.log(`${checks} skill-loop groups passed.`);
 console.log(JSON.stringify(evidence, null, 2));
+
+check("Sync pips follow a consecutive streak without changing cumulative eligibility", () => {
+  const world = new PhysicsWorld(CHARACTERS[0]);
+  function push(grade) {
+    do { world.elapsed += 1 / 120; } while (world.elapsed - world.skills.lastPush < .4 || pushGrade(rhythmPosition(world.elapsed)) !== grade);
+    world.skills.push(world, 1);
+    return worldSkillView(world).sync.count;
+  }
+  assert.equal(worldSkillView(world).sync.count, 0);
+  for (let n=1;n<=7;n++) assert.equal(push("Perfect"), Math.min(n,5));
+  assert.equal(push("Good"), 0); assert.equal(world.skills.pushes.Perfect, 7);
+  assert.equal(push("Perfect"), 1); assert.equal(push("Miss"), 0);
+  world.skills.commitTakeoff(world,"Perfect"); assert.equal(worldSkillView(world).sync, null);
+  world.dispose();
+});

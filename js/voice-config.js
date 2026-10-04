@@ -16,7 +16,7 @@ export const VOICE_CONFIG = {
   brandon: [
     { file: "land-clean-1.mp3", moments: ["land-clean", "win"] },
     { file: "crash-big-1.mp3", moments: ["crash-big"] },
-    { file: "heckle-1.mp3", moments: ["heckle"] },
+    { file: "heckle-1.mp3", moments: [] },
     { file: "rare-1.mp3", moments: ["rare", "select"] },
   ],
 };

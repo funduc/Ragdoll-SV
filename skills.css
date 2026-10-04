@@ -147,3 +147,8 @@
     font-size: 10px;
   }
 }
+
+.skill-sync { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: #b4ef4b; font: bold 11px Arial, sans-serif; }
+.sync-pips { display: inline-flex; gap: 4px; }
+.sync-pips i { width: 9px; height: 9px; border: 1px solid #b4ef4b; border-radius: 50%; background: #13222b; }
+.sync-pips i[data-lit="true"] { background: #b4ef4b; }

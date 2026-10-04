@@ -53,8 +53,8 @@ export class TrickTracker {
     this.lastAngle = sample.angle;
     this.lastTime = sample.time;
   }
-  notice(name, combo = this.combo) {
-    this.notices.push({ name, combo });
+  notice(name, combo = this.combo, points) {
+    this.notices.push({ name, combo, points });
     if (this.notices.length > C.popup.maximumQueue) this.notices.shift();
   }
   award(id, time) {
@@ -80,8 +80,8 @@ export class TrickTracker {
             (this.profile.varietyScale || 1),
       );
       this.bestCombo = Math.max(this.bestCombo, this.combo);
-      this.notice(trick.name + (occurrence > 1 ? " · REPEAT" : ""));
     }
+    this.notice(trick.name + (occurrence > 1 ? " · REPEAT" : ""), this.combo, Math.round(trick.points * repeat * this.combo));
     this.awards.push(
       Object.freeze({
         id,

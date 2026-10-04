@@ -22,7 +22,8 @@ const audio = new SynthAudio(null, env, {}), voices = new CharacterVoices(audio,
 assert.equal(audio.preferences.voices, true, "old settings default to voices on");
 assert.equal(urls.length, 0, "no loads before a gesture");
 env.dispatchEvent(new Event("pointerdown")); await audio.loadingPack;
-assert.equal(urls.length, 13); assert.ok(urls.every(url=>url.includes("/assets/audio/voice/")));
+assert.equal(urls.length, 13);
+assert.ok(!VOICE_CONFIG.brandon.some(clip => clip.file === "heckle-1.mp3" && clip.moments.includes("heckle"))); assert.ok(urls.every(url=>url.includes("/assets/audio/voice/")));
 for (const [id, clips] of Object.entries(VOICE_CONFIG)) for (const clip of clips) {
   assert.ok(readFileSync(new URL("../assets/audio/voice/"+id+"/"+clip.file,import.meta.url)).length > 100);
 }
@@ -78,7 +79,8 @@ for (const character of CHARACTERS) {
   end(); end();
   const jumpClips = played.slice(first).filter(c=>c.startsWith("voice:"));
   const heckles = jumpClips.filter(c=>c.includes("heckle-1"));
-  assert.equal(heckles.length, 1); assert.ok(!heckles[0].startsWith("voice:"+character.id+"/"));
+  assert.equal(heckles.length, character.id === "owen" ? 0 : 1);
+  assert.ok(heckles.every(clip => !clip.startsWith("voice:"+character.id+"/")));
   assert.ok(jumpClips.filter(c=>!c.includes("heckle-1")).length<=1);
   world.dispose();
 }

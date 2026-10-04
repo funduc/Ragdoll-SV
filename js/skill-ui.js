@@ -1,3 +1,4 @@
+import { SYNC_CONFIG } from "./sync-config.js";
 import { SKILL_CONFIG as C, rhythmPosition } from "./skill-config.js";
 
 export function meterView(
@@ -49,7 +50,7 @@ export function meterView(
     perfect,
   };
 }
-export function worldSkillView(world) {
+function baseWorldSkillView(world) {
   const s = world.skills,
     config = s.config,
     f = s.feedback?.until > world.elapsed ? s.feedback : null;
@@ -107,11 +108,21 @@ export function worldSkillView(world) {
     config,
   );
 }
+export function worldSkillView(world) {
+  const view = baseWorldSkillView(world);
+  const target = SYNC_CONFIG.minimumPerfectPushes;
+  view.sync = !world.launched && !world.skills.takeoff
+    ? { count: Math.min(target, world.skills.perfectStreak || 0), target } : null;
+  return view;
+}
 export class SkillMeter {
   constructor(element) {
     this.element = element;
     element.innerHTML =
-      '<div class="skill-heading"><b data-skill-label></b><strong data-skill-grade aria-live="polite"></strong></div><div class="skill-track" role="meter" aria-label="Timing indicator" aria-valuemin="0" aria-valuemax="100"><span class="skill-good"></span><span class="skill-perfect"></span><i class="skill-marker"></i></div><div class="skill-legend"><span>MISS / EARLY</span><span>GOOD</span><b>PERFECT</b><span>GOOD</span><span>MISS / LATE</span></div><p class="skill-message" data-skill-message></p>';
+      '<div class="skill-heading"><b data-skill-label></b><strong data-skill-grade aria-live="polite"></strong></div><div class="skill-sync" data-sync-progress hidden><span data-sync-label role="status"></span><span class="sync-pips" aria-hidden="true"><i data-sync-pip="0"></i><i data-sync-pip="1"></i><i data-sync-pip="2"></i><i data-sync-pip="3"></i><i data-sync-pip="4"></i></span></div><div class="skill-track" role="meter" aria-label="Timing indicator" aria-valuemin="0" aria-valuemax="100"><span class="skill-good"></span><span class="skill-perfect"></span><i class="skill-marker"></i></div><div class="skill-legend"><span>MISS / EARLY</span><span>GOOD</span><b>PERFECT</b><span>GOOD</span><span>MISS / LATE</span></div><p class="skill-message" data-skill-message></p>';
+    this.sync = element.querySelector("[data-sync-progress]");
+    this.syncLabel = element.querySelector("[data-sync-label]");
+    this.pips = Array.from({ length: 5 }, (_,i) => element.querySelector(`[data-sync-pip="${i}"]`));
     this.label = element.querySelector("[data-skill-label]");
     this.grade = element.querySelector("[data-skill-grade]");
     this.message = element.querySelector("[data-skill-message]");
@@ -119,6 +130,13 @@ export class SkillMeter {
     this.marker = element.querySelector(".skill-marker");
   }
   update(view) {
+    this.sync.hidden = !view.sync;
+    if (view.sync) {
+      const { count, target } = view.sync;
+      const label = count >= target ? "PERFECT TAKEOFF FOR SYNC!" : `SYNC ${count}/${target}`;
+      if (this.syncLabel.textContent !== label) this.syncLabel.textContent = label;
+      this.pips.forEach((pip, i) => { pip.dataset.lit = String(i < count); });
+    }
     for (const [element, text] of [
       [this.label, view.label],
       [this.grade, view.grade],

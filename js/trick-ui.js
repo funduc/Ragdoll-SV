@@ -13,6 +13,7 @@ export class TrickDisplay {
   }
   reset() {
     this.queue = [];
+    this.chain = 0;
     this.popup.textContent = "";
     this.popup.classList.remove("trick-pop");
     this.label.textContent = "COMBO ×1.00";
@@ -21,8 +22,9 @@ export class TrickDisplay {
     const before = this.queue.length;
     const notices = world.tricks.drainNotices();
     this.queue = this.queue.filter((e) => e.until > world.elapsed);
+    for (const notice of notices) this.chain = notice.points === undefined ? 0 : this.chain + 1;
     this.queue.push(
-      ...notices.map((e) => ({ ...e, until: world.elapsed + C.popup.seconds })),
+      ...notices.map((e) => ({ ...e, at: world.elapsed, until: world.elapsed + C.popup.seconds })),
     );
     this.queue = this.queue.slice(-C.popup.maximumQueue);
     const label = `COMBO ×${world.tricks.combo.toFixed(2)} · ${world.tricks.unique.size} UNIQUE`;
@@ -32,11 +34,39 @@ export class TrickDisplay {
         ...this.queue.map((e) => {
           const line = document.createElement("span");
           line.className = "trick-pop";
-          line.textContent = e.name;
+          line.textContent = e.points === undefined ? e.name : `STUNT! ${e.name}! +${e.points}`;
           return line;
         }),
       );
     }
+  }
+  draw(renderer, world, hudHeight = 100) {
+    const entries = this.queue.filter(e => e.until > world.elapsed).slice(-2);
+    if (!entries.length) return;
+    const { ctx: c, camera, width: w, height: h, dpr } = renderer;
+    const age = world.elapsed - entries.at(-1).at;
+    const reduced = renderer.motionPreference?.matches;
+    const pop = reduced ? 1 : 1 + 0.12 * Math.max(0, 1 - age / 0.18);
+    const half = Math.min(175, w / 2 - 24);
+    const x = Math.max(half + 24, Math.min(w - half - 24, (world.cart.position.x - camera.x) * camera.scale));
+    const y = Math.max(hudHeight + 55, Math.min(h - 110, (world.cart.position.y - camera.y) * camera.scale - 90));
+    c.save();
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.translate(x, y); c.scale(pop, pop);
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillStyle = !reduced && age < .12 ? "#34532b" : "rgba(10,20,28,.88)";
+    c.fillRect(-half, -25, half * 2, entries.length * 30 + 58);
+    c.strokeStyle = "#b4ef4b"; c.lineWidth = 2;
+    c.strokeRect(-half, -25, half * 2, entries.length * 30 + 58);
+    c.font = "bold 14px Arial"; c.fillStyle = "#fff";
+    c.fillText(entries.some(e => e.points !== undefined) ? "STUNT!" : "COMBO BROKEN", 0, -10);
+    entries.forEach((e, i) => {
+      c.font = "900 28px Impact, Arial Narrow, sans-serif"; c.fillStyle = "#b4ef4b";
+      c.fillText(e.points === undefined ? e.name : e.name.toUpperCase() + "! +" + e.points, 0, 18 + i * 30, half * 2 - 16);
+    });
+    c.font = "bold " + Math.min(24, 16 + this.chain * 2) + "px Arial"; c.fillStyle = "#52cefa";
+    c.fillText("x" + this.chain + " COMBO", 0, entries.length * 30 + 18);
+    c.restore();
   }
 }
 

@@ -1,3 +1,4 @@
+import { TrickDisplay } from "../js/trick-ui.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
@@ -350,3 +351,22 @@ test("Malformed trick data stays finite and the style ceiling is enforced", () =
 });
 console.log(`${checks} trick groups passed.`);
 console.log(JSON.stringify(evidence, null, 2));
+
+test("Every recognized trick supplies points; canvas feedback stays beneath HUD", () => {
+  const tracker=new TrickTracker(CHARACTERS[0]);
+  for(let i=0;i<4;i++)tracker.award("back",i);
+  const notes=tracker.drainNotices();
+  assert.deepEqual(notes.map(n=>n.points),[150,30,8,0]);
+  const calls=[],ctx=new Proxy({}, {get:(_,name)=>(...args)=>calls.push([name,...args]),set:()=>true});
+  const display=Object.assign(Object.create(TrickDisplay.prototype),{chain:2,queue:[{...notes[0],at:0,until:1}]});
+  const world={elapsed:.1,cart:{position:{x:0,y:0}}};
+  const renderer={ctx,camera:{x:0,y:0,scale:1},width:1200,height:560,dpr:1,motionPreference:{matches:false}};
+  display.draw(renderer,world,100);
+  assert.ok(calls.some(c=>c[0]==="fillText"&&c[1]==="BACK FLIP! +150"));
+  assert.ok(calls.some(c=>c[0]==="fillText"&&c[1]==="STUNT!"));
+  assert.ok(calls.some(c=>c[0]==="fillText"&&c[1]==="x2 COMBO"));
+  assert.ok(calls.find(c=>c[0]==="translate")[2]>=135);
+  calls.length=0;renderer.motionPreference.matches=true;display.draw(renderer,world,100);
+  assert.deepEqual(calls.find(c=>c[0]==="scale"),["scale",1,1]);
+  calls.length=0;world.elapsed=2;display.draw(renderer,world,100);assert.equal(calls.length,0);
+});
