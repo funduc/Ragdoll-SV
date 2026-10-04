@@ -1,3 +1,4 @@
+import { timedInputs } from "./skill-helpers.mjs";
 import { crashSound, landingSounds, syncSounds } from "../js/sound-events.js";
 import { SyncSequence } from "../js/sync.js";
 import { Records, RECORDS_SAVE_KEY } from "../js/records.js";
@@ -158,3 +159,36 @@ try {
   else globalThis.AudioContext = originalContext;
 }
 console.log("PASS Real presentation ducking restores music/captions and keeps SFX alive across five attempts");
+
+for (const character of CHARACTERS) {
+  const w = new PhysicsWorld(character), played = [];
+  const p = Object.assign(Object.create(Presentation.prototype), {
+    audio: { play(event) { played.push({ event, time: w.elapsed, finished: w.finished }); }, resetAttempt() {} },
+    effects: { clear() {}, burst() {}, shake() {} },
+  });
+  p.replaceWorld(w);
+  let impactTime, impactTier;
+  for (let i = 0; i < 2500 && !w.finished; i++) {
+    w.step(timedInputs(w, w.launched ? 1 : 0));
+    const firstCrash = w.crashed && impactTime === undefined;
+    if (firstCrash) { impactTime = w.elapsed; impactTier = crashSound(w); }
+    p.observe(w);
+    if (firstCrash) {
+      const cue = played.find(item => item.event === impactTier);
+      assert.ok(cue, character.id + ": crash cue is emitted on the impact step");
+      assert.equal(cue.time, impactTime); assert.equal(cue.finished, false);
+      assert.ok(w.damage.lostParts.size > 0, "tier sees breakage from this impact");
+    }
+    w.drainEvents();
+  }
+  assert.ok(w.finished && impactTime !== undefined);
+  p.observe(w); // repeated result frames must remain silent for crash tiers
+  const tiers = played.filter(item => ["crashLight", "crashMedium", "crashHeavy", "crashMax"].includes(item.event));
+  assert.deepEqual(tiers.map(item => item.event), [impactTier]);
+  assert.ok(w.elapsed > impactTime, "the cue precedes settling/results");
+  const explosions = played.filter(item => item.event === "carnageExplosion");
+  assert.equal(explosions.length, ["crashHeavy", "crashMax"].includes(impactTier) ? 1 : 0);
+  assert.ok(explosions.every(item => item.time === impactTime));
+  w.dispose();
+}
+console.log("PASS All characters: crash tier and explosion fire on the impact step, once, before settling/results");

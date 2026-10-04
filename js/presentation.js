@@ -105,13 +105,6 @@ export class Presentation {
     }
     if (world.finished && !this.soundEvents.has("landingBanked")) {
       this.soundEvents.add("landingBanked");
-      // Damage can continue after the first impact: choose exactly one final tier.
-      if (world.crashed) {
-        const tier = crashSound(world);
-        this.audio.play(tier, "impact");
-        if (this.headFirst === true) this.audio.play("headImpact");
-        if (["crashHeavy", "crashMax"].includes(tier)) this.audio.play("carnageExplosion");
-      }
       for (const event of landingSounds(world, scoreAttempt(world.metrics(), world.character))) this.audio.play(event);
     }
     once("wrateWarning", world.events.includes("wrateWarning"));
@@ -171,7 +164,12 @@ export class Presentation {
       if (speed > 9 && world.crashed) this.effects.shake();
     }
     if (world.crashed && !this.crashed) {
-      this.audio.play("impact");
+      // Physics has already applied this impact's breakage and ejection.
+      // Play now; later bounces must not replace or repeat the crash tier.
+      const tier = crashSound(world);
+      this.audio.play(tier, "impact");
+      if (this.headFirst === true) this.audio.play("headImpact");
+      if (["crashHeavy", "crashMax"].includes(tier)) this.audio.play("carnageExplosion");
       if (world.syncSoundStep > 0 || world.tricks.bestCombo > 1) this.audio.play("syncMiss", "skill-miss");
       world.syncSoundStep = 0;
       const speed = world.preSpeeds?.get(world.head.id);
