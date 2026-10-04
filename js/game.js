@@ -75,6 +75,7 @@ class Game {
       () => this.renderer.themes.unlock(),
     );
     this.presentation.onCommentaryDuck = value => this.ui.setCommentaryDucked(value);
+    this.presentation.onVoiceDucked = value => this.ui.setVoiceDucked(value);
     this.presentation.replaceWorld(this.world);
     this.recording = new ReplayRecording(this.world);
     this.replayPlayer = null;
@@ -406,6 +407,7 @@ class Game {
     switch (button.dataset.campaign) {
       case "select":
         this.campaign.select(button.dataset.value);
+        this.presentation.voices?.request(button.dataset.value, "select", false);
         this.presentation.audio.play("characterSelect", "click");
         break;
       case "confirm":
@@ -576,7 +578,10 @@ class Game {
       index: Number(field.dataset.index),
       value: type === "chaos" ? field.checked : field.value,
     });
-    if (changed && type === "character") this.presentation.audio.play("characterSelect", "click");
+    if (changed && type === "character") {
+      this.presentation.audio.play("characterSelect", "click");
+      this.presentation.voices?.request(field.value, "select", false);
+    }
     if (changed && type !== "name") this.ui.renderStandings(this.tournament);
   }
   clearControls() {
@@ -649,7 +654,10 @@ class Game {
       automatic, reducedMotion: this.reducedMotion,
     });
     this.clearControls();
-    if (!automatic) this.presentation.audio.stopAll();
+    if (!automatic) {
+      this.presentation.audio.stopAll();
+      this.presentation.voices?.cancel();
+    }
     this.ui.overlay.hidden = true;
     this.ui.hud.hidden = true;
     document.getElementById("replay-banner").hidden = false;
@@ -680,6 +688,7 @@ class Game {
       this.presentation.audio.setPaused(this.suspended || document.hidden);
       this.presentation.music.setPaused(this.suspended || document.hidden);
       this.presentation.audio.updateDuck();
+      this.presentation.voices?.tick();
       this.replayPlayer.reducedMotion = this.reducedMotion;
       if (!this.suspended && !document.hidden && gap <= 250)
         this.replayPlayer.advance(gap / 1000);
@@ -757,6 +766,7 @@ class Game {
             }
           }
           if (personalBest) this.presentation.audio.play("personalBest");
+          this.presentation.voices?.finish(this.world, score, personalBest);
           this.achievements.send(
             "attempt-ended",
             attemptAchievementFacts(

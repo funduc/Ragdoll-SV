@@ -103,6 +103,9 @@ export class UI {
     this.hudTime = document.getElementById("hud-time");
     this.passiveStatus = document.getElementById("passive-status");
   }
+  setVoiceDucked(ducked) {
+    this.commentary.classList.toggle("commentary-voice-muted", ducked);
+  }
   setCommentaryDucked(ducked) {
     this.commentaryDucked = ducked;
     if (!ducked && this.deferredCommentary) {

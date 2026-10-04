@@ -37,6 +37,15 @@ button {
     bold 11px Arial,
     sans-serif;
 }
+.audio-controls [data-audio-voices] {
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  min-height: 32px;
+  cursor: pointer;
+}
+.commentary-voice-muted { visibility: hidden; }
 .audio-controls label {
   display: flex;
   align-items: center;

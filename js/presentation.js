@@ -1,3 +1,4 @@
+import { CharacterVoices } from "./voices.js";
 import { SFX_RULES } from "./sfx-config.js";
 import { scoreAttempt } from "./scoring.js";
 import { crashSound, landingSounds } from "./sound-events.js";
@@ -13,6 +14,8 @@ export class Presentation {
   constructor(root, button, onGesture = () => {}) {
     this.root = root;
     this.audio = new SynthAudio(button);
+    this.voices = new CharacterVoices(this.audio);
+    this.audio.onVoiceChange = active => this.onVoiceDucked?.(active);
     this.musicDirector = new MusicDirector();
     this.music = new MusicPlayer(this.audio.preferences, {
       getContext: () => this.audio.context,
@@ -48,6 +51,7 @@ export class Presentation {
     this.headFirst = null;
     this.effects.clear();
     this.audio.resetAttempt();
+    this.voices?.reset();
   }
   state(t) {
     this.music.setTrack(this.musicDirector.scene(t));
@@ -62,6 +66,7 @@ export class Presentation {
           : "normal";
     if (this.lastState === t.state) return;
     this.lastState = t.state;
+    this.voices?.state(t);
     if (t.state === State.SCOREBOARD && t.lastEliminated)
       this.audio.play("elimination");
     if (t.state === State.RESULTS && t.level?.id !== "quiet-please")
@@ -83,6 +88,7 @@ export class Presentation {
       this.effects.clear();
       return;
     }
+    this.voices?.observe(world);
     const once = (event, condition) => {
       if (condition && !this.soundEvents.has(event)) { this.soundEvents.add(event); this.audio.play(event); }
     };
@@ -194,14 +200,17 @@ export class Presentation {
     this.audio.updateDuck();
     this.music.setPaused(paused);
     this.audio.setPaused(paused);
+    this.voices?.tick();
     if (gap > 250) {
       this.effects.clear();
       this.audio.stopAll();
+      this.voices?.cancel();
     }
     if (!paused) this.effects.update(dt);
     this.audio.rattle(world, active && !paused);
   }
   destroy() {
+    this.voices?.destroy();
     this.music.destroy();
     this.audio.destroy();
     this.effects.clear();

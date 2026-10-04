@@ -5,7 +5,7 @@ import { AudioPreferences } from "./audio-preferences.js";
 export const MAX_VOICES = 24;
 export class SynthAudio {
   constructor(button, env = globalThis, pack = SFX_CONFIG) {
-    this.pack = pack;
+    this.pack = { ...pack };
     this.clips = new Map();
     this.customVoices = new Map();
     this.duckUntil = 0;
@@ -216,7 +216,7 @@ export class SynthAudio {
       return;
     const now = this.context.currentTime;
     try {
-      if (this.playCustom(cue, options)) return;
+      if (this.playCustom(cue, options)) return true;
       if (now - (this.lastCues.get(fallback) ?? -Infinity) < 0.07) return;
       this.lastCues.set(fallback, now);
       switch (fallback) {
@@ -319,12 +319,13 @@ export class SynthAudio {
     if (!this.context || this.packLoaded || !this.env.fetch) return;
     this.packLoaded = true;
     this.packAbort = new AbortController();
-    const files = [...new Set(Object.values(this.pack).flatMap(event => event.files || []))];
-    this.loadingPack = Promise.all(files.map(async file => {
+    const files = new Map();
+    for (const event of Object.values(this.pack)) for (const file of event.files || []) files.set(file, event.voice ? "voice" : "sfx");
+    this.loadingPack = Promise.all([...files].map(async ([file, folder]) => {
       // Keep all custom assets local to the pack folder, including on GitHub Pages.
       if (typeof file !== "string" || file.includes("..") || /[:\\?#]/.test(file) || file.startsWith("/")) return;
       try {
-        const response = await this.env.fetch(new URL("../assets/audio/sfx/" + file, import.meta.url), { signal: this.packAbort.signal });
+        const response = await this.env.fetch(new URL("../assets/audio/" + folder + "/" + file, import.meta.url), { signal: this.packAbort.signal });
         if (!response.ok) return;
         const buffer = await this.context.decodeAudioData(await response.arrayBuffer());
         if (!this.destroyed && buffer.duration <= SFX_RULES.maxClipSeconds) this.clips.set(file, buffer);
@@ -333,6 +334,7 @@ export class SynthAudio {
   }
   playCustom(event, { semitones = 0 } = {}) {
     const config = this.pack[event];
+    if (config?.voice && !this.preferences.voices) return false;
     const files = (config?.files || []).filter(file => this.clips.has(file));
     if (!files.length || Math.random() >= 1 / Math.max(1, config.rarity || 1)) return false;
     const channel = config.channel || event;
@@ -356,7 +358,9 @@ export class SynthAudio {
     return true;
   }
   updateDuck() {
-    const ducked = this.customVoices.size > 0 && this.context.currentTime < this.duckUntil;
+    const speaking = this.customVoices.has("characterVoice");
+    if (speaking !== this.speaking) { this.speaking = speaking; this.onVoiceChange?.(speaking); }
+    const ducked = speaking || (this.customVoices.size > 0 && this.context.currentTime < this.duckUntil);
     if (ducked === this.ducked) return;
     this.ducked = ducked;
     this.onDuck?.(ducked);

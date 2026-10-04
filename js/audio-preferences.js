@@ -10,6 +10,7 @@ export class AudioPreferences {
   constructor(env = globalThis) {
     this.music = 0.45;
     this.effects = 1;
+    this.voices = true;
     this.muted = false;
     this.listeners = new Set();
     this.saved = new Map();
@@ -23,6 +24,7 @@ export class AudioPreferences {
       if (parsed?.version === 1) {
         this.music = volume(parsed.music, this.music);
         this.effects = volume(parsed.effects, this.effects);
+        if (typeof parsed.voices === "boolean") this.voices = parsed.voices;
       }
     } catch {
       /* Preferences are optional, including corrupt/denied storage. */
@@ -45,8 +47,13 @@ export class AudioPreferences {
   persistVolumes() {
     this.write(
       AUDIO_SETTINGS_KEY,
-      JSON.stringify({ version: 1, music: this.music, effects: this.effects }),
+      JSON.stringify({ version: 1, music: this.music, effects: this.effects, voices: this.voices }),
     );
+  }
+  setVoices(enabled) {
+    this.voices = Boolean(enabled);
+    this.notify();
+    this.persistVolumes();
   }
   setMuted(muted) {
     this.muted = Boolean(muted);
@@ -72,11 +79,15 @@ export class AudioControls {
         preferences.setVolume(channel, Number(event.target.value) / 100, false);
     };
     this.change = () => preferences.persistVolumes();
+    this.click = event => {
+      if (event.target.closest?.("[data-audio-voices]")) preferences.setVoices(!preferences.voices);
+    };
     // Let native slider keys work without pushing/steering or confirming a menu.
     this.key = (event) => {
-      if (event.type === "keydown" && event.target.matches("input"))
+      if (event.target.matches("input, [data-audio-voices]"))
         event.stopPropagation();
     };
+    root?.addEventListener("click", this.click);
     root?.addEventListener("input", this.input);
     root?.addEventListener("change", this.change);
     root?.addEventListener("keydown", this.key);
@@ -85,6 +96,11 @@ export class AudioControls {
     this.paint();
   }
   paint() {
+    const toggle = this.root?.querySelector("[data-audio-voices]");
+    if (toggle) {
+      toggle.textContent = `Voices: ${this.preferences.voices ? "On" : "Off"}`;
+      toggle.setAttribute("aria-pressed", String(this.preferences.voices));
+    }
     for (const input of this.root?.querySelectorAll("[data-audio-volume]") ||
       []) {
       const value = Math.round(
@@ -101,6 +117,7 @@ export class AudioControls {
   destroy() {
     this.unsubscribe();
     for (const [name, handler] of [
+      ["click", this.click],
       ["input", this.input],
       ["change", this.change],
       ["keydown", this.key],
