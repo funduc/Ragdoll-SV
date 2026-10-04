@@ -204,7 +204,7 @@ export class SynthAudio {
     if (this.customVoices.get(voice.event) === voice) this.customVoices.delete(voice.event);
     this.updateDuck();
   }
-  play(cue, fallback = cue) {
+  play(cue, fallback = cue, options = {}) {
     if (
       this.destroyed ||
       this.failed ||
@@ -216,7 +216,7 @@ export class SynthAudio {
       return;
     const now = this.context.currentTime;
     try {
-      if (this.playCustom(cue)) return;
+      if (this.playCustom(cue, options)) return;
       if (now - (this.lastCues.get(fallback) ?? -Infinity) < 0.07) return;
       this.lastCues.set(fallback, now);
       switch (fallback) {
@@ -331,7 +331,7 @@ export class SynthAudio {
       } catch { /* Missing, unsupported and aborted clips retain the original cue. */ }
     }));
   }
-  playCustom(event) {
+  playCustom(event, { semitones = 0 } = {}) {
     const config = this.pack[event];
     const files = (config?.files || []).filter(file => this.clips.has(file));
     if (!files.length || Math.random() >= 1 / Math.max(1, config.rarity || 1)) return false;
@@ -341,13 +341,17 @@ export class SynthAudio {
     if (this.voices.size >= MAX_VOICES) return false;
     const ctx = this.context, source = ctx.createBufferSource(), gain = ctx.createGain();
     source.buffer = this.clips.get(files[Math.floor(Math.random() * files.length)]);
+    const variation = Math.max(0, Math.min(0.5, config.pitchVariation || 0));
+    const rate = 2 ** (semitones / 12) * (1 + (variation ? (Math.random() * 2 - 1) * variation : 0));
+    source.playbackRate.setValueAtTime(rate, ctx.currentTime);
+    const duration = source.buffer.duration / rate;
     const voice = { source, gain, event: channel };
     gain.gain.setValueAtTime(Math.max(0, Math.min(2, Number.isFinite(config.volume) ? config.volume : 1)), ctx.currentTime);
     source.connect(gain); gain.connect(this.master);
     this.voices.add(voice); this.customVoices.set(channel, voice);
     source.onended = () => this.release(voice);
-    source.start(ctx.currentTime); source.stop(ctx.currentTime + source.buffer.duration);
-    if (config.duck) this.duckUntil = Math.max(this.duckUntil, ctx.currentTime + Math.min(SFX_RULES.duckSeconds, source.buffer.duration));
+    source.start(ctx.currentTime); source.stop(ctx.currentTime + duration);
+    if (config.duck) this.duckUntil = Math.max(this.duckUntil, ctx.currentTime + Math.min(SFX_RULES.duckSeconds, duration));
     this.updateDuck();
     return true;
   }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 class Param {
   setValueAtTime(value, time) {
     assert.ok(Number.isFinite(value) && Number.isFinite(time));
+    this.value = value;
   }
   linearRampToValueAtTime(value, time) {
     this.setValueAtTime(value, time);
@@ -32,6 +33,7 @@ export function audioDouble(clock = () => 0) {
       const context = this;
       const node = {
         frequency: new Param(),
+        playbackRate: new Param(),
         Q: new Param(),
         gain: new Param(),
         connect() {

@@ -1,7 +1,11 @@
 // Paths are relative to assets/audio/sfx/. Unlisted events keep their synth.
 // rarity: N = 1 in N; volume: 0..2 trim; duck: big-moment music/caption priority.
+// pitchVariation: fractional playback-rate spread (0.05 = +/-5%).
 // channel groups ladder/flip/tier variants so the latest replaces the previous clip.
 export const SFX_CONFIG = {
+  perfectPush: { files: ["push.mp3"], volume: 0.35, channel: "push" },
+  goodPush: { files: ["push.mp3"], volume: 0.35, channel: "push" },
+  syncReady: { files: ["bam1.mp3"], volume: 0.8 },
   "syncStep1": {
     "files": [
       "bam1.mp3"
@@ -206,6 +210,7 @@ export const SFX_CONFIG = {
     "files": [
       "menu-confirm.mp3"
     ],
+    "pitchVariation": 0.05,
     "volume": 1
   },
   "characterSelect": {
@@ -215,4 +220,4 @@ export const SFX_CONFIG = {
     "volume": 1
   }
 };
-export const SFX_RULES = Object.freeze({ duckSeconds: 1.2, musicDuck: 0.35, maxClipSeconds: 15, heavyParts: 3, allParts: 4, cheerMetres: 70 });
+export const SFX_RULES = Object.freeze({ pushPitchStep: 1, maxPushPitchSteps: 6, duckSeconds: 1.2, musicDuck: 0.35, maxClipSeconds: 15, heavyParts: 3, allParts: 4, cheerMetres: 70 });

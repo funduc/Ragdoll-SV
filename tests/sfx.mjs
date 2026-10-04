@@ -192,3 +192,66 @@ for (const character of CHARACTERS) {
   w.dispose();
 }
 console.log("PASS All characters: crash tier and explosion fire on the impact step, once, before settling/results");
+
+// Exercise the observer through the real audio player, including pitched clip lifetimes.
+const pitched = new SynthAudio(null, env);
+pitched.unlock();
+pitched.clips.set("push.mp3", { duration: .08 });
+pitched.clips.set("bam1.mp3", { duration: .3 });
+pitched.clips.set("menu-confirm.mp3", { duration: 1 });
+const pushWorld = new PhysicsWorld(CHARACTERS[0]);
+const pushObserver = Object.assign(Object.create(Presentation.prototype), {
+  audio: pitched, effects: { clear() {}, burst() {}, shake() {} },
+});
+pushObserver.replaceWorld(pushWorld);
+const pushCues = [], actualPlay = pitched.play.bind(pitched);
+pitched.play = (event, ...args) => { pushCues.push(event); actualPlay(event, ...args); };
+let serial = 0;
+function feedback(grade, kind = "push") {
+  time += .5; pitched.context.tick();
+  if (kind === "push") pushWorld.skills.pushes[grade]++;
+  pushWorld.skills.feedback = { serial: ++serial, kind, grade };
+  pushObserver.observe(pushWorld);
+  pushObserver.observe(pushWorld); // repeated frames must not advance pitch or replay stings
+}
+for (let i = 0; i < 9; i++) {
+  feedback("Perfect");
+  const source = pitched.customVoices.get("push").source;
+  const expected = 2 ** (Math.min(i, 6) / 12);
+  assert.equal(source.playbackRate.value, expected);
+  assert.ok(Math.abs(source.stopTime - time - .08 / expected) < 1e-10);
+  assert.equal(pushCues.filter(c => c === "syncReady").length, i >= 4 ? 1 : 0);
+}
+feedback("Good"); assert.equal(pitched.customVoices.get("push").source.playbackRate.value, 1);
+feedback("Perfect"); assert.equal(pitched.customVoices.get("push").source.playbackRate.value, 1);
+const beforeMiss = pushCues.length;
+feedback("Miss"); assert.equal(pushCues.length, beforeMiss, "a Miss emits no sound");
+assert.equal(pitched.customVoices.has("push"), false);
+feedback("Perfect"); assert.equal(pitched.customVoices.get("push").source.playbackRate.value, 1);
+const beforeTakeoff = pushCues.length;
+feedback("Perfect", "takeoff"); assert.deepEqual(pushCues.slice(beforeTakeoff), ["perfectTakeoff"]);
+assert.equal(pushCues.filter(c => c === "syncReady").length, 1);
+assert.ok(!pushCues.some(c => /^syncStep/.test(c)), "pushes never use the Sync ladder");
+assert.equal(pitched.failed, false);
+const randomBeforePitch = Math.random;
+try {
+  for (const random of [0, .5, .999]) {
+    Math.random = () => random;
+    pitched.play("menuConfirm", "click");
+    const source = pitched.customVoices.get("menuConfirm").source;
+    const rate = 1 + (random * 2 - 1) * .05;
+    assert.equal(source.playbackRate.value, rate);
+    assert.ok(Math.abs(source.stopTime - time - 1 / rate) < 1e-10, "low pitches must not truncate the clip");
+  }
+} finally { Math.random = randomBeforePitch; }
+pushObserver.replaceWorld(pushWorld);
+assert.equal(pushObserver.perfectStreak, 0);
+pitched.clips.clear();
+feedback("Good"); assert.ok(pitched.voices.size > 0, "missing push retains Good synth");
+feedback("Perfect"); assert.ok(pitched.voices.size > 0, "missing push retains Perfect synth");
+time += 1; pitched.context.tick(); pitched.play("menuConfirm", "click");
+assert.ok(pitched.voices.size > 0, "missing menu clip retains click synth");
+assert.equal(pitched.failed, false);
+pitched.preferences.setMuted(true); feedback("Perfect"); assert.equal(pitched.voices.size, 0);
+pitched.destroy(); pushWorld.dispose();
+console.log("PASS Push pitch ladder/cap/reset, silent Miss, fifth-push sting, unchanged takeoff, menu pitch/lifetimes, fallback and mute");
