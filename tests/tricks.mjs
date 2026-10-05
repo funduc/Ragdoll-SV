@@ -1,3 +1,4 @@
+import { Renderer } from "../js/renderer.js";
 import { TrickDisplay } from "../js/trick-ui.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -372,4 +373,69 @@ test("Every recognized trick supplies points; canvas feedback stays beneath HUD"
   calls.length=0;renderer.motionPreference.matches=true;display.draw(renderer,world,100);
   assert.deepEqual(calls.find(c=>c[0]==="scale"),["scale",1,1]);
   calls.length=0;world.elapsed=2;display.draw(renderer,world,100);assert.equal(calls.length,0);
+});
+
+
+test("Callouts replace each other, fade during slow motion, and never paint over flipping bodies", () => {
+  globalThis.document = { createElement: () => ({}) };
+  const makeDisplay = () => {
+    const label = {}, popup = { classList: { remove() {} }, replaceChildren(...nodes) { this.children = nodes; } };
+    return new TrickDisplay({ querySelector: selector => selector.includes("combo") ? label : popup });
+  };
+  const display = makeDisplay();
+  let notices = [{ name: "Back Flip", points: 150 }, { name: "Double Flip", points: 180 }];
+  const source = { elapsed: 0, tricks: { combo: 1.25, unique: new Set(["back", "double"]), drainNotices: () => notices } };
+  display.observe(source);
+  assert.equal(display.queue.length, 1); assert.equal(display.chain, 2);
+  assert.equal(display.queue[0].name, "Double Flip");
+  assert.equal(display.popup.children.length, 1);
+  notices = [{ name: "No Hands", points: 90 }]; display.observe(source);
+  assert.equal(display.queue.length, 1); assert.equal(display.chain, 3);
+  assert.equal(display.queue[0].name, "No Hands");
+
+  const calls = [], ctx = new Proxy({}, {
+    get: (_, name) => (...args) => { calls.push([name, ...args]); return name.includes("Gradient") ? { addColorStop() {} } : name === "measureText" ? { width: String(args[0]).length * 8 } : undefined; },
+    set: (_, name, value) => { calls.push([name, value]); return true; },
+  });
+  const renderer = { ctx, camera: { x: 0, y: 0, scale: 1 }, width: 1200, height: 560, dpr: 1, motionPreference: { matches: true } };
+  const world = { elapsed: 0, cart: { position: { x: 200, y: 300 } } };
+  display.draw(renderer, world, 100, .1);
+  const firstPosition = calls.find(c => c[0] === "translate");
+  calls.length = 0; display.draw(renderer, world, 100, .65);
+  assert.deepEqual(calls.find(c => c[0] === "translate"), firstPosition, "reduced motion never drifts");
+  assert.deepEqual(calls.find(c => c[0] === "scale"), ["scale", 1, 1]);
+  assert.ok(calls.find(c => c[0] === "globalAlpha")[1] < 1);
+  assert.ok(!calls.some(c => ["fillRect", "strokeRect"].includes(c[0])));
+  assert.equal(calls.filter(c => c[0] === "strokeText").length, 3);
+  calls.length = 0; display.draw(renderer, world, 100, .26);
+  assert.equal(calls.length, 0, "expires within one real second even with a frozen physics clock");
+
+  globalThis.window = { devicePixelRatio: 1 };
+  globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  for (const character of CHARACTERS) for (const [width, height] of [[1200, 560], [390, 420]]) {
+    const w = new PhysicsWorld(character), d = makeDisplay();
+    const r = new Renderer({ getContext: () => ctx, getBoundingClientRect: () => ({ width, height }) });
+    let drawn = 0;
+    while (!w.finished) {
+      w.step(timedInputs(w, w.launched ? -1 : 0));
+      d.observe(w); r.draw(w); calls.length = 0;
+      d.draw(r, w, 100, 1 / 120);
+      const translate = calls.find(c => c[0] === "translate");
+      if (!translate) continue;
+      drawn++;
+      const [, x, y] = translate, pop = calls.find(c => c[0] === "scale")[1];
+      const rx = Math.min(100, (width - 32) / 2) * pop + 2, ry = 21 * pop;
+      assert.ok(y - ry > 100 && x - rx >= 0 && x + rx <= width);
+      for (const body of w.dynamic) {
+        const left = (body.bounds.min.x - r.camera.x) * r.camera.scale;
+        const right = (body.bounds.max.x - r.camera.x) * r.camera.scale;
+        const top = (body.bounds.min.y - r.camera.y) * r.camera.scale;
+        const bottom = (body.bounds.max.y - r.camera.y) * r.camera.scale;
+        assert.ok(x + rx < left || x - rx > right || y + ry < top || y - ry > bottom,
+          character.id + "/" + width + ": callout overlaps " + body.label);
+      }
+    }
+    assert.ok(drawn > 20, "trick text remains visible during real flips");
+    w.dispose(); r.destroy();
+  }
 });

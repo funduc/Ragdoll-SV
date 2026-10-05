@@ -1,7 +1,7 @@
 import { TRICK_CONFIG as C } from "./trick-config.js";
 
-// This display never receives pointer events or focus. Simulation time expires
-// popups; reset discards the queue, so no attempt leaves a timeout behind.
+// This display never receives pointer events or focus. Frame time expires
+// popups even during Sync; reset leaves no timers or pending callouts.
 export class TrickDisplay {
   constructor(element) {
     this.element = element;
@@ -23,10 +23,9 @@ export class TrickDisplay {
     const notices = world.tricks.drainNotices();
     this.queue = this.queue.filter((e) => e.until > world.elapsed);
     for (const notice of notices) this.chain = notice.points === undefined ? 0 : this.chain + 1;
-    this.queue.push(
-      ...notices.map((e) => ({ ...e, at: world.elapsed, until: world.elapsed + C.popup.seconds })),
-    );
-    this.queue = this.queue.slice(-C.popup.maximumQueue);
+    if (notices.length) {
+      this.queue = [{ ...notices.at(-1), at: world.elapsed, until: world.elapsed + C.popup.seconds }];
+    }
     const label = `COMBO ×${world.tricks.combo.toFixed(2)} · ${world.tricks.unique.size} UNIQUE`;
     if (this.label.textContent !== label) this.label.textContent = label;
     if (notices.length || before !== this.queue.length) {
@@ -40,32 +39,55 @@ export class TrickDisplay {
       );
     }
   }
-  draw(renderer, world, hudHeight = 100) {
-    const entries = this.queue.filter(e => e.until > world.elapsed).slice(-2);
-    if (!entries.length) return;
+  draw(renderer, world, hudHeight = 100, dt = 0) {
+    const entry = this.queue.at(-1);
+    if (!entry) return;
+    const age = entry.age = Math.max(entry.age || 0, world.elapsed - entry.at) + dt;
+    if (age >= C.popup.seconds) return;
     const { ctx: c, camera, width: w, height: h, dpr } = renderer;
-    const age = world.elapsed - entries.at(-1).at;
     const reduced = renderer.motionPreference?.matches;
-    const pop = reduced ? 1 : 1 + 0.12 * Math.max(0, 1 - age / 0.18);
-    const half = Math.min(175, w / 2 - 24);
-    const x = Math.max(half + 24, Math.min(w - half - 24, (world.cart.position.x - camera.x) * camera.scale));
-    const y = Math.max(hudHeight + 55, Math.min(h - 110, (world.cart.position.y - camera.y) * camera.scale - 90));
+    const pop = reduced ? 1 : 1 + .12 * Math.max(0, 1 - age / .12);
+    const drift = reduced ? 0 : 8 * Math.min(1, age / C.popup.seconds);
+    const half = Math.min(100, (w - 32) / 2);
+    // Reserve the entire animated footprint, including outline and drift.
+    // The preferred slot is fixed below the HUD, not attached to the cart.
+    const rx = half * 1.12 + 4, ry = 24;
+    const top = hudHeight + 12 + ry + 8;
+    const bodies = world.dynamic || [world.cart];
+    const bounds = bodies.map(body => {
+      const b = body.bounds || { min: body.position, max: body.position };
+      return { left: (b.min.x - camera.x) * camera.scale - 16,
+        right: (b.max.x - camera.x) * camera.scale + 16,
+        top: (b.min.y - camera.y) * camera.scale - 16,
+        bottom: (b.max.y - camera.y) * camera.scale + 16 };
+    });
+    const clear = ([x, y]) => x - rx >= 0 && x + rx <= w && y + ry <= h - 12 &&
+      bounds.every(b => x + rx < b.left || x - rx > b.right || y + ry < b.top || y - ry - 8 > b.bottom);
+    const slots = [[w / 2, top], [w - rx - 8, top], [rx + 8, top]];
+    // Retain the chosen slot while safe, avoiding needless side-to-side jumps.
+    const order = [entry.slot ?? 0, ...slots.map((_, i) => i)];
+    const slot = order.find(i => clear(slots[i]));
+    // An unusually large/ejected ragdoll can fill the top band. Keep the text
+    // clear below it; if no space remains, protect visibility of the bodies.
+    const fallback = [w / 2, Math.max(top, ...bounds.map(b => b.bottom + ry + 9))];
+    if (slot === undefined && !clear(fallback)) return;
+    if (slot !== undefined) entry.slot = slot;
+    const [x, y] = slot === undefined ? fallback : slots[slot];
     c.save();
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.translate(x, y); c.scale(pop, pop);
+    c.translate(x, y - drift); c.scale(pop, pop);
+    c.globalAlpha = Math.min(1, (C.popup.seconds - age) / .35);
     c.textAlign = "center"; c.textBaseline = "middle";
-    c.fillStyle = !reduced && age < .12 ? "#34532b" : "rgba(10,20,28,.88)";
-    c.fillRect(-half, -25, half * 2, entries.length * 30 + 58);
-    c.strokeStyle = "#b4ef4b"; c.lineWidth = 2;
-    c.strokeRect(-half, -25, half * 2, entries.length * 30 + 58);
-    c.font = "bold 14px Arial"; c.fillStyle = "#fff";
-    c.fillText(entries.some(e => e.points !== undefined) ? "STUNT!" : "COMBO BROKEN", 0, -10);
-    entries.forEach((e, i) => {
-      c.font = "900 28px Impact, Arial Narrow, sans-serif"; c.fillStyle = "#b4ef4b";
-      c.fillText(e.points === undefined ? e.name : e.name.toUpperCase() + "! +" + e.points, 0, 18 + i * 30, half * 2 - 16);
-    });
-    c.font = "bold " + Math.min(24, 16 + this.chain * 2) + "px Arial"; c.fillStyle = "#52cefa";
-    c.fillText("x" + this.chain + " COMBO", 0, entries.length * 30 + 18);
+    c.strokeStyle = "#101820"; c.lineWidth = 3; c.lineJoin = "round";
+    const text = (value, y, font, color) => {
+      c.font = font; c.fillStyle = color;
+      c.strokeText(value, 0, y, half * 2);
+      c.fillText(value, 0, y, half * 2);
+    };
+    text(entry.points === undefined ? "COMBO BROKEN" : "STUNT!", -14, "bold 9px Arial", "#fff");
+    text(entry.points === undefined ? entry.name : entry.name.toUpperCase() + "! +" + entry.points,
+      0, "900 14px Impact, Arial Narrow, sans-serif", "#b4ef4b");
+    text("x" + this.chain + " COMBO", 14, "bold 11px Arial", "#52cefa");
     c.restore();
   }
 }

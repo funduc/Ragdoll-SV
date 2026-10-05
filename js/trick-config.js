@@ -78,7 +78,7 @@ export const TRICK_CONFIG = freeze({
       rotationBonus: 0.32,
     },
   },
-  popup: { seconds: 1.05, maximumQueue: 4 },
+  popup: { seconds: 1, maximumQueue: 4 },
 });
 
 export function trickProfile(character) {
