@@ -4,7 +4,7 @@ import { runInThisContext } from "node:vm";
 import { PhysicsWorld } from "../js/physics.js";
 import { CHARACTERS } from "../js/characters.js";
 import { scoreAttempt } from "../js/scoring.js";
-import { timedInputs } from "./skill-helpers.mjs";
+import { crashInputs, timedInputs } from "./skill-helpers.mjs";
 import { attemptAchievementFacts } from "../js/achievement-events.js";
 import { AchievementManager } from "../js/achievements.js";
 import { Tournament, State } from "../js/tournament.js";
@@ -44,7 +44,7 @@ for (const character of CHARACTERS) {
   let ejectionVerified = false, maxSeparation = 0, beforeTouchdown;
   while (!world.finished) {
     const alreadyEjected = world.damage.ejected;
-    world.step(timedInputs(world, world.launched ? 1 : 0));
+    world.step(crashInputs(world));
     if (world.damage.ejected && !alreadyEjected) {
       for (const body of world.rider) {
         const velocity = world.M.Body.getVelocity(body), incoming = world.preSpeeds.get(body.id);

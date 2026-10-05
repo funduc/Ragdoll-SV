@@ -3,7 +3,7 @@
 import { CHAPTER_LEVELS } from "./campaign-chapter.js";
 const arena = { id: "santor-vault", gravity: 1.05 };
 const goal = (label, all) => ({ label, all });
-export const QUIET_IMPACT_LIMIT = 950; // First-contact normal speed, world pixels/second.
+export const QUIET_IMPACT_LIMIT = 1170; // First-contact normal speed, world pixels/second.
 export const ROAD_POEM = Object.freeze([
   "Mapleton, your lamps burn bright,",
   "Your bumps have learned to rhyme tonight,",

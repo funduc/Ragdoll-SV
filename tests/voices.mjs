@@ -8,7 +8,7 @@ import { SynthAudio } from "../js/audio.js";
 import { audioDouble } from "./fake-audio.mjs";
 import { PhysicsWorld } from "../js/physics.js";
 import { CHARACTERS } from "../js/characters.js";
-import { timedInputs } from "./skill-helpers.mjs";
+import { crashInputs, timedInputs } from "./skill-helpers.mjs";
 import { Presentation } from "../js/presentation.js";
 let time = 0;
 class Context extends audioDouble(() => time) { async decodeAudioData() { return { duration: 2 }; } }
@@ -73,7 +73,7 @@ for (const character of CHARACTERS) {
   });
   p.replaceWorld(world);
   for(let i=0;i<2500&&!world.finished;i++) {
-    world.step(timedInputs(world,world.launched?1:0)); time += 1/120; audio.context.tick();
+    world.step(crashInputs(world)); time += 1/120; audio.context.tick();
     p.observe(world); voices.tick(); world.drainEvents();
   }
   end(); end();

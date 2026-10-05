@@ -48,11 +48,14 @@ export function campaignFacts(score, world, reachedRamp) {
     uniqueTricks: score.tricks.unique,
     trickIds: score.tricks.details.filter((t) => t.points > 0).map((t) => t.id),
     total: score.total,
+    distanceMetres: score.distanceMetres,
     noMiss:
       score.pushCounts.Miss === 0 &&
       score.pushCounts.Good + score.pushCounts.Perfect > 0,
     riderAttached: world.launched && world.landed && world.attached,
     targetHit: zone.passed,
+    doubleFlip: score.tricks.details.some(t => t.id === "double" && t.points > 0),
+    targetLanding: world.firstLandingPiece?.label === "CONCRETE+" && world.firstLandingOnTop && !score.crashed,
     cargoRetained: Boolean(world.cargo && !world.cargoLost),
     mechanicalFailure: world.runEffects?.mechanicalFailureOccurred === true,
     mechanicalRecovered:
@@ -78,6 +81,8 @@ export function combinedFacts(heats) {
     completedJumps: count("completedJump"),
     successfulLandings: count("successfulLanding"),
     controlledLandings: count("controlledLanding"),
+    doubleFlips: count("doubleFlip"),
+    targetLandings: count("targetLanding"),
     ribbonCut: facts.some((f) => f.ribbonCut),
     goodBraces: count("goodBrace"),
     perfectBraces: count("perfectBrace"),

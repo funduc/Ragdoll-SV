@@ -1,3 +1,4 @@
+import { defineCourse, DEFAULT_COURSE } from "./course.js";
 // AFTER HOURS — optional bonus chapter, unlocked by Bronze in The Santor
 // Gauntlet. Uses the same medal evaluator, score formula and save catalog as the
 // main ten levels; it is excluded from main-campaign completion achievements.
@@ -14,16 +15,26 @@ const john = (introduction, characters, success, failure, gold) => ({
     gold,
   },
 });
-// A real, collidable slab 71–81 m from the ramp edge. Concrete, not foam.
+// A real, collidable slab 80–90 m from the ramp edge. Concrete, not foam.
 // Its leading edge is bevelled so a wheel rolls up instead of tripping.
 export const CONCRETE_SLAB = Object.freeze({
-  startMetres: 71,
-  endMetres: 81,
+  startMetres: 80,
+  endMetres: 90,
   height: 16,
   bevel: 36,
   label: "CONCRETE+",
 });
-const slabArena = { ...arena, target: CONCRETE_SLAB };
+const { startMetres, endMetres, height, bevel, label } = CONCRETE_SLAB;
+const left = DEFAULT_COURSE.distanceOrigin + startMetres * 40;
+const right = DEFAULT_COURSE.distanceOrigin + endMetres * 40;
+const ground = DEFAULT_COURSE.groundY;
+const slabArena = { ...arena, target: CONCRETE_SLAB, course: defineCourse({
+  ...DEFAULT_COURSE, id: "concrete-plus", name: "Concrete+ demonstration",
+  pieces: [{ type: "polygon", label, landing: true, sign: label,
+    points: [{ x: left, y: ground }, { x: left + bevel, y: ground - height },
+      { x: right, y: ground - height }, { x: right, y: ground }],
+    fill: "#777b83", stroke: "#d4d6da" }],
+}) };
 
 export const AFTER_HOURS_LEVELS = [
   {
@@ -33,7 +44,7 @@ export const AFTER_HOURS_LEVELS = [
     bonus: true,
     estimatedMinutes: 3,
     description:
-      "The Vault is closed. The loading dock's anti-gravity promo is not. Gravity is down 40%, which is finally enough hang time for two full rotations.",
+      "The Vault is closed. The loading dock's anti-gravity promo is not. Gravity is down 40%, giving two full rotations a generous recovery window.",
     objective:
       "Use the extra airtime: hold one direction for two complete rotations (a Double Flip), then counter-steer and land.",
     arena,
@@ -76,7 +87,7 @@ export const AFTER_HOURS_LEVELS = [
     bonus: true,
     estimatedMinutes: 3,
     description:
-      "Concrete+ has installed a real 71–81 m demonstration slab. A sponsored leaf blower supplies a tailwind. Softness is sold separately and was not purchased.",
+      "Concrete+ has installed a real 80–90 m demonstration slab. A sponsored leaf blower supplies a tailwind. Softness is sold separately and was not purchased.",
     objective:
       "Build maximum speed, nail the takeoff and ride the tailwind. First contact on the raised slab counts as a landing on it.",
     arena: slabArena,

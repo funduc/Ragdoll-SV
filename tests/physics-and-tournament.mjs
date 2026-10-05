@@ -1,4 +1,4 @@
-import { timedInputs } from "./skill-helpers.mjs";
+import { crashInputs, timedInputs } from "./skill-helpers.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
@@ -88,7 +88,7 @@ test("A full forward flip is controllable and earns style with a clean landing",
   w.dispose();
 });
 test("Crashes detach the rider but retain distance and style", () => {
-  const w = jump(CHARACTERS[1], { accelerate: true, rotate: 1 });
+  const w = jump(CHARACTERS[1], w => crashInputs(w, true));
   const s = scoreAttempt(w.metrics(), CHARACTERS[1]);
   assert.ok(s.crashed);
   assert.equal(s.attachedPoints, 0);
@@ -102,7 +102,7 @@ test("Idle players time out with zero points", () => {
   w.dispose();
 });
 test("Minor arm jitter cannot hold a settled crash open until the time limit", () => {
-  const w = jump(CHARACTERS[1], { accelerate: true, rotate: 1 });
+  const w = jump(CHARACTERS[1], w => crashInputs(w, true));
   assert.ok(w.crashed);
   assert.ok(w.elapsed < 10);
   assert.notEqual(w.reason, "Attempt time limit");

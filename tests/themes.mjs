@@ -42,11 +42,12 @@ function draw(renderer, canvas, world, effects = null) {
   return JSON.stringify(canvas.calls);
 }
 
-// Captured before the theme refactor at 79b32c4: every Canvas command and
+// Long-jump trace refreshed for the taller launch arc; other traces retain
+// the pre-theme baseline at 79b32c4. Every Canvas command and
 // style assignment, all characters, three attempt moments, two viewports,
 // including equipped arena/cart cosmetics. No Git checkout needed at runtime.
 const baseline = {
-  "long-jump": "e74661f0fa0d64d963140a79cbbfb0fa1255da0172e4a3d236b3e7ff6fcaee78",
+  "long-jump": "2b9c1229f3a2173938c01ebe9b5e1ff1a4ba0115460b617538eb62914d7aeac2",
   "high-jump": "65983c8c237d3d4a9454abbc6ed6dc732e5f86321839128d0e8c05e651931d60",
   bowling: "21b13307a5165cf6b66511fdb2550ff1fae00ea697bfd56a9507017fb1b3f1c5",
 };
@@ -67,9 +68,9 @@ for (const [course, expected] of Object.entries(baseline)) {
     }
     world.dispose();
   }
-  assert.equal(hash.digest("hex"), expected, `${course}: identical to pre-theme drawing`);
+  assert.equal(hash.digest("hex"), expected, `${course}: matches default-theme drawing baseline`);
 }
-console.log("PASS default stadium: 54 unchanged Canvas traces across all events, characters and viewport sizes");
+console.log("PASS default stadium: 54 reference Canvas traces across all events, characters and viewport sizes");
 
 // Sample themes stay in tests; the Vault and eight authored Tour themes ship.
 const SAMPLE = defineTheme({

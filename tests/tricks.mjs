@@ -277,7 +277,7 @@ test("Actual physics recognizes controlled flips and recovery tricks without new
     for (let i = 0; i < 2500 && !w.finished; i++) {
       // Long flights: wait briefly so the flip still finishes near contact.
       const rotate =
-        w.elapsed - w.launchTime >= 0.4 && w.cart.angle - w.launchAngle < tau
+        w.elapsed - w.launchTime >= 0.9 && w.cart.angle - w.launchAngle < tau
           ? 1
           : Math.max(
               -1,
@@ -310,7 +310,9 @@ test("Actual physics recognizes controlled flips and recovery tricks without new
 test("Owen can complete a real Double Flip with a late-in-zone Perfect takeoff", () => {
   const w = new PhysicsWorld(CHARACTERS[2]);
   for (let i = 0; i < 2500 && !w.finished; i++) {
-    const controls = timedInputs(w, -1);
+    const spinning = w.launchAngle - w.cart.angle < tau * 2;
+    const recovery = -normalAngle(w.cart.angle) * 2 - w.cart.angularVelocity * 28;
+    const controls = timedInputs(w, spinning ? -1 : Math.sign(recovery), true);
     if (!w.launched && w.cart.position.x >= 860 && !w.skills.takeoff)
       controls.pushes = Number(w.cart.position.x >= 1040);
     w.step(controls);
@@ -319,6 +321,7 @@ test("Owen can complete a real Double Flip with a late-in-zone Perfect takeoff",
   assert.equal(w.skills.takeoff, "Perfect");
   assert.equal(w.tricks.backward, 2);
   assert.equal(w.tricks.counts.double, 1);
+  assert.ok(["Clean", "Scrappy"].includes(scoreAttempt(w.metrics(), w.character).landingQuality));
   evidence.doubleFlip = {
     degrees: (w.airRotation * 180) / Math.PI,
     tricks: w.tricks.awards.map((e) => e.id),

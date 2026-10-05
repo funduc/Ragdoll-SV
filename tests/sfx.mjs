@@ -1,4 +1,4 @@
-import { timedInputs } from "./skill-helpers.mjs";
+import { crashInputs, timedInputs } from "./skill-helpers.mjs";
 import { crashSound, landingSounds, syncSounds } from "../js/sound-events.js";
 import { SyncSequence } from "../js/sync.js";
 import { Records, RECORDS_SAVE_KEY } from "../js/records.js";
@@ -169,7 +169,7 @@ for (const character of CHARACTERS) {
   p.replaceWorld(w);
   let impactTime, impactTier;
   for (let i = 0; i < 2500 && !w.finished; i++) {
-    w.step(timedInputs(w, w.launched ? 1 : 0));
+    w.step(crashInputs(w));
     const firstCrash = w.crashed && impactTime === undefined;
     if (firstCrash) { impactTime = w.elapsed; impactTier = crashSound(w); }
     p.observe(w);

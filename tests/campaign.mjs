@@ -204,7 +204,7 @@ check(
     const restored = new CampaignSave(db);
     assert.equal(restored.entry("jake", LEVELS[0].id).medal, 3);
     assert.equal(restored.data.selectedCharacter, "jake");
-    assert.equal(Object.keys(restored.data.progress.jake).length, 19);
+    assert.equal(Object.keys(restored.data.progress.jake).length, 23);
     assert.equal(db.entries.size, 1);
     const copy = restored.entry("jake", LEVELS[0].id);
     copy.medal = 0;

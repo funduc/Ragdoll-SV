@@ -1,3 +1,4 @@
+import { AFTER_HOURS_LEVELS } from "./after-hours.js";
 import { CHARACTERS } from "./characters.js";
 import { CampaignState as S } from "./campaign.js";
 import {
@@ -113,6 +114,9 @@ function levelTile(run, level, number, lockedHint) {
 function bonusRow(run) {
   return `<section class="bonus-row" aria-label="Bonus levels"><h3>BONUS</h3><ul class="level-grid">${levelTile(run, HARD_GAUNTLET, "OT", "Beat the Santor Gauntlet to unlock.")}</ul></section>`;
 }
+function afterHoursRow(run) {
+  return `<section class="bonus-row" aria-label="After Hours"><h3>AFTER HOURS</h3><ul class="level-grid">${AFTER_HOURS_LEVELS.map((level, i) => levelTile(run, level, `AH${i + 1}`, `Earn Bronze in ${i ? AFTER_HOURS_LEVELS[i - 1].name : "The Santor Gauntlet"}.`)).join("")}</ul></section>`;
+}
 function tourRow(run) {
   return `<section class="bonus-row tour-row" aria-label="Santor on Tour"><h3>SANTOR ON TOUR</h3><p class="tiny">Bronze in The Santor Gauntlet opens the Tour. Earn Bronze in each stop to open the next.</p><ul class="level-grid">${TOUR_LEVELS.map((level, i) => levelTile(run, level, `T${i + 1}`, `Earn Bronze in ${i ? TOUR_LEVELS[i - 1].name : "The Santor Gauntlet"}.`)).join("")}</ul></section>`;
 }
@@ -168,7 +172,7 @@ export function renderCampaign(ui, run) {
   ui.campaignSession = run;
   ui.roundLabel.textContent =
     run.active || [S.READY, S.RESULTS].includes(run.state)
-      ? `VAULT RUN · ${level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} / ${LEVELS.length}`}${run.stage ? ` · HEAT ${run.stageIndex + 1}/3` : ""}`
+      ? `VAULT RUN · ${level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : level.chapter === "after-hours" ? "AFTER HOURS" : level.bonus ? "OVERTIME" : `${LEVELS.indexOf(level) + 1} / ${LEVELS.length}`}${run.stage ? ` · HEAT ${run.stageIndex + 1}/3` : ""}`
       : "VAULT RUN · CAMPAIGN";
   document.getElementById("session-mode").textContent = "SINGLE PLAYER";
   document.getElementById("session-players").textContent = "VAULT RUN";
@@ -217,7 +221,7 @@ export function renderCampaign(ui, run) {
           ),
       ).join(
         "",
-      )}</ol>${bonusRow(run)}${tourRow(run)}<div class="actions compact">${action("Change character", "characters", "", true)}${action("New run", "new-run", "", true)}${action("Main menu", "menu", "", true)}${action("Reset progress", "reset", "", true)}</div>${details(`${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · kept across new runs.</p><p class="tiny">${escape(c.passive.name)} · replays keep your best medal.</p>`)}</section>`;
+      )}</ol>${bonusRow(run)}${afterHoursRow(run)}${tourRow(run)}<div class="actions compact">${action("Change character", "characters", "", true)}${action("New run", "new-run", "", true)}${action("Main menu", "menu", "", true)}${action("Reset progress", "reset", "", true)}</div>${details(`${runInventory(run)}<p class="tiny">OBJECTIVE ACHIEVEMENTS: ${Object.keys(run.runs.achievements.characters[c.id]).length} / ${OBJECTIVE_IDS.length} · kept across new runs.</p><p class="tiny">${escape(c.passive.name)} · replays keep your best medal.</p>`)}</section>`;
       ui.say(
         cleared === LEVELS.length
           ? "Ten levels complete. Overtime is optional. John is not taking questions."
@@ -245,7 +249,7 @@ export function renderCampaign(ui, run) {
         LEVELS.indexOf(level) < LEVELS.length - 1
           ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked`
           : "";
-      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${tourEnding(run)}${scoreCard(s)}${tourResultNotes(level, result.facts)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
+      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${tourEnding(run)}${scoreCard(s)}${tourResultNotes(level, result.facts)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + AFTER HOURS + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
       ui.say(
         result.provisional
           ? `Heat ${run.stageIndex + 1} banked. ${run.combinedScore} points. ${run.stageIndex ? "THE LEDGER IS GETTING LOUDER." : "Please retain the cart for the next examination."}`

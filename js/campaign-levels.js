@@ -1,3 +1,4 @@
+import { AFTER_HOURS_LEVELS } from "./after-hours.js";
 import { CHAPTER_LEVELS, HARD_GAUNTLET_DATA } from "./campaign-chapter.js";
 import { TOUR_LEVELS } from "./santor-tour.js";
 // Vault Run content and rules. Ten main levels plus optional bonus chapters.
@@ -153,7 +154,7 @@ export const LEVELS = freeze([
   ...CHAPTER_LEVELS,
 ]);
 export const HARD_GAUNTLET = freeze(HARD_GAUNTLET_DATA);
-export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET, ...TOUR_LEVELS]);
+export const ALL_LEVELS = freeze([...LEVELS, HARD_GAUNTLET, ...TOUR_LEVELS, ...AFTER_HOURS_LEVELS]);
 export const levelById = (id) => ALL_LEVELS.find((level) => level.id === id);
 
 // Numeric all conditions mean "at least"; optional max conditions mean

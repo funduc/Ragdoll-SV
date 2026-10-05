@@ -8,7 +8,7 @@ import { Effects } from "../js/effects.js";
 import { CHARACTERS } from "../js/characters.js";
 import { LEVELS } from "../js/campaign-levels.js";
 import { scoreAttempt } from "../js/scoring.js";
-import { timedInputs } from "./skill-helpers.mjs";
+import { crashInputs, timedInputs } from "./skill-helpers.mjs";
 runInThisContext(readFileSync(new URL("../vendor/matter-0.20.0.min.js", import.meta.url), "utf8"));
 globalThis.window = new EventTarget(); window.devicePixelRatio = 1;
 globalThis.ResizeObserver = class { observe() {} disconnect() {} };
@@ -34,7 +34,7 @@ for (const character of CHARACTERS) {
   const cosmetics = { cart: "#ff0000", arena: "#00ff00" };
   let comparisons = 0;
   for (let i = 0; i < 2500 && !world.finished; i++) {
-    world.step(timedInputs(world, world.launched ? 1 : 0));
+    world.step(crashInputs(world));
     if (world.launched && !world.syncCelebration && world.elapsed - world.launchTime > .3)
       world.syncCelebration = { started: world.elapsed, until: world.elapsed + .9, grade: "PERFECT SYNC" };
     recording.observe(world);
@@ -183,7 +183,7 @@ for (const mode of ["party", "vault"]) {
   const recording = new ReplayRecording(world);
   const effects = new Effects();
   for (let i = 0; i < 2500 && !world.finished; i++) {
-    world.step(timedInputs(world, world.launched ? 1 : 0));
+    world.step(crashInputs(world));
     recording.observe(world);
     recording.capture(world, effects, {});
   }

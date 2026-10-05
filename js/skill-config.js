@@ -45,6 +45,12 @@ export const SKILL_CONFIG = Object.freeze({
     // kink at the ramp foot would otherwise flip the cart into a wheelie.
     rampSettle: 0.75,
   }),
+  flight: Object.freeze({
+    lift: 9, // extra upward speed, in Matter pixels per 1/60 s
+    maximumUpSpeed: 20,
+    goodUpSpeed: 18, // Good timing keeps a lower, quieter arc
+    forwardScale: 0.76, // trade horizontal travel for stunt/recovery time
+  }),
   brace: Object.freeze({
     perfectMin: 0.09,
     perfectMax: 0.22,

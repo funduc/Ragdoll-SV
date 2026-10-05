@@ -50,8 +50,9 @@ export function scoreAttempt(metrics, character) {
     if (metrics.crashed) landingQuality = "Crash";
     else if (
       angle <= 0.42 * stability &&
-      // A full-speed jump from the long run-up lands at about 16.8.
-      metrics.landingSpeed < 14 * stability * tolerance
+      // The taller stunt arc lands at about 20–21; a well-timed brace
+      // still absorbs it, while an unbraced landing keeps its penalty.
+      metrics.landingSpeed < 17 * stability * tolerance
     ) {
       landingQuality = "Clean";
       landingPoints = 150;

@@ -171,6 +171,23 @@ export class AttemptSkills {
     );
   }
   onLaunch(world) {
+    // The long-jump kicker sends the joined assembly upward together. Keep
+    // relative limb/cargo velocities; the bar and bowling lane retain their
+    // specialized launch profiles.
+    if (!world.course.bar && !world.course.pins) {
+      const { Body } = world.M,
+        v = Body.getVelocity(world.cart),
+        flight = C.flight;
+      const cap = this.takeoff === "Good" ? flight.goodUpSpeed : flight.maximumUpSpeed;
+      const lift = Math.max(0, Math.min(flight.lift, cap + v.y));
+      for (const body of world.dynamic) {
+        const velocity = Body.getVelocity(body);
+        Body.setVelocity(body, {
+          x: velocity.x + v.x * (flight.forwardScale - 1),
+          y: velocity.y - lift,
+        });
+      }
+    }
     if (!this.takeoff) this.commitTakeoff(world, "Late");
     if (this.lateKick) {
       world.M.Body.setAngularVelocity(

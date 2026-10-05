@@ -59,9 +59,9 @@ const dispose = (w) => {
 };
 const evidence = [];
 
-test("Ten main levels and optional Overtime have complete content, fixed new conditions and sequential unlocks", () => {
+test("Main, Overtime, Tour and After Hours levels have complete content and sequential unlocks", () => {
   assert.equal(LEVELS.length, 10);
-  assert.equal(ALL_LEVELS.length, 19);
+  assert.equal(ALL_LEVELS.length, 23);
   assert.ok(LEVELS.reduce((n, l) => n + l.estimatedMinutes, 0) >= 20);
   assert.ok(LEVELS.reduce((n, l) => n + l.estimatedMinutes, 0) <= 30);
   for (const l of ALL_LEVELS) {

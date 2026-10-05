@@ -1,3 +1,4 @@
+import { COURSES } from "../js/course.js";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInThisContext } from "node:vm";
@@ -130,9 +131,9 @@ const { Game } = await import('data:text/javascript;base64,' + Buffer.from(modul
 globalThis.document = { hidden: false, getElementById: () => ({ focus() {} }) };
 globalThis.requestAnimationFrame = () => 1;
 const poses = w => w.dynamic.map(b => [b.position.x, b.position.y, b.angle, b.velocity.x, b.velocity.y]);
-function fly(character, { mode = "party", grade = "M", gravity = 1.05, target = "Perfect", hard = false,
+function fly(character, { mode = "party", grade = "M", gravity = 1.05, course = "long-jump", target = "Perfect", hard = false,
     syncSave = new SyncSave(storage()), fewerPushes = false, disabled = false, interruption = false, runSpec = null, controlPolicy = null } = {}) {
-  const arena = { id: "santor-vault", gravity }, world = new PhysicsWorld(character, arena, runSpec);
+  const arena = { id: "santor-vault", gravity, course }, world = new PhysicsWorld(character, arena, runSpec);
   const campaign = new Campaign(new CampaignSave(null), { seedFactory: () => 42 });
   campaign.select(character.id); campaign.confirm(); campaign.startLevel("orientation-day"); campaign.confirm();
   const tournament = new Tournament(); tournament.state = State.ACTIVE;
@@ -227,7 +228,7 @@ check("Real Vault and Party flights: eligibility, once per jump, eased slow moti
     assert.deepEqual(perfect.pose, ignored.pose, "note accuracy cannot change the landing");
     assert.ok(perfect.facts.syncCompleted && perfect.facts.syncPerfect && perfect.facts.syncBoosted);
     assert.ok(ignored.facts.syncAllMiss && !ignored.facts.syncBoosted);
-    assert.equal(fly(character, { gravity: 1.5 }).sequences.length, 0, "short flights keep controls throughout");
+    assert.equal(fly(character, { gravity: 1.5, course: { ...COURSES["high-jump"], startX: -3000 } }).sequences.length, 0, "short flights keep controls throughout");
     assert.ok(perfect.lines.includes(C.lines["PERFECT SYNC"])); assert.ok(perfect.cues.includes("syncStep6"));
     assert.equal(fly(character, { mode, target: "Good" }).sequences.length, 0, "Good takeoff is ineligible");
     const fewer = fly(character, { mode, fewerPushes: true });
@@ -255,7 +256,7 @@ check("Character pool never repeats across reloads; bigger air and harder levels
     assert.equal(result.sequences.length, 1); assert.equal(result.sequences[0].notes.length, 5);
     const pattern = result.sequences[0].notes.map(n => n.lane).join(""); assert.notEqual(pattern, last); last = pattern;
   }
-  const easy = fly(CHARACTERS[0], { mode: "vault" }), hard = fly(CHARACTERS[0], { mode: "vault", hard: true });
+  const easy = fly(CHARACTERS[0], { mode: "vault", gravity: 1.5 }), hard = fly(CHARACTERS[0], { mode: "vault", gravity: 1.5, hard: true });
   assert.ok(hard.sequences[0].notes.length > easy.sequences[0].notes.length);
 });
 check(

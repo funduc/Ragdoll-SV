@@ -9,7 +9,7 @@ import { scoreAttempt } from "../js/scoring.js";
 import { SKILL_CONFIG as C, rhythmPosition } from "../js/skill-config.js";
 import { Input } from "../js/input.js";
 import { Tutorial } from "../js/tutorial.js";
-import { timedInputs } from "./skill-helpers.mjs";
+import { crashInputs, timedInputs } from "./skill-helpers.mjs";
 runInThisContext(
   readFileSync(
     new URL("../vendor/matter-0.20.0.min.js", import.meta.url),
@@ -204,7 +204,7 @@ check(
     }));
     assert.equal(early.score.braceGrade, "Early");
     assert.ok(early.air < normal.air * 0.8);
-    const braced = jump(CHARACTERS[2], (w) => timedInputs(w, 1, true));
+    const braced = jump(CHARACTERS[2], (w) => crashInputs(w, true));
     assert.equal(braced.score.braceGrade, "Perfect Brace");
     assert.equal(braced.score.landingQuality, "Crash");
   },
