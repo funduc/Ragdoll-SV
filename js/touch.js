@@ -37,7 +37,7 @@ export class TouchControls {
   }
   press(button, id) {
     if (!this.isActive() || button.disabled || this.holds.has(id)) return;
-    if (button.dataset.control === "push")
+    if (button.dataset.control === "push" || button.dataset.control === "boost")
       this.pushes = Math.min(SKILL_CONFIG.maximumQueuedPushes, this.pushes + 1);
     if (button.dataset.control === "brace") this.brace = true;
     this.holds.set(id, { button, action: button.dataset.control });
@@ -102,7 +102,8 @@ export class TouchControls {
   sync() {
     const active = this.isActive();
     if (!active) this.clear();
-    for (const button of this.buttons) button.disabled = !active;
+    for (const button of this.buttons)
+      button.disabled = !active || (button.dataset.control === "boost" && button.dataset.ready !== "true");
   }
   destroy() {
     this.clear();

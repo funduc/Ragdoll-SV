@@ -67,6 +67,10 @@ export class ReplayRecording {
         conditionId: world.runEffects.conditionId,
         objectiveId: world.runEffects.objectiveId,
         boostUsed: world.runEffects.boostUsed,
+        upgrades: { ...world.runEffects.upgrades },
+        rocketUntil: world.runEffects.rocketUntil,
+        brakeUntil: world.runEffects.brakeUntil,
+        focusActive: world.runEffects.focusActive,
         gust:
           world.runEffects.conditionId === "shifting-wind"
             ? world.runEffects.shiftingDirection(world)

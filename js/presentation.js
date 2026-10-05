@@ -94,6 +94,8 @@ export class Presentation {
     };
     // Audio marks the fifth Perfect push; gameplay still requires Perfect takeoff.
     once("syncReady", world.skills.pushes.Perfect >= SYNC_CONFIG.minimumPerfectPushes);
+    once("rocket-boost", world.runEffects?.rocketUsed);
+    once("air-brake", world.runEffects?.brakeUsed);
     if (world.launched && this.headFirst === null) {
       const contacts = (world.engine.pairs.collisionStart || []).flatMap(pair => {
         const a = pair.bodyA.parent, b = pair.bodyB.parent;
@@ -127,7 +129,7 @@ export class Presentation {
         this.perfectStreak = good ? this.perfectStreak + 1 : 0;
         once("onFireStreak", this.perfectStreak >= 3);
       }
-      const fallback = good ? "skill-perfect" : ["Good", "Good Brace", "Braced", "Boost", "Assist"].includes(feedback.grade) ? "skill-good" : "skill-miss";
+      const fallback = good ? "skill-perfect" : ["Good", "Good Brace", "Braced", "Boost", "Brake", "Assist"].includes(feedback.grade) ? "skill-good" : "skill-miss";
       if (feedback.kind === "push") {
         if (good || feedback.grade === "Good") this.audio.play(
           good ? "perfectPush" : "goodPush", fallback,

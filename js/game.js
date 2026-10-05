@@ -728,7 +728,8 @@ class Game {
       this.accumulator = 0;
       this.clearControls();
     } else if (this.session.active && !this.suspended) {
-      this.accumulator += this.syncSequence ? this.tickSync(Math.min(gap, 100)) : Math.min(gap, 100);
+      this.accumulator += this.syncSequence ? this.tickSync(Math.min(gap, 100))
+        : Math.min(gap, 100) * (this.world.runEffects?.timeScale(this.world) ?? 1);
       let steps = 0;
       while (this.accumulator >= STEP_MS && steps < 12) {
         this.world.step(this.syncSequence ? { pushes: 0, rotate: 0, brace: false } : this.touch.merge(this.input.consume()));

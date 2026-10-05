@@ -2,6 +2,7 @@ import { DEFAULT_COURSE, pieceOutline, groundSpans } from "./course.js";
 import { ThemePainter } from "./themes.js";
 import { drawRunMarkings } from "./run-renderer.js";
 import { SKILL_CONFIG } from "./skill-config.js";
+import { drawCartUpgrades } from "./upgrade-art.js";
 export class Renderer {
   constructor(canvas, themeOptions) {
     this.canvas = canvas;
@@ -302,6 +303,13 @@ export class Renderer {
     c.restore();
     effects?.drawScreen(c, w, h);
     c.restore();
+    if (world?.runEffects?.focusActive) {
+      // A steady edge tint, also safe with reduced motion; never covers the cart.
+      c.save(); c.strokeStyle = "#a99bea"; c.lineWidth = 4;
+      c.strokeRect(2, 2, w - 4, h - 4);
+      this.label("FOCUS · ½ SPEED", w - 16, h - 18, 12, "#dbd2ff", "right");
+      c.restore();
+    }
   }
   // Default piece art uses theme colours, with per-piece overrides.
   drawCoursePiece(piece, course, theme) {
@@ -489,7 +497,7 @@ export class Renderer {
       c.translate(wheel.position.x, wheel.position.y);
       c.rotate(wheel.angle);
       c.beginPath();
-      c.arc(0, 0, 18, 0, Math.PI * 2);
+      c.arc(0, 0, 18 + (world.runEffects?.upgrades?.["bigger-wheels"] || 0) * 2, 0, Math.PI * 2);
       c.fillStyle = "#0c131a";
       c.fill();
       c.strokeStyle = "#9cabb5";
@@ -505,8 +513,12 @@ export class Renderer {
       c.stroke();
       c.beginPath();
       c.arc(0, 0, 4, 0, Math.PI * 2);
-      c.fillStyle = "#a3d3e8";
+      c.fillStyle = world.runEffects?.upgrades?.["reinforced-wheels"] ? "#ffdf68" : "#a3d3e8";
       c.fill();
+      if (world.runEffects?.upgrades?.["reinforced-wheels"]) {
+        c.strokeStyle = "#ffdf68"; c.lineWidth = 2 + world.runEffects.upgrades["reinforced-wheels"];
+        c.beginPath(); c.arc(0, 0, 11, 0, Math.PI * 2); c.stroke();
+      }
       c.restore();
     }
     const cart = world.cart;
@@ -565,6 +577,7 @@ export class Renderer {
       c.lineTo(13, -15);
       c.stroke();
     }
+    drawCartUpgrades(c, world, this.motionPreference?.matches || false);
     c.restore();
   }
   drawDebris(part, character) {

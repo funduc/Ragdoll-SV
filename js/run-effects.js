@@ -16,7 +16,8 @@ export class RunEffects {
     this.mass = heavy ? this.condition.mass : 1;
     this.stability =
       (heavy ? this.condition.stability : 1) *
-      (1 + n["reinforced-wheels"] * UPGRADES["reinforced-wheels"].stability);
+      (1 + n["reinforced-wheels"] * UPGRADES["reinforced-wheels"].stability +
+        n["bigger-wheels"] * UPGRADES["bigger-wheels"].stability);
     this.rotation =
       1 + n["improved-air-control"] * UPGRADES["improved-air-control"].rotation;
     this.style = 1 + n["style-multiplier"] * UPGRADES["style-multiplier"].style;
@@ -24,6 +25,14 @@ export class RunEffects {
       ? UPGRADES["impact-harness"].tolerance
       : 1;
     this.boostUsed = false;
+    this.rocketUsed = false;
+    this.rocketUntil = 0;
+    this.rocketRemaining = 0;
+    this.brakeUsed = false;
+    this.brakeUntil = 0;
+    this.brakeRemaining = 0;
+    this.brakeSpeed = 0;
+    this.focusActive = false;
     this.mechanicalFailureOccurred = false;
     this.stabilizerUsed = false;
     this.stabilizerUntil = 0;
@@ -91,9 +100,62 @@ export class RunEffects {
       ? this.condition.landingAirFriction
       : 0.045;
   }
+  // Slow the simulation clock, never the fixed physics step or grading windows.
+  timeScale(world) {
+    const focus = UPGRADES.focus;
+    return this.upgrades.focus && !world.launched && !world.crashed &&
+      !world.skills.takeoff && world.skills.perfectStreak >= focus.pushes &&
+      world.cart.position.x >= world.skills.config.takeoff.armedX - focus.approachPixels
+      ? focus.timeScale : 1;
+  }
+  shiftVelocity(world, x, y) {
+    for (const body of world.dynamic) {
+      const v = world.M.Body.getVelocity(body);
+      world.M.Body.setVelocity(body, { x: v.x + x, y: v.y + y });
+    }
+  }
+  onLaunch(world) {
+    if (world.skills.takeoff === "Perfect" && this.upgrades["spring-launch"])
+      this.shiftVelocity(world, 0, -this.upgrades["spring-launch"] * UPGRADES["spring-launch"].lift);
+  }
+  rocket(world) {
+    if (!this.upgrades["rocket-booster"] || this.rocketUsed ||
+        !world.launched || world.landed || world.crashed || world.finished) return false;
+    this.rocketUsed = true;
+    this.rocketRemaining = UPGRADES["rocket-booster"].duration;
+    this.rocketUntil = world.elapsed + this.rocketRemaining;
+    world.skills.say(world, "upgrade", "Boost", "ROCKET BOOST · one shot used");
+    return true;
+  }
+  brake(world) {
+    if (!this.upgrades["air-brake"] || this.brakeUsed || world.skills.braceAt !== null ||
+        !world.launched || world.landed || world.crashed || world.finished ||
+        world.skills.contactETA(world) <= UPGRADES["air-brake"].minimumETA) return false;
+    this.brakeUsed = true;
+    this.brakeRemaining = UPGRADES["air-brake"].duration;
+    this.brakeUntil = world.elapsed + this.brakeRemaining;
+    this.brakeSpeed = Math.max(0, world.M.Body.getVelocity(world.cart).x) * UPGRADES["air-brake"].reduction;
+    world.skills.say(world, "upgrade", "Brake", "AIR BRAKE · tap Down / BRACE again near landing");
+    return true;
+  }
   step(world, dt) {
     const { Body } = world.M,
       air = world.launched && !world.landed;
+    this.focusActive = this.timeScale(world) < 1;
+    if (!air || world.crashed) {
+      this.rocketRemaining = this.brakeRemaining = 0;
+      this.rocketUntil = this.brakeUntil = 0;
+    }
+    if (this.rocketRemaining > 0) {
+      const rocket = UPGRADES["rocket-booster"], tick = Math.min(dt, this.rocketRemaining);
+      this.shiftVelocity(world, rocket.forward * tick / rocket.duration, -rocket.lift * tick / rocket.duration);
+      this.rocketRemaining = Math.max(0, this.rocketRemaining - tick);
+    }
+    if (this.brakeRemaining > 0) {
+      const tick = Math.min(dt, this.brakeRemaining);
+      this.shiftVelocity(world, -this.brakeSpeed * tick / UPGRADES["air-brake"].duration, 0);
+      this.brakeRemaining = Math.max(0, this.brakeRemaining - tick);
+    }
     if (
       this.conditionId === "boost-strip" &&
       !world.launched &&

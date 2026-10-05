@@ -44,6 +44,9 @@ export class Input {
         event.altKey
       )
         return;
+      // Native Details controls keep Enter/Space instead of confirming a menu.
+      if (!isActive() && ["Enter", "Space"].includes(event.code) &&
+          event.target?.closest?.("summary")) return;
       if (isActive() || event.code === "Enter") event.preventDefault();
       const held = this.downKeys.has(event.code);
       this.downKeys.add(event.code);

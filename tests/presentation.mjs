@@ -92,6 +92,8 @@ await check(
       "sync-whoosh",
       "sync-beat",
       "sync-drop",
+      "rocket-boost",
+      "air-brake",
       "click",
       "rattle",
       "launch",

@@ -111,6 +111,9 @@
   .touch-controls {
     grid-template-columns: repeat(4, 1fr);
   }
+  .touch-controls:has([data-control="boost"]:not([hidden])) { grid-template-columns: repeat(5, 1fr); }
+  .touch-controls button[data-control="boost"] { order: 1; background: #a74c28; color: #fff4bf; }
+  .touch-controls button[hidden] { display: none; }
   .touch-controls button[data-control="push"] {
     background: linear-gradient(#ffb260, #fd8d33 48%, #ce5916 49%, #f18a29);
     border-color: #ffdca4 #a95320 #6f351b #ffc183;

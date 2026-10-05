@@ -743,7 +743,8 @@ export class PhysicsWorld {
         Math.max(0, Math.floor(controls?.pushes || 0)),
       ),
     );
-    if (controls?.brace) this.skills.requestBrace(this);
+    if (controls?.pushes && this.launched) this.runEffects?.rocket(this);
+    if (controls?.brace && !this.runEffects?.brake(this)) this.skills.requestBrace(this);
     this.skills.followThrough(this);
     const rotate = Number.isFinite(controls?.rotate)
       ? Math.max(-1, Math.min(1, controls.rotate))
@@ -814,6 +815,7 @@ export class PhysicsWorld {
       this.launchAngle = this.cart.angle;
       this.launchTime = this.elapsed;
       this.skills.onLaunch(this);
+      this.runEffects?.onLaunch(this);
       this.tricks.start(trickSample(this));
       this.events.push("launch");
     }

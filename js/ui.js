@@ -17,6 +17,7 @@ import {
 } from "./ui-content.js";
 import { renderCampaign, updateCampaignCoach } from "./campaign-ui.js";
 import { updateRunStatus } from "./run-ui.js";
+import { UPGRADES } from "./run-config.js";
 import { PARTY_FORMATS, EVENTS } from "./party-config.js";
 import {
   setupMarkup,
@@ -51,6 +52,7 @@ export class UI {
     this.standings = document.getElementById("standings");
     this.commentary = document.getElementById("commentary");
     this.hint = document.getElementById("play-hint");
+    this.boostButton = document.getElementById("touch-boost");
     this.skillHud = document.getElementById("skill-hud");
     this.skillMeter = new SkillMeter(this.skillHud);
     this.trickHud = document.getElementById("trick-hud");
@@ -207,6 +209,7 @@ export class UI {
       ?.focus({ preventScroll: true });
   }
   render(t) {
+    if (this.boostButton) this.boostButton.hidden = true;
     this.syncStatus.hidden = true;
     this.syncStatus.textContent = "";
     this.root.dataset.state = t.state;
@@ -363,6 +366,15 @@ export class UI {
       .join("");
   }
   update(world) {
+    if (this.boostButton) {
+      const fx = world.runEffects;
+      this.boostButton.hidden = !fx?.upgrades["rocket-booster"];
+      const ready = Boolean(fx?.upgrades["rocket-booster"] && world.launched &&
+        !world.landed && !world.crashed && !world.finished && !fx.rocketUsed &&
+        this.root.dataset.sync !== "playing");
+      this.boostButton.dataset.ready = String(ready);
+      this.boostButton.disabled = !ready;
+    }
     const status = syncStatus(world);
     if (this.syncStatus.textContent !== status) this.syncStatus.textContent = status;
     this.syncStatus.hidden = !status;
@@ -427,6 +439,13 @@ export class UI {
         : this.touchMedia?.matches
           ? `TAP PUSH ON THE BEAT · ${Math.round(world.cart.speed * 1.5)} km/h`
           : `TAP SPACE / ↑ ON THE BEAT    ·    R TO RESET    ·    ${Math.round(world.cart.speed * 1.5)} km/h`;
+    if (world.launched && !world.landed && !world.crashed) {
+      if (world.runEffects?.upgrades["rocket-booster"] && !world.runEffects.rocketUsed)
+        this.hint.textContent += " · SPACE / ↑ / BOOST: ROCKET";
+      if (world.runEffects?.upgrades["air-brake"] && !world.runEffects.brakeUsed &&
+          world.skills.contactETA(world) > UPGRADES["air-brake"].minimumETA)
+        this.hint.textContent += " · EARLY ↓ / BRACE: BRAKE";
+    }
   }
   setPaused(value) {
     this.pauseBanner.hidden = !value;

@@ -73,6 +73,7 @@ export const CONDITIONS = freeze({
 export const UPGRADES = freeze({
   "reinforced-wheels": {
     name: "Reinforced Wheels",
+    shortName: "Reinforced Hubs", effect: "+12% landing stability",
     limit: 2,
     description:
       "+12% landing stability per stack. Angle and impact still matter.",
@@ -80,6 +81,7 @@ export const UPGRADES = freeze({
   },
   "wider-launch-window": {
     name: "Wider Launch Window",
+    shortName: "Launch Guide", effect: "Wider takeoff sweet spot",
     limit: 2,
     description:
       "Perfect and Good takeoff windows expand 10 pixels on each side per stack.",
@@ -87,6 +89,7 @@ export const UPGRADES = freeze({
   },
   "improved-air-control": {
     name: "Improved Air Control",
+    shortName: "Air Fin", effect: "+12% steering power",
     limit: 2,
     description:
       "+12% manual air rotation per stack; the original spin-speed cap remains.",
@@ -94,6 +97,7 @@ export const UPGRADES = freeze({
   },
   "wider-brace-window": {
     name: "Wider Brace Window",
+    shortName: "Padded Bumpers", effect: "Brace a little earlier",
     limit: 2,
     description:
       "Perfect Brace accepts 40 ms earlier input and Good Brace 60 ms earlier input per stack. Late input gets no help.",
@@ -102,6 +106,7 @@ export const UPGRADES = freeze({
   },
   "style-multiplier": {
     name: "Style Multiplier",
+    shortName: "Star Power", effect: "+15% style factor",
     limit: 2,
     description:
       "+15% character style factor per stack. The results table includes the increase.",
@@ -109,6 +114,7 @@ export const UPGRADES = freeze({
   },
   "emergency-stabilizer": {
     name: "Emergency Stabilizer",
+    shortName: "Stabilizer", effect: "One recovery assist",
     limit: 1,
     description:
       "Once per jump, a brief recovery assist activates near landing if tilt exceeds 69°. It cannot guarantee a safe landing.",
@@ -120,6 +126,7 @@ export const UPGRADES = freeze({
   },
   "faster-perfect-pushes": {
     name: "Faster Perfect Pushes",
+    shortName: "Power Drive", effect: "+15% Perfect push power",
     limit: 2,
     description:
       "+15% speed from Perfect rhythm pushes per stack. Good, Miss, and the first-push kick are unchanged.",
@@ -127,10 +134,46 @@ export const UPGRADES = freeze({
   },
   "impact-harness": {
     name: "Impact Harness",
+    shortName: "Safety Harness", effect: "Hold on through harder hits",
     limit: 1,
     description:
       "50% greater impact-speed tolerance before rider detachment. A crash still counts as a crash.",
     tolerance: 1.5,
+  },
+  "rocket-booster": {
+    name: "Rocket Booster", shortName: "Rocket Booster",
+    effect: "One mid-air boost",
+    limit: 1,
+    description: "Once per jump: tap Space / Up or BOOST in the air for 0.18 s of forward-and-up thrust. Adds 1.4 forward and 1.8 upward speed; no auto-leveling. Unavailable after a crash or landing.",
+    duration: 0.18, forward: 1.4, lift: 1.8,
+  },
+  "spring-launch": {
+    name: "Spring Launch", shortName: "Spring Launch",
+    effect: "Perfect takeoff: extra height",
+    limit: 2,
+    description: "Adds 0.65 upward speed per stack on a Perfect takeoff only. No extra forward speed; Good and missed takeoffs are unchanged.",
+    lift: 0.65,
+  },
+  focus: {
+    name: "Focus", shortName: "Focus",
+    effect: "5 Perfects: slow takeoff",
+    limit: 1,
+    description: "After 5 consecutive Perfect pushes, time runs at 50% in the last 300 px before the takeoff zone and through the zone. Good / Miss resets it; committing takeoff restores full speed. Physics and timing windows stay the same.",
+    pushes: 5, approachPixels: 300, timeScale: 0.5,
+  },
+  "air-brake": {
+    name: "Air Brake", shortName: "Air Brake",
+    effect: "Early Down tap: fly shorter",
+    limit: 1,
+    description: "Once per jump: tap Down / S or BRACE with more than 0.6 s to landing to trim forward speed by 10% over 0.18 s. Tap again to brace. Within 0.6 s of contact, Down always braces directly.",
+    duration: 0.18, reduction: 0.10, minimumETA: 0.6,
+  },
+  "bigger-wheels": {
+    name: "Bigger Wheels", shortName: "Bigger Wheels",
+    effect: "+8% landing stability",
+    limit: 2,
+    description: "+8% landing stability per stack, cushioning rough and scrappy contacts. Stacks add to Reinforced Wheels; wheel collision shapes and grip stay unchanged.",
+    stability: 0.08,
   },
 });
 export const OBJECTIVES = freeze({

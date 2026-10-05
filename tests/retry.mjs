@@ -76,7 +76,9 @@ try {
       tap("KeyR");
       assert.equal(run.state, S.UPGRADES, "R cannot bypass reward");
       // Enter on the focused reward button follows the same menu handler.
-      window.closest = () => ({ disabled: false, isConnected: true, dataset: { campaign: "upgrade", value: run.runs.run.offers[0] }, hasAttribute: () => false });
+      window.closest = selector => selector.startsWith("button")
+        ? { disabled: false, isConnected: true, dataset: { campaign: "upgrade", value: run.runs.run.offers[0] }, hasAttribute: () => false }
+        : null;
       tap("Enter");
       delete window.closest;
     }

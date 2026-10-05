@@ -16,6 +16,8 @@ import {
 } from "./ui-content.js";
 import {
   runInventory,
+  upgradeIcons,
+  upgradeControls,
   runNotice,
   challengeMarkup,
   conditionBadge,
@@ -209,7 +211,7 @@ export function renderCampaign(ui, run) {
       break;
     case S.MAP: {
       const cleared = progressCount(run.save, c);
-      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime and Santor on Tour are open.</p>' : ""}${runNotice(run)}${notice(run.save)}<ol class="level-grid">${LEVELS.map(
+      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime and Santor on Tour are open.</p>' : ""}${runNotice(run)}${notice(run.save)}${upgradeIcons(run)}<ol class="level-grid">${LEVELS.map(
         (l, index) =>
           levelTile(
             run,
@@ -233,7 +235,7 @@ export function renderCampaign(ui, run) {
       const number = level.bonus
         ? level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : "BONUS"
         : `LEVEL ${String(LEVELS.indexOf(level) + 1).padStart(2, "0")} / ${LEVELS.length}`;
-      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${goalList(level)}<p class="tiny">5 Perfect pushes + Perfect takeoff = Santor Sync.</p>${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
+      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${upgradeIcons(run)}${upgradeControls(run)}${goalList(level)}<p class="tiny">5 Perfect pushes + Perfect takeoff = Santor Sync.</p>${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
       ui.say(run.introduction);
       break;
     }

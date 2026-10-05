@@ -1,5 +1,21 @@
 import { CONDITIONS, OBJECTIVES, UPGRADES } from "./run-config.js";
 import { escape } from "./ui-content.js";
+import { upgradeIcon } from "./upgrade-art.js";
+
+const stackPips = (count, limit) => `<span class="upgrade-pips" aria-label="${count} of ${limit} stacks owned">${"●".repeat(count)}${"○".repeat(limit - count)}</span>`;
+export function upgradeIcons(run) {
+  const counts = run.runs.run?.upgrades || {};
+  const entries = Object.entries(UPGRADES).filter(([id]) => counts[id]);
+  if (!entries.length) return "";
+  return `<div class="owned-upgrades" aria-label="Owned upgrades">${entries.map(([id, item]) => `<details class="owned-upgrade" name="owned-upgrades"><summary title="${escape(item.name)} · ${counts[id]}/${item.limit}" aria-label="${escape(item.name)}: ${counts[id]} of ${item.limit} stacks. Details">${upgradeIcon(id)}${stackPips(counts[id], item.limit)}</summary><div><b>${escape(item.shortName)}</b><p>${escape(item.description)}</p></div></details>`).join("")}</div>`;
+}
+export function upgradeControls(run) {
+  const n = run.runs.run?.upgrades || {}, hints = [];
+  if (n["rocket-booster"]) hints.push("In air: Space / Up or BOOST fires once.");
+  if (n["air-brake"]) hints.push("Early Down / BRACE tap brakes once; tap again near landing to brace.");
+  if (n.focus) hints.push("5 Perfect pushes in a row slows the takeoff approach.");
+  return hints.length ? `<p class="tiny upgrade-controls">${hints.join(" ")}</p>` : "";
+}
 
 export function runInventory(run) {
   const counts = run.runs.run?.upgrades || {};
@@ -54,7 +70,7 @@ export function upgradeChoices(run, action) {
     .map((id) => {
       const item = UPGRADES[id],
         count = run.runs.run.upgrades[id];
-      return `<article><h3>${escape(item.name)}</h3><p>${escape(item.description)}</p><p class="tiny">${count} → ${count + 1} / ${item.limit} stacks</p>${action(`Choose ${item.name}`, "upgrade", id)}</article>`;
+      return `<article class="upgrade-card">${upgradeIcon(id)}<h3>${escape(item.shortName)}</h3><p class="upgrade-effect">${escape(item.effect)}</p>${stackPips(count, item.limit)}<details class="upgrade-details"><summary>Details</summary><p>${escape(item.description)}</p><p class="tiny">Owned ${count}/${item.limit} · choosing adds one stack.</p></details>${action(`Choose ${item.shortName}`, "upgrade", id)}</article>`;
     })
     .join(
       "",
@@ -71,6 +87,9 @@ export function updateRunStatus(world) {
         ? " · Stabilizer spent"
         : " · Stabilizer ready"
     : "";
-  const message = effects.status(world) + extra;
+  const ability = effects.focusActive ? " · FOCUS · ½ SPEED"
+    : world.elapsed < effects.rocketUntil ? " · ROCKET BOOST!"
+    : world.elapsed < effects.brakeUntil ? " · AIR BRAKE" : "";
+  const message = effects.status(world) + extra + ability;
   if (node.textContent !== message) node.textContent = message;
 }

@@ -220,6 +220,13 @@ export class SynthAudio {
       if (now - (this.lastCues.get(fallback) ?? -Infinity) < 0.07) return;
       this.lastCues.set(fallback, now);
       switch (fallback) {
+        case "rocket-boost":
+          this.voice("noise", 650, 0, 0.22, 0.17);
+          this.voice("sawtooth", 90, 0, 0.18, 0.07, 210);
+          break;
+        case "air-brake":
+          this.voice("noise", 2800, 0, 0.18, 0.08);
+          break;
         case "sync-whoosh":
           this.voice("noise", 1500, 0, SYNC_CONFIG.easeInSeconds, 0.12, 180);
           break;

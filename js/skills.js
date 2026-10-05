@@ -12,7 +12,7 @@ export class AttemptSkills {
   constructor(config = C) {
     this.config = config;
     this.pushes = { Perfect: 0, Good: 0, Miss: 0 };
-    this.perfectStreak = 0; // Run-up display only; Sync eligibility still uses total Perfects.
+    this.perfectStreak = 0; // Focus + run-up display; Sync eligibility still uses total Perfects.
     this.lastPush = -Infinity;
     this.lastImpulse = -Infinity;
     this.started = false;
