@@ -38,6 +38,8 @@ try {
     "js/achievements.js",
     "js/achievement-events.js",
     "js/achievement-ui.js",
+    "js/achievement-art.js",
+    "js/achievement-toast.js",
     "js/achievement-dev.js",
     "js/campaign-levels.js",
     "js/campaign-chapter.js",

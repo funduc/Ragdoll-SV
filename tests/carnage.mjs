@@ -98,6 +98,9 @@ for (const character of CHARACTERS) {
   manager.send("attempt-ended", facts);
   assert.equal(manager.data.records.theseus.unlocked, true);
   assert.equal(manager.data.records.wheel.unlocked, true);
+  assert.equal(facts.carnage, score.carnage.total);
+  assert.equal(manager.data.records["parts-department"].progress, Math.min(1000, score.carnage.total));
+  assert.equal(manager.data.records["parts-department"].unlocked, score.carnage.total >= 1000);
   crashScores.push(score);
   world.dispose();
   assert.equal(Matter.Composite.allBodies(world.engine.world).length, 0);

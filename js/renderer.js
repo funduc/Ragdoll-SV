@@ -3,6 +3,7 @@ import { ThemePainter } from "./themes.js";
 import { drawRunMarkings } from "./run-renderer.js";
 import { SKILL_CONFIG } from "./skill-config.js";
 import { drawCartUpgrades } from "./upgrade-art.js";
+import { drawRewardHat, drawRewardTrail } from "./achievement-art.js";
 export class Renderer {
   constructor(canvas, themeOptions) {
     this.canvas = canvas;
@@ -454,6 +455,7 @@ export class Renderer {
   }
   drawVehicle(world) {
     const c = this.ctx;
+    drawRewardTrail(c, world, this.cosmetics.trail, this.motionPreference?.matches || false);
     const lost = world.damage?.lostParts;
     const celebrating = world.syncCelebration && world.elapsed < world.syncCelebration.until && !world.landed && !world.crashed;
     if (celebrating) this.drawSyncMoment(world);
@@ -491,6 +493,7 @@ export class Renderer {
     c.fill();
     c.fillStyle = "#16232c";
     c.fillRect(4, -1, 5, 3);
+    drawRewardHat(c, this.cosmetics.hat);
     c.restore();
     for (const wheel of world.wheels) {
       c.save();
@@ -526,6 +529,19 @@ export class Renderer {
     c.translate(cart.position.x, cart.position.y);
     c.rotate(cart.angle);
     c.translate(world.cartArtOffset.x, world.cartArtOffset.y);
+    if (this.cosmetics.paintPattern) {
+      c.save(); c.fillStyle = this.cosmetics.cart;
+      c.beginPath(); c.moveTo(-47, -23); c.lineTo(47, -23); c.lineTo(37, 18); c.lineTo(-37, 18); c.closePath();
+      c.globalAlpha = .7; c.fill(); c.globalAlpha = 1; c.clip();
+      c.fillStyle = "#142330"; c.strokeStyle = "#142330"; c.lineWidth = 7;
+      if (this.cosmetics.paintPattern === "hazard") {
+        for (let x = -60; x < 60; x += 20) { c.beginPath(); c.moveTo(x, -24); c.lineTo(x + 24, 20); c.stroke(); }
+      } else {
+        c.font = 'bold 32px Arial'; c.textAlign = 'center';
+        c.fillText(this.cosmetics.paintPattern === "star" ? "★" : "ϟ", 0, 13);
+      }
+      c.restore();
+    }
     c.strokeStyle = this.cosmetics.cart || "#adc5d1";
     c.lineWidth = 4;
     c.lineJoin = "round";

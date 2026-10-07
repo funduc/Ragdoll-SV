@@ -13,12 +13,13 @@ export const ACHIEVEMENT_RULES = freeze({
   mainLevelCount: 10,
   characterCount: 3,
   notificationNames: 3,
+  toastSeconds: 4.5,
   crashClasses: ["overturned", "head-impact", "torso-impact"],
 });
 export const ACHIEVEMENT_CAPABILITIES = freeze({
   "component-loss": true,
   "wheel-loss": true,
-  "changing-conditions": false,
+  "changing-conditions": true,
   "objective-points": false,
   "point-medals": false,
   "sponsor-target": false,
@@ -29,7 +30,7 @@ export const COSMETIC_REWARDS = freeze({
     slot: "badge",
     value: "VAULT ROOKIE",
   },
-  "blue-cart": { name: "Electric Blue cart", slot: "cart", value: "#52cefa" },
+  "blue-cart": { name: "Electric Blue cart", slot: "cart", value: "#52cefa", pattern: "bolt" },
   "amber-arena": {
     name: "Amber arena lights",
     slot: "arena",
@@ -59,6 +60,7 @@ export const COSMETIC_REWARDS = freeze({
     name: "Workshop Orange cart",
     slot: "cart",
     value: "#ff852b",
+    pattern: "bolt",
   },
   "graduate-badge": {
     name: "Vault Graduate",
@@ -66,6 +68,15 @@ export const COSMETIC_REWARDS = freeze({
     value: "VAULT GRADUATE",
   },
   "gold-arena": { name: "Gold arena lights", slot: "arena", value: "#ffe17d" },
+  "neon-trail": { name: "Sync Wave trail", slot: "trail", value: "neon" },
+  "comet-trail": { name: "Comet Tail", slot: "trail", value: "comet" },
+  "pin-crown": { name: "Kingpin crown", slot: "hat", value: "pin-crown" },
+  "ice-cap": { name: "Frostbite beanie", slot: "hat", value: "ice-cap" },
+  headphones: { name: "Full Cast headphones", slot: "hat", value: "headphones" },
+  "tour-cart": { name: "Tour Gold star paint", slot: "cart", value: "#ffe17d", pattern: "star" },
+  "hazard-cart": { name: "Hazard Pay stripes", slot: "cart", value: "#ffb84b", pattern: "hazard" },
+  "podium-salute": { name: "Santor Salute pose", slot: "pose", value: "salute" },
+  "air-guitar": { name: "Air Guitar encore pose", slot: "pose", value: "air-guitar" },
 });
 export const COSMETIC_SLOTS = freeze([
   "cart",
@@ -73,7 +84,45 @@ export const COSMETIC_SLOTS = freeze([
   "commentary",
   "badge",
   "arena",
+  "trail",
+  "hat",
+  "pose",
 ]);
+export const ACHIEVEMENT_TIERS = freeze({
+  Bronze: "#dca477", Silver: "#c1d9ef", Gold: "#ffe17d", Platinum: "#b9a5ff",
+});
+const icons = {
+  "tour-complete": "trophy", "sync-first": "notes", "sync-perfect": "star", "sync-land": "notes",
+  "sync-three": "orbit", "sync-miss-medal": "stamp", "sync-twice": "notes", welcome: "ticket",
+  airborne: "wings", butter: "target", barrel: "orbit", "not-phase": "star", "style-over": "star",
+  "dead-centre": "target", "full-package": "parcel", theseus: "tools", "appeal-denied": "stamp",
+  "cold-blooded": "snow", "no-reaction": "face", chameleon: "wind", "poetic-license": "book",
+  coordination: "target", tragedy: "mask", "wrate-issues": "bolt", "fix-that": "tools", siemens: "bolt",
+  "cone-of-composure": "icecream", "shift-supervisor": "helmet", graduate: "cap", liabilities: "crew",
+  factory: "cart", favourite: "crown", manual: "book", "hj-first-clear": "bar", "hj-fosbury": "orbit",
+  "hj-face": "face", "bowl-strike": "pin", "bowl-rider-strike": "pin", "bowl-zero-max": "pin",
+  wheel: "wheel", softness: "target", "sync-encore": "notes", "strike-collector": "pin",
+  "frequent-flyer": "wings", "tour-postcards": "ticket", "parts-department": "explosion",
+  "heckle-chorus": "laugh", "full-cast": "crew",
+};
+const platinum = ["tour-complete", "sync-three", "liabilities", "favourite", "bowl-rider-strike", "tour-postcards"];
+const gold = ["sync-perfect", "sync-land", "not-phase", "dead-centre", "full-package", "chameleon", "poetic-license", "tragedy", "cone-of-composure", "shift-supervisor", "factory", "hj-fosbury", "strike-collector", "parts-department"];
+const bronze = ["welcome", "airborne", "sync-first", "barrel", "manual", "hj-first-clear", "hj-face", "bowl-zero-max"];
+const hints = {
+  manual: "The small print rewards a patient reader.",
+  wheel: "Four wheels was always an opening offer.",
+  softness: "One sponsor's promise deserves a closer inspection.",
+  "heckle-chorus": "Your friends have reviews of your landings. None are helpful.",
+};
+const huntUnits = {
+  "cold-blooded": ["Perfect Brace", "Perfect Braces"], tragedy: ["different crash type", "different crash types"],
+  graduate: ["main level", "main levels"], favourite: ["Gold medal", "Gold medals"],
+  liabilities: ["character's complete campaign", "characters' complete campaigns"],
+  "sync-twice": ["Sync in a completed run", "Syncs in a completed run"],
+  "sync-encore": ["Perfect Sync", "Perfect Syncs"], "strike-collector": ["strike", "strikes"],
+  "frequent-flyer": ["bar clearance", "bar clearances"], "tour-postcards": ["new Tour stop", "new Tour stops"],
+  "full-cast": ["different character voice", "different character voices"],
+};
 const attempt = (id, name, category, description, rules, extra = {}) => ({
   id,
   name,
@@ -98,7 +147,7 @@ const campaign = (id, name, description, extra) => ({
 export const ACHIEVEMENTS = freeze([
   attempt("tour-complete", "TOUR COMPLETE", "Campaign",
     "Clear Grand Reopening and bring Santor on Tour home.",
-    [["levelId", "eq", "grand-reopening"], ["levelCompleted", "eq", true]]),
+    [["levelId", "eq", "grand-reopening"], ["levelCompleted", "eq", true]], { reward: "podium-salute" }),
   attempt(
     "sync-first",
     "In Sync",
@@ -293,7 +342,6 @@ export const ACHIEVEMENTS = freeze([
     ],
     {
       requires: "changing-conditions",
-      unavailable: "Conditions currently stay fixed throughout each attempt.",
     },
   ),
   {
@@ -384,6 +432,7 @@ export const ACHIEVEMENTS = freeze([
       ["cleanLanding", "eq", true],
       ["brace", "eq", "Perfect Brace"],
     ],
+    { reward: "ice-cap" },
   ),
   attempt(
     "shift-supervisor",
@@ -517,6 +566,29 @@ export const ACHIEVEMENTS = freeze([
         "Sponsor banners are scenery; no collidable sponsor target exists yet.",
     },
   ),
-]);
+  attempt("sync-encore", "The Beat Goes On", "Sync Moments", "Earn three Perfect Syncs across finished attempts.",
+    [["syncPerfect", "eq", true]], { aggregation: "count", target: 3, reward: "neon-trail" }),
+  attempt("strike-collector", "Strike Collector", "Bowling", "Bowl three strikes across finished throws.",
+    [["bowlStrike", "eq", true]], { aggregation: "count", target: 3, reward: "pin-crown" }),
+  attempt("frequent-flyer", "Frequent Flyer", "High Jump", "Clear the bar on three finished High Jump attempts.",
+    [["hjCleared", "eq", true]], { aggregation: "count", target: 3, reward: "comet-trail" }),
+  attempt("tour-postcards", "Wish You Were Airborne", "Campaign", "Clear all eight Tour stops. Different characters can contribute to the collection.",
+    [["levelCompleted", "eq", true], ["tourStop", "eq", true]], {
+      aggregation: "unique", field: "levelId", target: 8, reward: "tour-cart",
+      values: ["freezer-aisle", "open-mic", "mapleton-night-shift", "quiet-please", "siemens-floor", "temu-warehouse", "rooftop-delivery", "grand-reopening"],
+    }),
+  attempt("parts-department", "The Parts Department", "Carnage", "Earn 1,000 carnage in one crash. Ordinary score is unchanged.",
+    [["crashed", "eq", true]], { aggregation: "max", field: "carnage", target: 1000, reward: "hazard-cart" }),
+  { id: "heckle-chorus", name: "A Tough Crowd", category: "Hidden", hidden: true,
+    description: "Hear a different character heckle your crash three times.", event: "voice-played",
+    rules: [["heckle", "eq", true]], aggregation: "count", target: 3, reward: "air-guitar" },
+  { id: "full-cast", name: "Full Cast", category: "General", description: "Hear a voice clip from Jake, Brandon and Owen.",
+    event: "voice-played", rules: [], aggregation: "unique", field: "speakerId", values: ["jake", "brandon", "owen"], target: 3, reward: "headphones" },
+].map(item => ({
+  ...item, icon: icons[item.id],
+  tier: platinum.includes(item.id) ? "Platinum" : gold.includes(item.id) ? "Gold" : bronze.includes(item.id) ? "Bronze" : "Silver",
+  ...(item.hidden ? { hint: hints[item.id] } : {}),
+  ...(huntUnits[item.id] ? { huntUnits: huntUnits[item.id] } : {}),
+})));
 export const achievementById = (id) =>
   ACHIEVEMENTS.find((item) => item.id === id);

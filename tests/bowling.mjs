@@ -192,6 +192,7 @@ check("Party bowling: three frames, one throw each, points add up; strikes then 
   assert.equal(t.awards.gutterGlory.player.name, "Cy");
   assert.match(finalMarkup(t), /CY WINS!/);
   assert.match(finalMarkup(t), /HUMAN BOWLING BALL/);
+  assert.match(finalMarkup(t, { pose: "air-guitar", hat: "headphones" }), /Air guitar rider/);
   const bad = bowlingParty(["Ana", "Bo"]);
   bad.confirm(); bad.confirm();
   assert.throws(() => bad.record({ ...base }), TypeError);

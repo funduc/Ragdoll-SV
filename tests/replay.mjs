@@ -31,7 +31,7 @@ for (const character of CHARACTERS) {
   const world = new PhysicsWorld(character, LEVELS.find(l => l.arena.cargo).arena, { condition: character.id === "jake" ? "boost-strip" : "icy-ramp", objective: "landing-zone" });
   const effects = new Effects();
   const recording = new ReplayRecording(world);
-  const cosmetics = { cart: "#ff0000", arena: "#00ff00" };
+  const cosmetics = { cart: "#ff0000", arena: "#00ff00", paintPattern: "star", hat: "pin-crown", trail: "neon" };
   let comparisons = 0;
   for (let i = 0; i < 2500 && !world.finished; i++) {
     world.step(crashInputs(world));

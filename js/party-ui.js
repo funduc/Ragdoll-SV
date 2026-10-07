@@ -13,6 +13,7 @@ import {
   HIGH_JUMP_TRIES,
 } from "./party-config.js";
 import { escape, portrait } from "./ui-content.js";
+import { podiumRider } from "./achievement-art.js";
 import { BOWLING } from "./bowling.js";
 
 // Party Tournament screens. Pure markup, so tests can check them in Node.
@@ -289,8 +290,9 @@ function finalSummary(t, names, tie) {
     ? `${names.join(" & ")} finish level on ${t.totalFor(lead.id)} points.`
     : `${names[0]} as ${escape(lead.character.fullName)} · ${t.totalFor(lead.id)} points.`;
 }
-export function finalMarkup(t) {
+export function finalMarkup(t, cosmetics = {}) {
   const tie = t.winners.length > 1,
     names = t.winners.map((p) => escape(p.name));
-  return `<section class="menu-panel championship-panel winner-panel party-final"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">GAME NIGHT / ${escape(eventName(t))} FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${names[0].toUpperCase()} WINS!`}</h2><p>${finalSummary(t, names, tie)}</p>${standingsTable(t)}${awardsMarkup(t.awards)}<div class="actions">${confirmButton("Back to title")}<button type="button" class="btn secondary" data-party="rematch">Rematch</button></div></section>`;
+  const podium = cosmetics.pose || cosmetics.hat ? `<div class="reward-podium">${t.winners.map(p => `<div>${podiumRider(p.character.primaryColor, cosmetics)}<b>${escape(p.name)}</b></div>`).join("")}</div>` : "";
+  return `<section class="menu-panel championship-panel winner-panel party-final"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">GAME NIGHT / ${escape(eventName(t))} FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${names[0].toUpperCase()} WINS!`}</h2><p>${finalSummary(t, names, tie)}</p>${podium}${standingsTable(t)}${awardsMarkup(t.awards)}<div class="actions">${confirmButton("Back to title")}<button type="button" class="btn secondary" data-party="rematch">Rematch</button></div></section>`;
 }

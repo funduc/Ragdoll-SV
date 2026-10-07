@@ -74,6 +74,10 @@ New pieces inherit `theme.pieces[type].fill/stroke`; per-piece `fill`, `stroke`,
 
 ## Engineering and tests
 
+**Achievement Vault:** open it from the main menu to hunt 48 arcade badges in Bronze, Silver, Gold and Platinum tiers. Tiles show progress; select one for its goal and reward. Hidden goals offer hints. Completion excludes the three future-mechanic entries; character bars count that character's specific challenges. Results suggest up to two partly completed goals. Unlock toasts queue, play the achievement sound, and dismiss with any key or tap while that input still reaches the game. Reduced motion removes their animation.
+
+**Trophy Garage:** choose **Cosmetic rewards** inside the Vault to preview and equip paints, trails, hats and podium poses, alongside the existing prizes. New challenges reward three Perfect Syncs, three strikes, three bar clearances, all eight Tour stops, 1,000 carnage in one crash, hearing all three voices and three heckles. Voice progress counts actual playback; missing or muted clips stay silent. Hats and paints follow the cart/rider in replays; trails disappear with reduced motion, and poses appear on Party and Tour podiums. These rewards do not change physics, scores or medals. Existing achievement IDs, dates, objective badges and equipped rewards are preserved.
+
 Themes may provide `drawPiece(renderer, piece, course)` or `drawProp(renderer, prop)` and return `true` to replace static or loose-piece art; collision shapes still come from the course. The Tour themes demonstrate freezer lids, a microphone and books, with fog, audience and moth motion driven by recorded attempt time and disabled by reduced motion. `firstLandingPiece`, `firstLandingOnTop`, `impactLoudness` and latched `obstacleHits` supply the Tour's medal facts without changing scoring or physics.
 
 Run the dependency-free test suite with Node.js 22 or newer:

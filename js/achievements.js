@@ -102,6 +102,7 @@ const numberFields = [
   "completedLevels",
   "goldLevels",
   "upgradeCount",
+  "carnage",
 ];
 const booleanFields = [
   "syncCompleted",
@@ -130,6 +131,9 @@ const booleanFields = [
   "bowlStrike",
   "bowlRiderStrike",
   "bowlZeroMax",
+  "tourStop",
+  "crashed",
+  "heckle",
 ];
 const stringFields = [
   "levelId",
@@ -139,6 +143,7 @@ const stringFields = [
   "condition",
   "sponsorHit",
   "objectiveId",
+  "speakerId",
 ];
 const eventTypes = new Set([
   "attempt-ended",
@@ -146,6 +151,7 @@ const eventTypes = new Set([
   "biography-read",
   "tournament-won",
   "objective-completed",
+  "voice-played",
 ]);
 export function normalizeAchievementEvent(raw) {
   if (
@@ -165,6 +171,11 @@ export function normalizeAchievementEvent(raw) {
   for (const key of booleanFields) event[key] = raw[key] === true;
   for (const key of stringFields)
     event[key] = typeof raw[key] === "string" ? raw[key].slice(0, 80) : null;
+  // A self-voice can never satisfy the different-character heckle challenge.
+  if (event.type === "voice-played") {
+    if (!characterIds.includes(event.speakerId)) return null;
+    event.heckle = event.heckle && event.speakerId !== event.characterId;
+  }
   return Object.freeze(event);
 }
 const predicates = {
@@ -337,12 +348,14 @@ export class AchievementManager {
     return true;
   }
   cosmeticValues() {
-    return Object.fromEntries(
+    const values = Object.fromEntries(
       COSMETIC_SLOTS.map((slot) => [
         slot,
         COSMETIC_REWARDS[this.data.equipped[slot]]?.value || null,
       ]),
     );
+    values.paintPattern = COSMETIC_REWARDS[this.data.equipped.cart]?.pattern || null;
+    return values;
   }
   reset() {
     const sequence = this.data.sequence;

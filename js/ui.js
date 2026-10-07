@@ -329,7 +329,7 @@ export class UI {
         this.say(scoreboardLine(t));
         break;
       case State.FINAL: {
-        html = finalMarkup(t);
+        html = finalMarkup(t, this.cosmetics);
         this.caption(
           t.winners.length > 1 ? "tie" : "victory",
           t.winners[0].character,

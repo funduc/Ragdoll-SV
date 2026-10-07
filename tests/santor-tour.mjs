@@ -532,6 +532,10 @@ test("All eight stops play from the map to the podium and save Tour Complete onl
         for (const c of CHARACTERS) assert.ok(ui.overlay.innerHTML.includes(`${c.name} portrait`));
         assert.match(ui.overlay.innerHTML, /The mug gets the rest of the night off/);
         assert.equal(run.runs.manager.data.records["tour-complete"].unlocked, true);
+        ui.cosmetics = { pose: "salute", hat: "pin-crown" };
+        renderCampaign(ui, run);
+        assert.match(ui.overlay.innerHTML, /Saluting rider/);
+        ui.cosmetics = {};
       } else {
         assert.doesNotMatch(ui.overlay.innerHTML, /aria-label="Tour ending"/);
         assert.equal(run.runs.manager.data.records["tour-complete"].unlocked, false);
@@ -544,6 +548,7 @@ test("All eight stops play from the map to the podium and save Tour Complete onl
     run.confirm(); assert.equal(run.state, S.MAP);
   }
   assert.equal(new AchievementManager(storage).data.records["tour-complete"].unlocked, true);
+  assert.equal(new AchievementManager(storage).data.records["tour-postcards"].unlocked, true, "all eight real Tour stops supply achievement facts");
   const save = new CampaignSave(storage);
   assert.equal(save.entry("jake", "the-santor-gauntlet").medal, 1);
   assert.equal(save.entry("jake", finale.id).medal, 3);

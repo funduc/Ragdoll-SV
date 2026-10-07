@@ -39,6 +39,9 @@ export function attemptAchievementFacts(world, score, campaign = null) {
           )),
     ),
     characterId: world.character.id,
+    tourStop: campaign?.level?.chapter === "santor-on-tour",
+    crashed: score.crashed === true,
+    carnage: world.damage.summary()?.total ?? 0,
     levelId: campaign?.level?.id,
     riderAttached: world.attached && world.landed,
     valid: world.finished && !world.invalid,
@@ -75,8 +78,8 @@ export function attemptAchievementFacts(world, score, campaign = null) {
     lostComponents: world.damage.lostParts.size,
     lostWheels: world.damage.lostWheels.size,
     landedAfterWheelLoss: world.damage.landedAfterWheelLoss,
+    conditionChanges: world.runEffects?.conditionChanges || 0,
     // Reserved telemetry for mechanics that are still unavailable.
-    conditionChanges: 0,
     medalPointGap: null,
     sponsorHit: null,
   };

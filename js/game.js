@@ -28,8 +28,10 @@ import {
 import {
   renderAchievementVault,
   showAchievementNotice,
+  showAchievementHunts,
   applyAchievementCosmetics,
 } from "./achievement-ui.js";
+import { AchievementToasts } from "./achievement-toast.js";
 import { installAchievementHooks } from "./achievement-dev.js";
 import { AudioControls } from "./audio-preferences.js";
 import { ReplayRecording, ReplayPlayer, ReplayControls } from "./replay.js";
@@ -76,6 +78,8 @@ class Game {
     );
     this.presentation.onCommentaryDuck = value => this.ui.setCommentaryDucked(value);
     this.presentation.onVoiceDucked = value => this.ui.setVoiceDucked(value);
+    this.ui.achievementToasts = new AchievementToasts(document.getElementById("stage"), this.presentation.audio);
+    this.presentation.voices.onPlayed = facts => this.achievements.send("voice-played", facts);
     this.presentation.replaceWorld(this.world);
     this.recording = new ReplayRecording(this.world);
     this.replayPlayer = null;
@@ -607,12 +611,16 @@ class Game {
       case "reset":
         this.achievementReset = true;
         break;
+      case "garage":
+        this.ui.overlay.querySelector(".achievement-cosmetics")?.scrollIntoView({ block: "start" });
+        return;
       case "cancel-reset":
         this.achievementReset = false;
         break;
       case "reset-confirm":
         if (!this.achievementReset) return;
         this.achievements.reset();
+        this.ui.achievementToasts?.clear();
         this.achievementReset = false;
         break;
       case "equip":
@@ -624,7 +632,13 @@ class Game {
       default:
         return;
     }
+    const scroll = this.ui.overlay.querySelector(".achievement-vault")?.scrollTop || 0;
     this.refreshAchievementVault();
+    if (["equip", "default"].includes(action)) {
+      this.ui.overlay.querySelector(".achievement-vault").scrollTop = scroll;
+      (this.ui.overlay.querySelector(`[data-achievement="${action}"][data-value="${button.dataset.value}"]`) ||
+        this.ui.overlay.querySelector('[data-achievement="garage"]'))?.focus({ preventScroll: true });
+    }
   }
   refreshAchievementVault() {
     applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
@@ -639,7 +653,9 @@ class Game {
   showAchievementsAfterAttempt() {
     applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
     if ([State.RESULTS, State.FINAL].includes(this.session.state)) {
-      if (showAchievementNotice(this.ui, this.achievements)) this.presentation.audio.play("achievement");
+      showAchievementNotice(this.ui, this.achievements);
+      showAchievementHunts(this.ui, this.achievements, this.session.current?.id,
+        this.mode === "vault" ? campaignAchievementFacts(this.campaign) : null);
       const line = this.achievements.cosmeticValues().commentary;
       if (line) this.ui.say(line);
     }
@@ -684,6 +700,8 @@ class Game {
     if (this.destroyed) return;
     const gap = this.lastTime === null ? 0 : Math.max(0, time - this.lastTime);
     this.lastTime = time;
+    showAchievementNotice(this.ui, this.achievements);
+    this.ui.achievementToasts?.tick(gap, !this.suspended && !document.hidden, this.reducedMotion);
     if (this.replayPlayer) {
       this.presentation.audio.setPaused(this.suspended || document.hidden);
       this.presentation.music.setPaused(this.suspended || document.hidden);
@@ -841,6 +859,7 @@ class Game {
     this.world.dispose();
     this.renderer.destroy();
     this.ui.destroy();
+    this.ui.achievementToasts?.destroy();
     this.presentation.destroy();
     this.audioControls.destroy();
     this.removeAchievementHooks?.();

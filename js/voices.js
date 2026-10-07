@@ -34,18 +34,18 @@ export class CharacterVoices {
     if (voice) { voice.source.stop(); this.audio.release(voice); }
   }
   pool(character, moment) {
-    const previous = this.queue.at(-1) || this.lastClip;
+    const previous = this.queue.at(-1)?.file || this.lastClip;
     return (this.config[character] || []).filter(clip => clip.moments.includes(moment))
       .map(clip => character + "/" + clip.file)
       .filter(file => file !== previous && this.audio.clips.has(file));
   }
-  request(character, moment, jump = true, heckle = false) {
+  request(character, moment, jump = true, heckle = false, listener = character) {
     if (!this.available() || (jump && (heckle ? this.heckled : this.used)) || this.queue.length >= 2) return false;
     const pool = this.pool(character, moment);
     if (!pool.length) return false;
     const file = pool[Math.floor(this.random() * pool.length)];
     if (jump) { if (heckle) this.heckled = true; else this.used = true; }
-    this.queue.push(file);
+    this.queue.push({ file, speakerId: character, characterId: listener, heckle });
     this.tick();
     return true;
   }
@@ -53,13 +53,16 @@ export class CharacterVoices {
     const candidates = Object.keys(this.config).filter(id => id !== character && this.pool(id, "heckle").length);
     const preferred = candidates.filter(id => this.party.includes(id));
     const pool = preferred.length ? preferred : candidates;
-    if (pool.length) this.request(pool[Math.floor(this.random() * pool.length)], "heckle", true, true);
+    if (pool.length) this.request(pool[Math.floor(this.random() * pool.length)], "heckle", true, true, character);
   }
   tick() {
     if (!this.available()) { this.cancel(); return; }
     if (this.audio.customVoices.has("characterVoice") || !this.queue.length) return;
-    const file = this.queue.shift();
-    if (file !== this.lastClip && this.audio.play("voice:" + file)) this.lastClip = file;
+    const clip = this.queue.shift();
+    if (clip.file !== this.lastClip && this.audio.play("voice:" + clip.file)) {
+      this.lastClip = clip.file;
+      this.onPlayed?.({ characterId: clip.characterId, speakerId: clip.speakerId, heckle: clip.heckle });
+    }
   }
   observe(world) {
     const once = (name, condition, fn) => {
