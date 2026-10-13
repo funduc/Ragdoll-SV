@@ -189,7 +189,7 @@ export const CHAPTER_LEVELS = [
     ),
     prerequisites: ["fragile-cargo"],
     john: john(
-      "Brandon has submitted a poem about Mapleton Road. Every pothole gets a stanza.",
+      "Brandon has submitted a poem about Mapleton Road.",
       {
         jake: "Jake is delivering Brandon's road poem without visible enthusiasm.",
         brandon:

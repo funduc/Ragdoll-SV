@@ -487,11 +487,10 @@ if (process.env.SYNC_TEST) {
       card.querySelectorAll(".intro-stats > div").length,
       c.statistics.length,
     );
-    if (c.id === "owen")
-      assert.equal(
-        card.querySelector(".censored-icon").textContent,
-        "CENSORED",
-      );
+    if (c.id === "owen") {
+      assert.equal(card.querySelector(".censored-icon"), null);
+      assert.equal(card.querySelector(".censored-keepsake").textContent, "Temu Dildo.");
+    }
     for (let i = 0; i < (c.id === "jake" ? 310 : 160); i++) game.frame(100);
     assert.equal(game.$(".achievement-notice"), null);
     assert.equal(card.innerHTML, markup);

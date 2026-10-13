@@ -506,11 +506,11 @@ function finishIntroduction(mode = "enter") {
     card.querySelector(".portrait").textContent.includes(c.fallbackInitials),
   );
   if (c.id === "owen") {
-    assert.equal(card.querySelector(".censored-icon").textContent, "CENSORED");
+    assert.equal(card.querySelector(".censored-icon"), null);
     assert.ok(
       card
         .querySelector(".censored-keepsake")
-        .textContent.includes("Temu D***o."),
+        .textContent.includes("Temu Dildo."),
     );
     assert.equal(
       card.querySelectorAll(
@@ -1171,7 +1171,7 @@ console.log(
         "Enter release required before Begin jump",
         "introduction stall and retry cleanup",
         "all passive status messages visible",
-        "black-bar-only censored Temu icon",
+        "plain-text Temu keepsake label",
         "crash quotes and literary Brandon results",
         "large frame gap",
         "blur/focus pause",

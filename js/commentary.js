@@ -24,22 +24,22 @@ export const GENERAL_CAPTIONS = Object.freeze({
     "A controlled landing. That earns its bonus.",
   ],
   crash: [
-    "Physics has reviewed the appeal and denied it.",
+    "Oh god, is he ok? Someone call David.",
     "That landing has created several administrative questions.",
   ],
   "pit-fall": ["THE FLOOR HAS LEFT THE CHAT. The cart has followed it."],
   "obstacle-impact": ["THE SIGN WAS NOT A SUGGESTION. Please lead with the cart next time."],
   elimination: [
-    "ONE IS OUT. I HAVE LOST CONTROL OF THE CLIPBOARD.",
-    "THE CUT IS FINAL. PLEASE STOP NEGOTIATING WITH GRAVITY.",
+    "ONE IS OUT.",
+    "THE CUT IS FINAL.",
   ],
   championship: [
-    "TWO FINALISTS. ONE CART. MY NOTES ARE JUST EXCLAMATION MARKS.",
-    "THE FINAL! ALL PREVIOUS POINTS HAVE LEFT THE BUILDING!",
+    "TWO FINALISTS. ONE CART.",
+    "THE FINAL!",
   ],
   victory: [
     "{name} WINS! THIS WILL BE DISCUSSED WITHOUT CONTEXT FOR YEARS!",
-    "{name} TAKES IT! SOMEONE FRAME THE RECEIPT!",
+    "{name} TAKES IT! SOMEONE FRAME THE TROPHY!",
   ],
   tie: [
     "TWO CHAMPIONS! THE CART HAS ENTERED JOINT CUSTODY!",

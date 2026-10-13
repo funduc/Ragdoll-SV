@@ -72,8 +72,8 @@ check("All characters map to available optimized WebP portraits", () => {
     );
     assert.ok(c.statistics.length >= 3 && Object.isFrozen(c.passive));
   }
-  assert.equal(CHARACTERS[2].keepsake.kind, "censored");
-  assert.equal(CHARACTERS[2].keepsake.label, "Temu D***o.");
+  assert.equal(CHARACTERS[2].keepsake.kind, "plain");
+  assert.equal(CHARACTERS[2].keepsake.label, "Temu Dildo.");
 });
 check(
   "Introductions have no deadline and clear only on explicit continuation or reset",

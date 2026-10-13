@@ -184,7 +184,7 @@ export class UI {
     const keepsake =
       c.keepsake?.kind === "censored"
         ? `<span class="censored-keepsake"><span class="censored-icon" role="img" aria-label="Black-bar-censored novelty item">CENSORED</span><span>${escape(c.keepsake.label)}</span></span>`
-        : "";
+        : c.keepsake ? `<span class="censored-keepsake">${escape(c.keepsake.label)}</span>` : "";
     this.overlay.innerHTML = `<section class="menu-panel intro-card" style="--person:${c.primaryColor}" aria-label="Character introduction">
       <p class="eyebrow">MEET THE COMPETITOR <span class="intro-countdown">PRESS ENTER WHEN READY.</span></p>
       <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${escape(t.currentPlayer.name.toUpperCase())} JUMPS AS ${escape(c.name.split(" ")[0].toUpperCase())} · ${roundLabel(t)}</p></div></div>
@@ -274,7 +274,7 @@ export class UI {
         break;
       case State.SETUP:
         html = setupMarkup(t);
-        this.say("Names on the board. Pick a cart pilot. Duplicates are legally fine.");
+        this.say("Names on the board. Pick a cart pilot. Duplicates are fine.");
         break;
       case State.ROUND_INTRO:
         html = roundIntroMarkup(t);
