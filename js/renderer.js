@@ -1,3 +1,4 @@
+import { palette, cueColour, characterColour } from "./palette.js";
 import { DEFAULT_COURSE, pieceOutline, groundSpans } from "./course.js";
 import { ThemePainter } from "./themes.js";
 import { drawRunMarkings } from "./run-renderer.js";
@@ -84,6 +85,11 @@ export class Renderer {
     this.camera.scale = ease(this.camera.scale, scale);
     this.camera.x = ease(this.camera.x, targetX);
     this.camera.y = ease(this.camera.y, targetY);
+    // Reserve the actual HUD height and the rider’s full silhouette, including shake.
+    if (world && this.hudBottom > 0) {
+      const top = Math.min(...[world.cart, ...world.rider, ...world.wheels].flatMap(body => body.vertices.map(v => v.y)));
+      this.camera.y = Math.min(this.camera.y, top - (this.hudBottom + 24) / this.camera.scale);
+    }
     this.snap = false;
     // Shake affects only the Canvas art; HUD, menus, and controls stay still.
     c.save();
@@ -134,7 +140,7 @@ export class Renderer {
       x += 200
     ) {
       if (x < left - 50) continue;
-      c.fillStyle = "#b4ef4b";
+      c.fillStyle = palette().perfect;
       c.fillRect(x, course.groundY + 2, 2, 16);
       this.label(
         `${(x - course.distanceOrigin) / 40} m`,
@@ -186,7 +192,7 @@ export class Renderer {
         this.drawCoursePiece(piece, course, theme);
         continue;
       }
-      this.polygon(pieceOutline(piece), piece.fill, piece.stroke, 2);
+      this.polygon(pieceOutline(piece), piece.fill, cueColour("target", piece.stroke), 2);
       if (piece.sign) this.pieceSign(piece);
     }
     for (const prop of world?.looseProps || []) {
@@ -205,7 +211,7 @@ export class Renderer {
       const r = course.ribbon, left = r.x - r.width / 2, right = r.x + r.width / 2;
       c.fillStyle = "#d6bc81";
       for (const x of [left, right]) c.fillRect(x - 4, r.y - 50, 8, course.groundY - r.y + 50);
-      c.strokeStyle = "#ef334c"; c.lineWidth = r.height;
+      c.strokeStyle = cueColour("target", "#ef334c"); c.lineWidth = r.height;
       c.beginPath(); c.moveTo(left, r.y);
       if (world?.ribbonCut) {
         c.lineTo(left + 120, course.groundY - 4);
@@ -218,7 +224,7 @@ export class Renderer {
     drawRunMarkings(this, world, left, right);
     for (const bump of world?.runwayBumps || [])
       this.polygon(bump.vertices, "#667782", "#ffb84b", 2);
-    c.fillStyle = "#ff852b";
+    c.fillStyle = cueColour("neutral", "#ff852b");
     // Painted ramp strip uses the same cart-centre x windows as skill grading.
     const boost = world?.skills.config.takeoff || SKILL_CONFIG.takeoff;
     const rampY = (x) =>
@@ -226,8 +232,8 @@ export class Renderer {
       ((x - course.rampStart) * (course.groundY - course.rampTop)) /
         (course.rampEnd - course.rampStart);
     for (const [start, end, color] of [
-      [boost.goodStart, Math.min(boost.goodEnd, course.rampEnd), "#e5b74d"],
-      [boost.perfectStart, boost.perfectEnd, "#b4ef4b"],
+      [boost.goodStart, Math.min(boost.goodEnd, course.rampEnd), cueColour("good", "#e5b74d")],
+      [boost.perfectStart, boost.perfectEnd, palette().perfect],
     ]) {
       c.beginPath();
       c.moveTo(start, rampY(start) - 3);
@@ -241,10 +247,10 @@ export class Renderer {
       (boost.perfectStart + boost.perfectEnd) / 2,
       rampY(boost.perfectEnd) - 24,
       11,
-      "#b4ef4b",
+      palette().perfect,
       "center",
     );
-    c.fillStyle = "#ff852b";
+    c.fillStyle = cueColour("neutral", "#ff852b");
     c.fillRect(course.rampEnd - 3, course.rampTop - 16, 6, 22);
     this.label(
       "TAKEOFF",
@@ -287,7 +293,7 @@ export class Renderer {
       if (world.cargo) {
         this.polygon(
           world.cargo.vertices,
-          world.cargoLost ? "#ff852b" : "#b4ef4b",
+          world.cargoLost ? palette().bad : palette().perfect,
           "#10151a",
           2,
         );
@@ -296,7 +302,7 @@ export class Renderer {
           world.cargo.position.x,
           world.cargo.position.y - 22,
           12,
-          world.cargoLost ? "#ffad72" : "#b4ef4b",
+          world.cargoLost ? cueColour("bad", "#ffad72") : palette().perfect,
           "center",
         );
       }
@@ -315,7 +321,7 @@ export class Renderer {
   // Default piece art uses theme colours, with per-piece overrides.
   drawCoursePiece(piece, course, theme) {
     const c = this.ctx, colors = theme.pieces[piece.type];
-    const fill = piece.fill || colors.fill, stroke = piece.stroke || colors.stroke;
+    const fill = piece.fill || colors.fill, stroke = cueColour(["pit", "obstacle"].includes(piece.type) ? "bad" : "target", piece.stroke || colors.stroke);
     if (piece.type === "pit") {
       const left = piece.x - piece.width / 2;
       c.fillStyle = fill;
@@ -415,21 +421,21 @@ export class Renderer {
     // Metre marks up the pole, arcade scoreboard style.
     for (let m = 1; ground - m * 40 > poleTop + 10; m++) {
       const y = ground - m * 40;
-      c.fillStyle = m % 2 ? "#ff852b" : "#b4ef4b";
+      c.fillStyle = m % 2 ? cueColour("neutral", "#ff852b") : palette().perfect;
       c.fillRect(x - 12, y - 1, 7, 3);
       if (m % 2 === 0) this.label(`${m} m`, x - 16, y + 4, 10, "#91a9b6", "right");
     }
-    c.fillStyle = "#ff852b";
+    c.fillStyle = cueColour("neutral", "#ff852b");
     c.fillRect(x - 7, hj.barTop + course.bar.thickness, 14, 6);
     this.label(
       `BAR ${hj.height.toFixed(2)} m`,
       x + 16,
       hj.barTop - 10,
       13,
-      hj.knocked ? "#ff9d52" : "#b4ef4b",
+      hj.knocked ? cueColour("bad", "#ff9d52") : palette().perfect,
     );
     if (world.bar) {
-      this.polygon(world.bar.vertices, hj.knocked ? "#ff852b" : "#ff5a4f", "#fff1e6", 2);
+      this.polygon(world.bar.vertices, hj.knocked ? palette().bad : cueColour("target", "#ff5a4f"), "#fff1e6", 2);
       c.fillStyle = "#fff1e6";
       c.fillRect(world.bar.position.x - 5, world.bar.position.y - 1.5, 10, 3);
     }
@@ -437,7 +443,7 @@ export class Renderer {
   drawSyncMoment(world) {
     const c = this.ctx, x = world.cart.position.x, y = world.cart.position.y;
     if (!this.motionPreference?.matches) {
-      c.save(); c.strokeStyle = world.character.primaryColor; c.lineWidth = 5;
+      c.save(); c.strokeStyle = characterColour(world.character); c.lineWidth = 5;
       for (let i = 0; i < 8; i++) {
         c.globalAlpha = (1 - i / 8) * 0.65;
         const offset = Math.sin(world.elapsed * 8 - i) * 8;
@@ -451,7 +457,7 @@ export class Renderer {
     const tagY = y + 92 / scale;
     c.fillStyle = "#0b1a24"; c.fillRect(tagX - width / 2, tagY - 28 / scale, width, 38 / scale);
     this.label(world.syncCelebration.grade === "PERFECT SYNC" ? "PERFECT SYNC" : "SYNC STYLE!",
-      tagX, tagY, 26 / scale, "#b4ef4b", "center");
+      tagX, tagY, 26 / scale, palette().perfect, "center");
   }
   drawVehicle(world) {
     const c = this.ctx;
@@ -465,12 +471,12 @@ export class Renderer {
       const fill =
         body.label === "leg" || body === world.hips
           ? "#536b80"
-          : world.character.primaryColor;
+          : characterColour(world.character);
       this.polygon(body.vertices, fill, "#091117", 2);
     }
     if (celebrating) {
       // Victory pose is art only; hands, grip and cargo keep their real physics.
-      c.strokeStyle = world.character.primaryColor; c.lineWidth = 9;
+      c.strokeStyle = characterColour(world.character); c.lineWidth = 9;
       for (const side of [-1, 1]) {
         c.beginPath(); c.moveTo(world.head.position.x, world.head.position.y + 18);
         c.lineTo(world.head.position.x + side * 24, world.head.position.y - 16); c.stroke();
@@ -489,7 +495,7 @@ export class Renderer {
     c.stroke();
     c.beginPath();
     c.arc(0, -2, 12, Math.PI, Math.PI * 2);
-    c.fillStyle = world.character.primaryColor;
+    c.fillStyle = characterColour(world.character);
     c.fill();
     c.fillStyle = "#16232c";
     c.fillRect(4, -1, 5, 3);
@@ -578,7 +584,7 @@ export class Renderer {
     c.lineTo(32, 48);
     c.stroke();
     if (!lost?.has("seat")) {
-      c.fillStyle = world.character.primaryColor;
+      c.fillStyle = characterColour(world.character);
       c.fillRect(-23, 7, 46, 13);
       c.fillStyle = "#111c24";
       c.font = "bold 8px Arial";
@@ -586,7 +592,7 @@ export class Renderer {
       c.fillText("SANTOR", 0, 17);
     }
     if (world.attached) {
-      c.strokeStyle = "#b4ef4b";
+      c.strokeStyle = palette().perfect;
       c.lineWidth = 2;
       c.beginPath();
       c.moveTo(-13, -15);
@@ -610,7 +616,7 @@ export class Renderer {
       }
       c.beginPath(); c.moveTo(-39, 0); c.lineTo(39, 0); c.stroke();
     } else {
-      c.fillStyle = character.primaryColor;
+      c.fillStyle = characterColour(character);
       c.fillRect(-23, -6.5, 46, 13);
       this.label("SANTOR", 0, 3, 8, "#111c24", "center");
     }

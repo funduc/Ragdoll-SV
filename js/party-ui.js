@@ -1,3 +1,4 @@
+import { characterCSS } from "./palette.js";
 import { CHARACTERS } from "./characters.js";
 import { CONDITIONS } from "./run-config.js";
 import { CONDITION_BADGES } from "./run-ui.js";
@@ -22,7 +23,7 @@ const confirmButton = (label) =>
 const setupButton = (label, action, index = "", attributes = "") =>
   `<button type="button" class="btn secondary" data-setup="${action}" data-index="${index}"${attributes}>${label}</button>`;
 const face = (c) =>
-  `<span class="pick-face" style="--person:${c.primaryColor}" aria-hidden="true">${c.fallbackInitials}</span>`;
+  `<span class="pick-face" style="--person:${characterCSS(c)}" aria-hidden="true">${c.fallbackInitials}</span>`;
 const who = (player) =>
   `<b>${escape(player.name)}</b> <small>${escape(player.character.name)}</small>`;
 
@@ -60,7 +61,7 @@ export function setupMarkup(t) {
       (p, i) =>
         `<li class="setup-player"><span class="player-number">P${i + 1}</span><input type="text" data-setup="name" data-index="${i}" value="${escape(p.name)}" maxlength="${NAME_LENGTH}" placeholder="Player ${i + 1}" aria-label="Player ${i + 1} name" autocomplete="off" spellcheck="false"><span class="character-picks" role="radiogroup" aria-label="Player ${i + 1} character">${CHARACTERS.map(
           (c) =>
-            `<label class="pick" style="--person:${c.primaryColor}"><input type="radio" name="party-character-${i}" value="${c.id}" data-setup="character" data-index="${i}"${p.characterId === c.id ? " checked" : ""}>${face(c)}<span>${escape(c.name.split(" ")[0])}</span></label>`,
+            `<label class="pick" style="--person:${characterCSS(c)}"><input type="radio" name="party-character-${i}" value="${c.id}" data-setup="character" data-index="${i}"${p.characterId === c.id ? " checked" : ""}>${face(c)}<span>${escape(c.name.split(" ")[0])}</span></label>`,
         ).join(
           "",
         )}</span>${players.length > MIN_PLAYERS ? setupButton("✕", "remove", i, ` aria-label="Remove player ${i + 1}"`) : ""}</li>`,
@@ -123,7 +124,7 @@ export function handoffMarkup(t) {
   const p = t.currentPlayer,
     c = p.character,
     next = t.nextPlayer;
-  return `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${roundLabel(t)} · ${t.highJump ? `TRY ${t.attemptNumber} OF ${HIGH_JUMP_TRIES}` : `${t.bowling ? "THROW" : "JUMP"} ${t.turn + 1} OF ${t.roster.length}`}</span><div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h2>${escape(p.name)}</h2><span class="nickname">${escape(c.name)} “${escape(c.nickname)}”</span></div></div>${chaosBadge(t.currentRound.condition)}<p>Ready, ${escape(p.name)}?</p><p class="subline">${next ? `ON DECK: ${escape(next.name)}` : "LAST JUMP OF THE ROUND"}${!t.jumpsFor(p.id).length ? "" : t.highJump ? ` · YOUR BEST ${t.bestHeightFor(p.id) ? metres(t.bestHeightFor(p.id)) : "—"}` : ` · YOUR TOTAL ${t.totalFor(p.id)}`}</p><p class="tiny"><b>${escape(c.passive.name)}</b> · Style ×${c.styleMultiplier.toFixed(2)} · Air control ×${c.rotationControl.toFixed(2)} · Stability ×${c.landingStability.toFixed(2)}</p><div class="actions">${confirmButton("Begin jump")}</div></section>`;
+  return `<section class="menu-panel"><p class="eyebrow">PASS THE CONTROLS</p><span class="turn-number">${roundLabel(t)} · ${t.highJump ? `TRY ${t.attemptNumber} OF ${HIGH_JUMP_TRIES}` : `${t.bowling ? "THROW" : "JUMP"} ${t.turn + 1} OF ${t.roster.length}`}</span><div class="handoff" style="--person:${characterCSS(c)}">${portrait(c)}<div><h2>${escape(p.name)}</h2><span class="nickname">${escape(c.name)} “${escape(c.nickname)}”</span></div></div>${chaosBadge(t.currentRound.condition)}<p>Ready, ${escape(p.name)}?</p><p class="subline">${next ? `ON DECK: ${escape(next.name)}` : "LAST JUMP OF THE ROUND"}${!t.jumpsFor(p.id).length ? "" : t.highJump ? ` · YOUR BEST ${t.bestHeightFor(p.id) ? metres(t.bestHeightFor(p.id)) : "—"}` : ` · YOUR TOTAL ${t.totalFor(p.id)}`}</p><p class="tiny"><b>${escape(c.passive.name)}</b> · Style ×${c.styleMultiplier.toFixed(2)} · Air control ×${c.rotationControl.toFixed(2)} · Stability ×${c.landingStability.toFixed(2)}</p><div class="actions">${confirmButton("Begin jump")}</div></section>`;
 }
 
 // The button label after a jump: next player, round results or final results.
@@ -188,20 +189,20 @@ export function standingsTable(t) {
     return `<table class="results-table party-table"><thead><tr><th>#</th><th>PLAYER</th><th>STRIKES</th><th>PINS</th><th>POINTS</th></tr></thead><tbody>${t.standings
       .map(
         (row, i) =>
-          `<tr style="--person:${row.player.character.primaryColor}"><td>${i + 1}</td><td>${who(row.player)}</td><td>${row.strikes}</td><td>${row.pins}</td><td>${row.total}</td></tr>`,
+          `<tr style="--person:${characterCSS(row.player.character)}"><td>${i + 1}</td><td>${who(row.player)}</td><td>${row.strikes}</td><td>${row.pins}</td><td>${row.total}</td></tr>`,
       )
       .join("")}</tbody></table>`;
   if (t.highJump)
     return `<table class="results-table party-table"><thead><tr><th>#</th><th>PLAYER</th><th>MISSES</th><th>FOSBURYS</th><th>BEST HEIGHT</th></tr></thead><tbody>${t.standings
       .map(
         (row, i) =>
-          `<tr class="${row.out ? "eliminated" : ""}" style="--person:${row.player.character.primaryColor}"><td>${i + 1}</td><td>${who(row.player)}${row.out ? `<span class="status-chip">OUT AT ${metres(row.out.height)}</span>` : ""}</td><td>${row.misses}</td><td>${row.fosburys}</td><td>${row.height ? metres(row.height) : "—"}</td></tr>`,
+          `<tr class="${row.out ? "eliminated" : ""}" style="--person:${characterCSS(row.player.character)}"><td>${i + 1}</td><td>${who(row.player)}${row.out ? `<span class="status-chip">OUT AT ${metres(row.out.height)}</span>` : ""}</td><td>${row.misses}</td><td>${row.fosburys}</td><td>${row.height ? metres(row.height) : "—"}</td></tr>`,
       )
       .join("")}</tbody></table>`;
   return `<table class="results-table party-table"><thead><tr><th>#</th><th>PLAYER</th><th>BEST JUMP</th><th>TOTAL</th></tr></thead><tbody>${t.standings
     .map(
       (row, i) =>
-        `<tr class="${row.out ? "eliminated" : ""}" style="--person:${row.player.character.primaryColor}"><td>${row.out ? "—" : i + 1}</td><td>${who(row.player)}${row.out ? `<span class="status-chip">OUT R${row.out.round}</span>` : ""}</td><td>${bestLabel(row.best)}</td><td>${row.total}</td></tr>`,
+        `<tr class="${row.out ? "eliminated" : ""}" style="--person:${characterCSS(row.player.character)}"><td>${row.out ? "—" : i + 1}</td><td>${who(row.player)}${row.out ? `<span class="status-chip">OUT R${row.out.round}</span>` : ""}</td><td>${bestLabel(row.best)}</td><td>${row.total}</td></tr>`,
     )
     .join("")}</tbody></table>`;
 }
@@ -293,6 +294,6 @@ function finalSummary(t, names, tie) {
 export function finalMarkup(t, cosmetics = {}) {
   const tie = t.winners.length > 1,
     names = t.winners.map((p) => escape(p.name));
-  const podium = cosmetics.pose || cosmetics.hat ? `<div class="reward-podium">${t.winners.map(p => `<div>${podiumRider(p.character.primaryColor, cosmetics)}<b>${escape(p.name)}</b></div>`).join("")}</div>` : "";
+  const podium = cosmetics.pose || cosmetics.hat ? `<div class="reward-podium">${t.winners.map(p => `<div>${podiumRider(characterCSS(p.character), cosmetics)}<b>${escape(p.name)}</b></div>`).join("")}</div>` : "";
   return `<section class="menu-panel championship-panel winner-panel party-final"><div class="championship-ribbon" aria-hidden="true">OFFICIALLY EXCESSIVE CHAMPIONSHIP</div><div class="championship-seal" aria-hidden="true"><span>★</span> CERTIFIED CART LEGEND</div><p class="eyebrow orange">GAME NIGHT / ${escape(eventName(t))} FINAL RESULTS</p><h2>${tie ? "A SHARED VICTORY!" : `${names[0].toUpperCase()} WINS!`}</h2><p>${finalSummary(t, names, tie)}</p>${podium}${standingsTable(t)}${awardsMarkup(t.awards)}<div class="actions">${confirmButton("Back to title")}<button type="button" class="btn secondary" data-party="rematch">Rematch</button></div></section>`;
 }

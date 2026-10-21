@@ -78,7 +78,9 @@ export class AudioControls {
       if (channel)
         preferences.setVolume(channel, Number(event.target.value) / 100, false);
     };
-    this.change = () => preferences.persistVolumes();
+    this.change = event => {
+      if (event.target.dataset.audioVolume) preferences.persistVolumes();
+    };
     this.click = event => {
       if (event.target.closest?.("[data-audio-voices]")) preferences.setVoices(!preferences.voices);
     };

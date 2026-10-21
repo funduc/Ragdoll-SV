@@ -73,12 +73,13 @@ export class CharacterVoices {
       if (this.random() < 1 / VOICE_RULES.rareOdds) this.request(id, "rare");
     });
     once("heavy", world.crashed && world.damage.lostParts.size >= 3, () => this.request(id, "crash-big"));
-    once("crash", world.crashed, () => this.heckle(id));
+    once("crash", world.crashed && !this.deferHeckle, () => this.heckle(id));
     once("best", world.syncResult?.grade === "PERFECT SYNC" || world.distancePixels / PIXELS_PER_METRE >= VOICE_RULES.bestMetres, () => this.request(id, "best"));
     once("air", world.launched && !world.landed && !world.crashed &&
       (world.tricks.forward + world.tricks.backward > 0 || world.course.groundY - world.cart.position.y >= VOICE_RULES.bigAirPixels), () => this.request(id, "air"));
   }
   finish(world, score, personalBest) {
+    if (this.deferHeckle && world.crashed) this.heckle(world.character.id);
     if (personalBest || score.distanceMetres >= VOICE_RULES.bestMetres) this.request(world.character.id, "best");
     if (!score.crashed && score.landingQuality === "Clean") this.request(world.character.id, "land-clean");
   }

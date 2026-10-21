@@ -84,6 +84,8 @@ Put feature-specific CSS in that feature’s existing stylesheet. Use `js/after-
 
 ## Change-management rules
 
+- Every update that changes the game adds a new entry at the top of js/changelog.js with today's date as its id and 2–6 short player-facing lines.
+
 - Make small, focused changes.
 - Do not alter unrelated formatting or reorganize files without a clear reason.
 - Prefer extending existing modules over creating duplicate systems.

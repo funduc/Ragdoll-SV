@@ -9,6 +9,28 @@
   --blue: #52cefa;
   --green: #b4ef4b;
 }
+.settings-dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 24px;
+  border: 3px solid var(--blue);
+  background: #14232e;
+  color: var(--text);
+  box-shadow: 6px 6px #05090d;
+}
+.settings-dialog::backdrop { background: #050b13c9; }
+.settings-dialog h2 { margin-top: 0; }
+.settings-dialog li { margin: 10px 0; line-height: 1.4; }
+.settings-dialog button { min-height: 44px; margin: 8px 8px 0 0; }
+.settings-dialog input { accent-color: var(--cue-perfect, var(--green)); }
+.sheedy-choice { display: flex; align-items: start; gap: 10px; line-height: 1.5; }
+.settings-audio { display: grid; gap: 12px; margin: 20px 0; }
+.settings-audio label { display: grid; grid-template-columns: 70px 1fr 45px; gap: 10px; align-items: center; }
+[data-sheedy="on"] { --green: var(--cue-perfect); --orange: var(--cue-bad); }
+[data-sheedy="on"] :focus-visible { outline-color: var(--cue-neutral); }
+.touch-controls #restart-button { grid-column: 1 / -1; min-height: 30px; padding: 5px; font-size: 11px; }
+.touch-controls #restart-button[hidden] { display: none; }
 .menu-panel {
   max-height: 100%;
   overflow-y: auto;
@@ -1583,3 +1605,6 @@ kbd {
   background: #ffcf3f;
   transform: rotate(-35deg);
 }
+
+[data-sheedy="on"] .play-hint[data-attachment="attached"] { color: var(--cue-perfect); }
+[data-sheedy="on"] .play-hint[data-attachment="detached"] { color: var(--cue-miss); }

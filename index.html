@@ -49,6 +49,7 @@
           >
             SOUND ON
           </button>
+          <button id="settings-button" class="mute-button" type="button">SETTINGS</button>
         </div>
       </header>
       <div
@@ -166,6 +167,7 @@
           role="group"
           aria-label="Push, rotate, and brace controls"
         >
+          <button id="restart-button" type="button" hidden>↺ RESTART</button>
           <button id="touch-boost" type="button" data-control="boost" data-ready="false"
             aria-label="Fire rocket booster once in the air" aria-pressed="false" hidden disabled>
             <span aria-hidden="true">⇗</span> BOOST
@@ -239,7 +241,7 @@
           CONTROL</span
         ><span><kbd>↓</kbd> / <kbd>S</kbd> BRACE</span
         ><span><kbd>ENTER</kbd> CONFIRM</span
-        ><span><kbd>R</kbd> RESET BEFORE TAKEOFF</span>
+        ><span id="restart-hint"><kbd>R</kbd> RESET BEFORE TAKEOFF</span>
       </footer>
       <noscript
         ><p class="error">

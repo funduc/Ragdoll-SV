@@ -63,7 +63,7 @@
   color: var(--green);
 }
 .upgrade-icon { width: 32px; height: 32px; flex: none; color: #ffdb89; }
-.upgrade-pips { display: block; color: #b4ef4b; font: bold 18px/1.3 monospace; letter-spacing: 4px; }
+.upgrade-pips { display: block; color: var(--cue-perfect, #b4ef4b); font: bold 18px/1.3 monospace; letter-spacing: 4px; }
 .upgrade-card > .upgrade-icon { width: 58px; height: 58px; margin-bottom: 12px; }
 .upgrade-card .upgrade-effect { min-height: 2.6em; }
 .upgrade-details { margin: 8px 0 16px; }
@@ -75,7 +75,18 @@
 .owned-upgrade .upgrade-pips { font-size: 11px; text-align: center; letter-spacing: 2px; }
 .owned-upgrade > div { position: absolute; z-index: 5; top: 100%; left: 0; width: 230px; max-width: 70vw; padding: 12px; border: 2px solid #ffdb89; background: #142332; box-shadow: 3px 3px #071019; font-size: 12px; }
 .owned-upgrade > div p { margin: 6px 0 0; font-size: 12px; }
-.upgrade-details summary:focus-visible, .owned-upgrade summary:focus-visible { outline: 3px solid #b4ef4b; outline-offset: 3px; }
+.owned-upgrade > .upgrade-popover { position: fixed; z-index: 200; inset: auto; margin: 0; max-width: calc(100vw - 16px); overflow: auto; color: var(--text); }
+.owned-upgrade[open] { z-index: 200; }
+[data-sheedy="on"] .noise-meter { accent-color: var(--cue-perfect); }
+[data-sheedy="on"] .noise-meter::-webkit-meter-optimum-value { background: var(--cue-perfect); }
+[data-sheedy="on"] .noise-meter::-webkit-meter-suboptimum-value,
+[data-sheedy="on"] .noise-meter::-webkit-meter-even-less-good-value { background: var(--cue-miss); }
+[data-sheedy="on"] .noise-meter::-moz-meter-bar { background: var(--cue-perfect); }
+[data-sheedy="on"] .noise-meter:-moz-meter-sub-optimal::-moz-meter-bar { background: var(--cue-miss); }
+[data-sheedy="on"] .campaign-medal,
+[data-sheedy="on"] .medal-icon { color: var(--cue-neutral); }
+[data-sheedy="on"] [data-medal="0"] { color: #9eafb9; }
+.upgrade-details summary:focus-visible, .owned-upgrade summary:focus-visible { outline: 3px solid var(--cue-perfect, #b4ef4b); outline-offset: 3px; }
 .upgrade-choices {
   display: grid;
   gap: 12px;

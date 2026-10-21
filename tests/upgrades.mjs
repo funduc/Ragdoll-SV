@@ -85,6 +85,22 @@ for (const c of CHARACTERS) {
   assert.equal(lateScore.distanceMetres, baseScore.distanceMetres); lateBrake.dispose();
 }
 console.log("PASS all characters: bounded rocket/spring lift, braking distance, one use and normal bracing");
+for (const c of CHARACTERS) for (const target of ["Good", "Perfect"]) {
+  const distances = [];
+  for (const boost of [false, true]) {
+    const world = create({ "rocket-booster": 1 }, c); let fired = false;
+    for (let i = 0; i < 2500 && !world.finished; i++) {
+      const controls = chapterControls(world, normal, { target });
+      if (boost && !fired && world.launched && !world.landed && world.cart.velocity.y >= 0) { controls.pushes = 1; fired = true; }
+      world.step(controls);
+    }
+    assert.ok(world.finished && !world.invalid && !world.crashed);
+    distances.push(world.distancePixels / 40); world.dispose();
+  }
+  const extra = distances[1] - distances[0];
+  assert.ok(extra >= 5 && extra <= 8, c.id + " " + target + " apex boost: " + extra);
+}
+console.log("PASS all characters: apex rocket adds 5–8 metres on Good and Perfect jumps");
 
 const focused = create({ focus: 1 }); let focusSteps = 0;
 while (!focused.launched && !focused.finished) {

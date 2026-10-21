@@ -30,7 +30,7 @@ Object.assign(game, {
   mode: "vault", campaign: run, destroyed: false, vaultOpen: false,
   touch: { clear() {} }, clearSync() {},
   renderer: { resetCamera() {} },
-  presentation: { audio: { play() {} }, replaceWorld() {} },
+  presentation: { voices: {}, audio: { play() {} }, replaceWorld() {} },
   ui: { resetAttempt() { resets++; }, setPaused() {} },
   renderState() { screens.push(run.state); },
   startSync() { syncStarts++; },

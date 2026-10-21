@@ -1,3 +1,4 @@
+import { gradeCue } from "./palette.js";
 import { SYNC_CONFIG as C, syncReward } from "./sync-config.js";
 const arrows = ["←", "↓", "↑", "→"];
 const names = ["Left / A", "Down / S", "Up / W", "Right / D"];
@@ -93,9 +94,10 @@ export class SyncUI {
         ),
       );
     const feedback = this.overlay.querySelector(".sync-feedback");
+    feedback.dataset.grade = sequence.result?.grade || sequence.feedback || "";
     if (sequence.result) {
       const r = syncReward(sequence.result);
-      const message = `${sequence.result.grade} · ${sequence.result.accuracy.toFixed(0)}%`;
+      const message = `${gradeCue(sequence.result.grade)} · ${sequence.result.accuracy.toFixed(0)}%`;
       if (feedback.textContent !== message) feedback.textContent = message;
       this.overlay.querySelector(".sync-count").textContent =
         r.points > 0 ? `+${r.points} style · controls returning` : "No penalty. Back to the landing.";
@@ -104,7 +106,7 @@ export class SyncUI {
     } else {
       const message = preparing ? "Watch the arrows. Wait for the ticks."
         : phase === "count-in" ? String(Math.max(1, C.countInTicks - Math.floor((sequence.time - sequence.countInStart) / (C.countInSeconds / C.countInTicks))))
-        : sequence.feedback;
+        : gradeCue(sequence.feedback);
       if (feedback.textContent !== message) feedback.textContent = message;
       this.overlay.querySelector(".sync-count").textContent =
         `COMBO ${sequence.combo} · ${sequence.notes.filter((n) => n.grade).length} / ${sequence.notes.length} NOTES · air control returns after notes`;

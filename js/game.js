@@ -1,3 +1,5 @@
+import { SettingsUI } from "./settings-ui.js";
+import { installUpgradeDetails } from "./run-ui.js";
 import { Records } from "./records.js";
 import { syncSounds } from "./sound-events.js";
 import { ROOFTOP_FALL_LINE } from "./santor-tour.js";
@@ -79,7 +81,8 @@ class Game {
     this.presentation.onCommentaryDuck = value => this.ui.setCommentaryDucked(value);
     this.presentation.onVoiceDucked = value => this.ui.setVoiceDucked(value);
     this.ui.achievementToasts = new AchievementToasts(document.getElementById("stage"), this.presentation.audio);
-    this.presentation.voices.onPlayed = facts => this.achievements.send("voice-played", facts);
+    this.pendingVoiceFacts = [];
+    this.presentation.voices.onPlayed = facts => this.voicePlayed(facts);
     this.presentation.replaceWorld(this.world);
     this.recording = new ReplayRecording(this.world);
     this.replayPlayer = null;
@@ -115,20 +118,16 @@ class Game {
         else this.confirm();
       },
       onRestart: () => this.restartAttempt(),
-      onSuspend: (paused) => {
-        this.suspended = paused;
-        this.syncUI.releaseHolds();
-        this.touch.clear();
-        this.touch.sync();
-        this.lastTime = null;
-        this.accumulator = 0;
-        this.ui.setPaused(paused && this.session.active);
-        this.presentation.audio.setPaused(paused);
-        this.presentation.music.setPaused(paused);
-      },
+      onSuspend: paused => this.setSuspended(paused),
     });
+    this.settingsUI = new SettingsUI(this.ui.root, this.presentation.audio.preferences,
+      paused => { this.modalPaused = paused; this.setSuspended(document.hidden || !this.input.focused); });
+    this.removeUpgradeDetails = installUpgradeDetails(this.ui.root);
+    this.restartButton = document.getElementById("restart-button");
+    this.restartClick = () => this.restartAttempt();
+    this.restartButton.addEventListener("click", this.restartClick);
     this.replayControls = new ReplayControls(
-      window, () => Boolean(this.replayPlayer), () => this.stopReplay(), this.input,
+      window, () => Boolean(this.replayPlayer) && !this.settingsUI.open, () => this.stopReplay(), this.input,
     );
     this.ui.render(this.tournament);
     applyAchievementCosmetics(this.ui, this.renderer, this.achievements);
@@ -141,10 +140,26 @@ class Game {
     this.frame = this.frame.bind(this);
     this.raf = requestAnimationFrame(this.frame);
   }
+  voicePlayed(facts) {
+    if (this.mode === "vault" && this.session.active) this.pendingVoiceFacts.push(facts);
+    else this.achievements.send("voice-played", facts);
+  }
+  setSuspended(paused) {
+    this.suspended = paused || Boolean(this.modalPaused);
+    this.clearControls();
+    this.syncUI.releaseHolds();
+    this.touch.sync();
+    this.lastTime = null; this.accumulator = 0;
+    this.ui.setPaused(this.suspended && this.session.active);
+    this.presentation.audio.setPaused(this.suspended);
+    this.presentation.music.setPaused(this.suspended);
+  }
   get session() {
     return this.mode === "vault" ? this.campaign : this.tournament;
   }
   replaceWorld(character) {
+    this.pendingVoiceFacts = [];
+    this.pendingSyncPattern = null;
     this.clearSync();
     this.touch?.clear();
     this.world?.dispose();
@@ -174,6 +189,7 @@ class Game {
           : null,
     );
     this.presentation.replaceWorld(this.world);
+    this.presentation.voices.deferHeckle = this.mode === "vault";
     this.recording = new ReplayRecording(this.world);
     this.accumulator = 0;
     this.lastTime = null;
@@ -278,6 +294,7 @@ class Game {
     this.presentation.audio.unlock();
     this.presentation.music.enable();
     this.ui.render(this.tournament);
+    this.settingsUI.launch();
   }
   renderState() {
     this.biographyReader.tick(null, null, 0, false);
@@ -315,13 +332,17 @@ class Game {
     this.ui.render(this.tournament);
   }
   restartAttempt() {
-    if (!this.session.active || !this.world.canRestart) return;
+    if (this.suspended || !this.session.active || (this.mode !== "vault" && !this.world.canRestart)) return;
+    this.ui.achievementToasts?.clear();
+    this.presentation.voices?.cancel();
     this.session.resetAttempt();
     this.clearControls();
     this.replaceWorld(this.session.current);
     this.renderState();
   }
   exclusiveKey(event) {
+    if (this.settingsUI?.open) return true;
+    if (["Enter", "Space"].includes(event.code) && event.target?.closest?.("#settings-button, #restart-button")) { event.target.closest("button").click(); return true; }
     if (
       event.code === "KeyR" &&
       this.mode === "vault" &&
@@ -490,7 +511,9 @@ class Game {
     if (!sequence) return false;
     this.syncSerial++;
     this.world.syncTriggered = true;
-    this.syncSave.recordMoment(this.mode === "vault" ? this.campaign.runs.run : null, sequence.notes.map((n) => n.lane));
+    const pattern = sequence.notes.map(n => n.lane);
+    if (this.mode === "vault") this.pendingSyncPattern = pattern;
+    else this.syncSave.recordMoment(null, pattern);
     this.clearControls();
     this.syncSequence = sequence;
     this.ui.root.dataset.sync = "playing";
@@ -767,6 +790,10 @@ class Game {
             bowling: scoreBowling(this.world.bowlingResult()),
           });
           finishedScore = score;
+          if (this.pendingSyncPattern) this.syncSave.recordMoment(this.campaign.runs.run, this.pendingSyncPattern);
+          this.pendingSyncPattern = null;
+          for (const facts of this.pendingVoiceFacts || []) this.achievements.send("voice-played", facts);
+          this.pendingVoiceFacts = [];
           if (this.mode === "vault") this.campaign.record(score, this.world);
           else this.tournament.record(score);
           this.soundRecords ||= new Records(this.campaign.save.storage);
@@ -832,6 +859,8 @@ class Game {
     );
     if (this.session.active || finishedScore)
       this.recording.capture(this.world, this.presentation.effects, this.renderer.cosmetics);
+    this.renderer.hudBottom = this.ui.hud.hidden ? 0 : (this.ui.hud.offsetTop || 0) + this.ui.hud.offsetHeight;
+    this.ui.achievementToasts?.position(this.renderer.hudBottom);
     this.renderer.draw(this.world, drawTime, this.presentation.effects);
     if (this.session.active || finishedScore) this.ui.trickDisplay?.draw(this.renderer, this.world, (this.ui.hud.offsetTop || 0) + this.ui.hud.offsetHeight, this.suspended ? 0 : drawTime);
     if (finishedScore) {
@@ -862,6 +891,9 @@ class Game {
     this.ui.achievementToasts?.destroy();
     this.presentation.destroy();
     this.audioControls.destroy();
+    this.settingsUI.destroy();
+    this.removeUpgradeDetails();
+    this.restartButton.removeEventListener("click", this.restartClick);
     this.removeAchievementHooks?.();
   }
 }

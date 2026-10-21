@@ -26,7 +26,7 @@
 .skill-track {
   height: 14px;
   position: relative;
-  background: #543b2c;
+  background: var(--cue-miss, #543b2c);
   border: 2px solid #03090e;
   box-shadow: inset 0 1px #a19a8277;
 }
@@ -36,7 +36,7 @@
   bottom: 0;
 }
 .skill-good {
-  background: #b38a35;
+  background: var(--cue-good, #b38a35);
 }
 .skill-perfect {
   background: var(--green);
@@ -63,6 +63,11 @@
 .skill-legend b {
   color: var(--green);
 }
+[data-sheedy="on"] .skill-marker { background: var(--cue-neutral); }
+[data-sheedy="on"] .skill-meter[data-grade="Miss"] .skill-heading strong,
+[data-sheedy="on"] .skill-meter[data-grade="Early"] .skill-heading strong,
+[data-sheedy="on"] .skill-meter[data-grade="Late"] .skill-heading strong { color: var(--cue-miss); }
+[data-sheedy="on"] .touch-controls button[data-control="brace"] { background: var(--cue-perfect); color: #081219; border-color: var(--cue-good); text-shadow: none; }
 .skill-message {
   font:
     10px "Courier New",
@@ -151,7 +156,7 @@
   }
 }
 
-.skill-sync { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: #b4ef4b; font: bold 11px Arial, sans-serif; }
+.skill-sync { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: var(--cue-perfect, #b4ef4b); font: bold 11px Arial, sans-serif; }
 .sync-pips { display: inline-flex; gap: 4px; }
-.sync-pips i { width: 9px; height: 9px; border: 1px solid #b4ef4b; border-radius: 50%; background: #13222b; }
-.sync-pips i[data-lit="true"] { background: #b4ef4b; }
+.sync-pips i { width: 9px; height: 9px; border: 1px solid var(--cue-perfect, #b4ef4b); border-radius: 50%; background: #13222b; }
+.sync-pips i[data-lit="true"] { background: var(--cue-perfect, #b4ef4b); }

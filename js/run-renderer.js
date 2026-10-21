@@ -1,3 +1,4 @@
+import { palette } from "./palette.js";
 import { CONDITIONS, OBJECTIVES } from "./run-config.js";
 
 // Read-only Canvas markings. HUD and touch targets do not move with these effects.
@@ -89,7 +90,7 @@ export function drawRunMarkings(renderer, world, left, right) {
   if (objective?.type === "landing-zone") {
     const start = world.course.distanceOrigin + objective.minimum * 40,
       end = world.course.distanceOrigin + objective.maximum * 40;
-    c.fillStyle = "#b4ef4b";
+    c.fillStyle = palette().target;
     c.fillRect(start, ground - 5, end - start, 9);
     for (const x of [start, end]) {
       c.fillRect(x, ground - 60, 3, 65);
@@ -99,7 +100,7 @@ export function drawRunMarkings(renderer, world, left, right) {
       (start + end) / 2,
       ground - 70,
       13,
-      "#b4ef4b",
+      palette().target,
       "center",
     );
   }

@@ -1,3 +1,4 @@
+import { characterCSS } from "./palette.js";
 import { AFTER_HOURS_LEVELS } from "./after-hours.js";
 import { podiumRider } from "./achievement-art.js";
 import { CHARACTERS } from "./characters.js";
@@ -127,7 +128,7 @@ function tourRow(run) {
 function tourEnding(run, cosmetics = {}) {
   if (run.level.id !== "grand-reopening" || run.lastMedal.provisional || run.lastMedal.medal < 1) return "";
   const others = CHARACTERS.filter((c) => c !== run.current);
-  return `<section class="tour-ending" aria-label="Tour ending"><div class="tour-fireworks" aria-hidden="true">✺ ✧ ✺ ✧ ✺</div><p class="eyebrow">EIGHT STOPS · EVERYONE HOME</p><h2>TOUR COMPLETE</h2><div class="tour-podium">${[others[0], run.current, others[1]].map((c) => `<div class="tour-podium-person">${cosmetics.pose || cosmetics.hat ? podiumRider(c.primaryColor, cosmetics) : portrait(c)}<b>${escape(c.name.split(" ")[0])}</b><span aria-hidden="true">★</span></div>`).join("")}</div><p class="intro-john"><b>JOHN SANTOR:</b> ${escape(TOUR_CLOSING)}</p><p class="tiny">TOUR COMPLETE ACHIEVEMENT · THANK YOU FOR PLAYING</p></section>`;
+  return `<section class="tour-ending" aria-label="Tour ending"><div class="tour-fireworks" aria-hidden="true">✺ ✧ ✺ ✧ ✺</div><p class="eyebrow">EIGHT STOPS · EVERYONE HOME</p><h2>TOUR COMPLETE</h2><div class="tour-podium">${[others[0], run.current, others[1]].map((c) => `<div class="tour-podium-person">${cosmetics.pose || cosmetics.hat ? podiumRider(characterCSS(c), cosmetics) : portrait(c)}<b>${escape(c.name.split(" ")[0])}</b><span aria-hidden="true">★</span></div>`).join("")}</div><p class="intro-john"><b>JOHN SANTOR:</b> ${escape(TOUR_CLOSING)}</p><p class="tiny">TOUR COMPLETE ACHIEVEMENT · THANK YOU FOR PLAYING</p></section>`;
 }
 
 function tourResultNotes(level, facts) {
@@ -152,7 +153,7 @@ function tourResultNotes(level, facts) {
 function profile(ui, c, run) {
   const john = ui.commentator.pick("introduction", c, "qualifying");
   ui.say(john);
-  return `<section class="menu-panel intro-card" style="--person:${c.primaryColor}">
+  return `<section class="menu-panel intro-card" style="--person:${characterCSS(c)}">
     ${runNotice(run)}<p class="eyebrow">VAULT RUN / CONFIRM YOUR COMPETITOR <span class="intro-countdown">PRESS ENTER WHEN READY.</span></p>
     <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${run.runs.run?.characterId === c.id ? "Resume your current run and upgrades." : "Starts a new run. Medals and achievements stay; another character’s upgrades clear."}</p></div></div>
     <p class="intro-bio">${escape(c.biography)}</p>
@@ -184,7 +185,7 @@ export function renderCampaign(ui, run) {
     "BRONZE UNLOCKS THE NEXT LESSON";
   ui.standings.innerHTML = CHARACTERS.map(
     (character) =>
-      `<article class="competitor${character.id === c?.id ? " current" : ""}" style="--person:${character.primaryColor}">${portrait(character)}<div class="person-info"><div class="person-name">${escape(character.name)}</div><div class="person-nick">“${escape(character.nickname)}”</div><div class="score-line"><span>LEVELS <b>${progressCount(run.save, character)} / ${LEVELS.length}</b></span><span>GOLD <b>${LEVELS.filter((l) => run.save.entry(character.id, l.id).medal === 3).length}</b></span></div></div></article>`,
+      `<article class="competitor${character.id === c?.id ? " current" : ""}" style="--person:${characterCSS(character)}">${portrait(character)}<div class="person-info"><div class="person-name">${escape(character.name)}</div><div class="person-nick">“${escape(character.nickname)}”</div><div class="score-line"><span>LEVELS <b>${progressCount(run.save, character)} / ${LEVELS.length}</b></span><span>GOLD <b>${LEVELS.filter((l) => run.save.entry(character.id, l.id).medal === 3).length}</b></span></div></div></article>`,
   ).join("");
   const coach = document.getElementById("campaign-coach");
   coach.hidden = !run.active;
@@ -202,7 +203,7 @@ export function renderCampaign(ui, run) {
   let html = "";
   switch (run.state) {
     case S.SELECT:
-      html = `<section class="menu-panel"><p class="eyebrow">SINGLE PLAYER / TEN LEVELS</p><h2>VAULT RUN</h2><p>Choose your competitor. Each one keeps a separate record.</p><div class="campaign-characters">${CHARACTERS.map((character) => `<article style="--person:${character.primaryColor}"><div class="handoff">${portrait(character)}<div><h3>${escape(character.fullName)}</h3><p class="tiny">${escape(character.passive.name)} · ${progressCount(run.save, character)}/${LEVELS.length} levels complete</p></div></div>${action(`Choose ${character.name.split(" ")[0]}`, "select", character.id)}</article>`).join("")}</div><div class="actions">${action("Main menu", "menu", "", true)}${notice(run.save, true)}</div></section>`;
+      html = `<section class="menu-panel"><p class="eyebrow">SINGLE PLAYER / TEN LEVELS</p><h2>VAULT RUN</h2><p>Choose your competitor. Each one keeps a separate record.</p><div class="campaign-characters">${CHARACTERS.map((character) => `<article style="--person:${characterCSS(character)}"><div class="handoff">${portrait(character)}<div><h3>${escape(character.fullName)}</h3><p class="tiny">${escape(character.passive.name)} · ${progressCount(run.save, character)}/${LEVELS.length} levels complete</p></div></div>${action(`Choose ${character.name.split(" ")[0]}`, "select", character.id)}</article>`).join("")}</div><div class="actions">${action("Main menu", "menu", "", true)}${notice(run.save, true)}</div></section>`;
       ui.say("One competitor. Ten levels. The Vault keeps your place.");
       break;
     case S.PROFILE:
@@ -236,7 +237,7 @@ export function renderCampaign(ui, run) {
       const number = level.bonus
         ? level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : "BONUS"
         : `LEVEL ${String(LEVELS.indexOf(level) + 1).padStart(2, "0")} / ${LEVELS.length}`;
-      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${upgradeIcons(run)}${upgradeControls(run)}${goalList(level)}<p class="tiny">5 Perfect pushes + Perfect takeoff = Santor Sync.</p>${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${c.primaryColor}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
+      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${upgradeIcons(run)}${upgradeControls(run)}${goalList(level)}<p class="tiny">5 Perfect pushes + Perfect takeoff = Santor Sync.</p><p class="tiny">R restarts anytime at Ready. Earlier heats stay banked; the abandoned attempt does not count.</p>${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${characterCSS(c)}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
       ui.say(run.introduction);
       break;
     }
@@ -346,7 +347,7 @@ export function updateCampaignCoach(world, run) {
         : `CARGO SECURED · ${world.cargoStrainTime > 0 ? "CORD STRAINING — return toward level!" : "Stay near level, then brace. Gold needs a Clean landing."}`;
       break;
     case "wind":
-      text = `CROSSWIND → · aim for the green ${OBJECTIVES["landing-zone"].minimum}–${OBJECTIVES["landing-zone"].maximum} m zone. Gold needs the rider attached. Try Good takeoff if you overshoot.`;
+      text = `CROSSWIND → · aim for the marked ${OBJECTIVES["landing-zone"].minimum}–${OBJECTIVES["landing-zone"].maximum} m zone. Gold needs the rider attached. Try Good takeoff if you overshoot.`;
       break;
     case "runway":
       text = `${skills.pushCounts.Miss} Misses · ${skills.pushCounts.Good + skills.pushCounts.Perfect} Good-or-better pushes · Use the rhythm meter over the marked concrete repairs.`;

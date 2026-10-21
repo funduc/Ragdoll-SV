@@ -144,8 +144,8 @@ export const UPGRADES = freeze({
     name: "Rocket Booster", shortName: "Rocket Booster",
     effect: "One mid-air boost",
     limit: 1,
-    description: "Once per jump: tap Space / Up or BOOST in the air for 0.18 s of forward-and-up thrust. Adds 1.4 forward and 1.8 upward speed; no auto-leveling. Unavailable after a crash or landing.",
-    duration: 0.18, forward: 1.4, lift: 1.8,
+    description: "Once per jump: tap Space / Up or BOOST in the air for 0.18 s of forward-and-up thrust. Adds 2.6 forward and 1.6 upward speed (about 5–8 m near the apex); no auto-leveling. Unavailable after a crash or landing.",
+    duration: 0.18, forward: 2.6, lift: 1.6,
   },
   "spring-launch": {
     name: "Spring Launch", shortName: "Spring Launch",

@@ -2,6 +2,58 @@ import { CONDITIONS, OBJECTIVES, UPGRADES } from "./run-config.js";
 import { escape } from "./ui-content.js";
 import { upgradeIcon } from "./upgrade-art.js";
 
+// Popovers use the browser's top layer, escaping the scrolling map's stacking context.
+export function installUpgradeDetails(root, env = window) {
+  let active = null;
+  const close = () => {
+    if (!active) return;
+    const detail = active; active = null;
+    if (detail.isConnected) detail.querySelector("div").hidePopover?.();
+    detail.open = false;
+  };
+  const position = () => {
+    if (!active) return;
+    const panel = active.querySelector("div"), box = active.querySelector("summary").getBoundingClientRect();
+    const viewportWidth = Math.min(env.innerWidth, root.ownerDocument.documentElement.clientWidth);
+    const margin = 8, width = Math.min(280, viewportWidth - margin * 2);
+    panel.style.width = `${width}px`;
+    panel.style.maxHeight = `${env.innerHeight - margin * 2}px`;
+    const height = panel.getBoundingClientRect().height;
+    panel.style.left = `${Math.max(margin, Math.min(box.left, viewportWidth - width - margin))}px`;
+    panel.style.top = `${Math.max(margin, Math.min(box.bottom + 6, env.innerHeight - height - margin))}px`;
+  };
+  const toggle = event => {
+    const detail = event.target;
+    if (!detail.matches?.(".owned-upgrade")) return;
+    if (!detail.open) { if (active === detail) close(); return; }
+    if (active !== detail) close();
+    active = detail;
+    const panel = detail.querySelector("div");
+    panel.classList.add("upgrade-popover");
+    panel.setAttribute("popover", "manual");
+    panel.showPopover?.();
+    position();
+  };
+  const outside = event => { if (active && !active.contains(event.target)) close(); };
+  const key = event => {
+    if (event.key === "Escape" && active) { event.preventDefault(); close(); }
+  };
+  root.addEventListener("toggle", toggle, true);
+  env.addEventListener("pointerdown", outside);
+  env.addEventListener("keydown", key);
+  env.addEventListener("resize", position);
+  // Close before a scrolled icon can leave its detached panel behind.
+  root.addEventListener("scroll", close, true);
+  return () => {
+    close();
+    root.removeEventListener("toggle", toggle, true);
+    root.removeEventListener("scroll", close, true);
+    env.removeEventListener("pointerdown", outside);
+    env.removeEventListener("keydown", key);
+    env.removeEventListener("resize", position);
+  };
+}
+
 const stackPips = (count, limit) => `<span class="upgrade-pips" aria-label="${count} of ${limit} stacks owned">${"●".repeat(count)}${"○".repeat(limit - count)}</span>`;
 export function upgradeIcons(run) {
   const counts = run.runs.run?.upgrades || {};

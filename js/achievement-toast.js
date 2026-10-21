@@ -2,7 +2,7 @@ import { ACHIEVEMENT_RULES, ACHIEVEMENT_TIERS, achievementById } from "./achieve
 import { achievementIcon } from "./achievement-art.js";
 import { escape } from "./ui-content.js";
 
-// One RAF-driven queue. Observes input only: no preventDefault, focus or capture.
+// One RAF-driven queue. Notices time out without consuming game or replay input.
 export class AchievementToasts {
   constructor(stage, audio, env = window) {
     this.audio = audio; this.env = env; this.queue = []; this.current = null; this.seconds = 0;
@@ -14,8 +14,9 @@ export class AchievementToasts {
       if (event?.repeat || event?.ctrlKey || event?.metaKey || event?.altKey) return;
       this.current = null; this.seconds = 0; this.host.hidden = true;
     };
-    env.addEventListener("keydown", this.skip);
-    env.addEventListener("pointerdown", this.skip, { passive: true });
+  }
+  position(hudBottom) {
+    this.host.style.top = `${Math.max(8, hudBottom + 8)}px`;
   }
   enqueue(ids) {
     for (const id of ids)
@@ -32,14 +33,12 @@ export class AchievementToasts {
     const item = achievementById(this.queue.shift());
     this.current = item.id; this.seconds = 0;
     this.host.style.setProperty("--tier", ACHIEVEMENT_TIERS[item.tier]);
-    this.host.innerHTML = `<aside class="achievement-notice" role="status" data-tier="${item.tier}"><span class="achievement-sparkles" aria-hidden="true">✦ · ✧ · ✦</span>${achievementIcon(item)}<div><small>ACHIEVEMENT UNLOCKED · ${item.tier.toUpperCase()}</small><strong>${escape(item.name)}</strong><span>Any key or tap to skip · keep playing</span></div></aside>`;
+    this.host.innerHTML = `<aside class="achievement-notice" role="status" data-tier="${item.tier}"><span class="achievement-sparkles" aria-hidden="true">✦ · ✧ · ✦</span>${achievementIcon(item)}<div><small>ACHIEVEMENT UNLOCKED · ${item.tier.toUpperCase()}</small><strong>${escape(item.name)}</strong><span>Keep playing</span></div></aside>`;
     this.host.hidden = false;
     this.audio.play("achievement");
   }
   clear() { this.queue = []; this.skip(); this.host.innerHTML = ""; }
   destroy() {
     this.clear(); this.host.remove();
-    this.env.removeEventListener("keydown", this.skip);
-    this.env.removeEventListener("pointerdown", this.skip);
   }
 }

@@ -94,7 +94,7 @@ for (const [id, reward] of Object.entries(COSMETIC_REWARDS)) {
 }
 console.log("PASS Vault grid, hidden hints, progress, relevant hunts and cosmetic ownership");
 
-// Real queue class with small DOM/event doubles: skip only observes gameplay input.
+// Real queue class with small DOM/event doubles: input never dismisses a notice.
 const env = new EventTarget(), played = [], stage = { append(node) { this.child = node; } };
 const originalDocument = globalThis.document;
 globalThis.document = { createElement: () => ({ dataset: {}, style: { setProperty() {} }, setAttribute() {}, remove() { this.removed = true; } }) };
@@ -109,14 +109,16 @@ assert.equal(toast.current, "butter"); assert.equal(played.length, 2);
 let gameInput = 0;
 env.addEventListener("keydown", () => gameInput++);
 const key = new Event("keydown", { cancelable: true }); env.dispatchEvent(key);
-assert.equal(key.defaultPrevented, false); assert.equal(gameInput, 1); assert.equal(toast.host.hidden, true);
+assert.equal(key.defaultPrevented, false); assert.equal(gameInput, 1); assert.equal(toast.host.hidden, false);
 toast.enqueue(["barrel"]); toast.tick(16, true, true);
 assert.equal(toast.host.dataset.reducedMotion, "true");
-env.dispatchEvent(new Event("pointerdown")); assert.equal(toast.current, null);
+env.dispatchEvent(new Event("pointerdown")); assert.equal(toast.current, "butter");
+for (let i = 0; i < 18; i++) toast.tick(250);
+assert.equal(toast.current, "barrel", "only elapsed time advances the queue");
 toast.destroy(); assert.equal(stage.child.removed, true);
 toast.current = "sentinel"; env.dispatchEvent(new Event("keydown")); assert.equal(toast.current, "sentinel", "listeners disposed");
 globalThis.document = originalDocument;
-console.log("PASS queued unlock audio, expiry, pause, skip-through input, reduced motion and disposal");
+console.log("PASS queued unlock audio, expiry, pause, input independence, reduced motion and disposal");
 
 const calls = [], ctx = new Proxy({}, { get: (_, name) => (...args) => calls.push([name, ...args]), set: (_, name, value) => (calls.push([name, value]), true) });
 const world = Object.freeze({ launched: true, landed: false, crashed: false, elapsed: 3, cart: Object.freeze({ position: Object.freeze({ x: 800, y: 100 }) }) });

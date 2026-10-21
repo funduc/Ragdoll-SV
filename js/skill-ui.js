@@ -1,3 +1,4 @@
+import { gradeCue } from "./palette.js";
 import { SYNC_CONFIG } from "./sync-config.js";
 import { SKILL_CONFIG as C, rhythmPosition } from "./skill-config.js";
 
@@ -93,7 +94,7 @@ function baseWorldSkillView(world) {
       (f?.kind === "takeoff" ? f.detail : null) ||
         (s.takeoff
           ? "Boost committed · get ready to rotate"
-          : "Wait for the marker in green, then tap PUSH"),
+          : "Wait for the marker in the PERFECT zone, then tap PUSH"),
       s.takeoff || "",
       config,
     );
@@ -103,7 +104,7 @@ function baseWorldSkillView(world) {
     rhythmPosition(world.elapsed),
     "01 / RHYTHM · TAP SPACE / ↑",
     f?.detail ||
-      "Tap at the green centre. Release between pushes; holding gives one push.",
+      "Tap at the marked PERFECT centre. Release between pushes; holding gives one push.",
     f?.grade || "",
     config,
   );
@@ -139,7 +140,7 @@ export class SkillMeter {
     }
     for (const [element, text] of [
       [this.label, view.label],
-      [this.grade, view.grade],
+      [this.grade, gradeCue(view.grade)],
       [this.message, view.message],
     ])
       if (element.textContent !== text) element.textContent = text;

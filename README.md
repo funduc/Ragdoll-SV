@@ -12,6 +12,8 @@ npm run dev
 
 Open http://127.0.0.1:8000/ and choose **Enter the Vault**. No dependency installation is needed. Serve the game over HTTP rather than opening `index.html` directly. Solo progress and preferences are saved in your browser.
 
+**Settings:** use SETTINGS beside SOUND ON for music/effects volume, mute and Sheedy’s blue/orange colour-blind mode (with purple Owen). Settings pauses an active jump. What’s new shows the update history; unseen updates appear once after Enter the Vault. Preferences are remembered locally.
+
 ## Controls
 
 | Key | Action |
@@ -20,7 +22,7 @@ Open http://127.0.0.1:8000/ and choose **Enter the Vault**. No dependency instal
 | Left / A, Right / D | Rotate in the air |
 | Down / S | Brace once, just before landing |
 | Enter | Continue an introduction or confirm a menu |
-| R | Restart before takeoff; instantly retry from Vault Run results |
+| R | Vault Run: abandon the current attempt and return to Ready anytime (earlier heats stay banked); instantly retry from results. Party: reset before takeoff only |
 
 On touch screens, use the on-screen controls. Losing focus pauses play; release and press the controls again when returning. The Instructions screen includes optional practice drills.
 
@@ -74,7 +76,7 @@ New pieces inherit `theme.pieces[type].fill/stroke`; per-piece `fill`, `stroke`,
 
 ## Engineering and tests
 
-**Achievement Vault:** open it from the main menu to hunt 48 arcade badges in Bronze, Silver, Gold and Platinum tiers. Tiles show progress; select one for its goal and reward. Hidden goals offer hints. Completion excludes the three future-mechanic entries; character bars count that character's specific challenges. Results suggest up to two partly completed goals. Unlock toasts queue, play the achievement sound, and dismiss with any key or tap while that input still reaches the game. Reduced motion removes their animation.
+**Achievement Vault:** open it from the main menu to hunt 48 arcade badges in Bronze, Silver, Gold and Platinum tiers. Tiles show progress; select one for its goal and reward. Hidden goals offer hints. Completion excludes the three future-mechanic entries; character bars count that character's specific challenges. Results suggest up to two partly completed goals. Unlock toasts queue, play the achievement sound, and time out automatically in the top-right corner; replay-skip keys leave them visible. Reduced motion removes their animation.
 
 **Trophy Garage:** choose **Cosmetic rewards** inside the Vault to preview and equip paints, trails, hats and podium poses, alongside the existing prizes. New challenges reward three Perfect Syncs, three strikes, three bar clearances, all eight Tour stops, 1,000 carnage in one crash, hearing all three voices and three heckles. Voice progress counts actual playback; missing or muted clips stay silent. Hats and paints follow the cart/rider in replays; trails disappear with reduced motion, and poses appear on Party and Tour podiums. These rewards do not change physics, scores or medals. Existing achievement IDs, dates, objective badges and equipped rewards are preserved.
 
