@@ -108,7 +108,8 @@ test("Failed writes retain in-memory progress and retry after storage recovers",
   assert.equal(medals.award("jake", level, { medal: 1 }).saved, true);
   runs.finishLevel(level, true, true);
   assert.equal(new CampaignSave(db).entry("jake", level).medal, 3);
-  assert.equal(new RunSave(db).run.pendingLevel, level);
+  assert.equal(new RunSave(db).run.pendingLevel, null);
+  assert.ok(new RunSave(db).run.cleared.includes(level));
   assert.equal(medals.notice, "");
   assert.equal(runs.notice, "");
 });

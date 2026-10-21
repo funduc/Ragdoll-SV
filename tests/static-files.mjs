@@ -52,6 +52,8 @@ try {
     "js/run-save.js",
     "js/run-dev.js",
     "js/run-ui.js",
+    "js/loadout.js",
+    "js/garage-ui.js",
     "js/upgrade-art.js",
     "js/run-renderer.js",
     "js/objectives.js",

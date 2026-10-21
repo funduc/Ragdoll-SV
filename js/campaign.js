@@ -4,6 +4,7 @@ import { assertScore } from "./scoring.js";
 import { LEVELS, levelById, evaluateMedal } from "./campaign-levels.js";
 import { CampaignSave } from "./campaign-save.js";
 import { RunSave } from "./run-save.js";
+import { LoadoutSave, slotCount } from "./loadout.js";
 import { AchievementManager } from "./achievements.js";
 import { evaluateObjective } from "./objectives.js";
 import { tourFacts } from "./santor-tour.js";
@@ -97,7 +98,7 @@ export function combinedFacts(heats) {
   });
 }
 export class Campaign {
-  constructor(save, { runs = null, developer = null, seedFactory } = {}) {
+  constructor(save, { runs = null, loadout = null, developer = null, seedFactory } = {}) {
     this.kind = "campaign";
     this.round = "vault run";
     this.developer = developer;
@@ -109,6 +110,8 @@ export class Campaign {
         seedFactory,
         new AchievementManager(this.save.storage, { medals: this.save.data }),
       );
+    this.loadout = loadout || new LoadoutSave(this.save, this.runs.run, Boolean(developer));
+    this.lockedLoadout = null;
     this.state = S.SELECT;
     this.current = null;
     this.level = null;
@@ -137,14 +140,14 @@ export class Campaign {
       this.save.select(this.current.id);
       if (this.runs.run?.characterId !== this.current.id)
         this.runs.begin(this.current.id, this.developer || {});
-      this.transition(this.runs.run.pendingLevel ? S.UPGRADES : S.MAP);
-    } else if (this.state === S.READY) this.transition(S.ACTIVE);
+      this.transition(S.MAP);
+    } else if (this.state === S.READY) this.beginAttempt();
     else if (this.state === S.RESULTS) {
       if (!this.levelFinished) {
         this.stageIndex++;
         this.resetAttemptData();
         this.transition(S.READY);
-      } else this.transition(this.runs.run?.pendingLevel ? S.UPGRADES : S.MAP);
+      } else this.transition(S.MAP);
     } else if (this.state === S.RESET || this.state === S.NEW_RUN)
       this.transition(S.MAP);
     // Selection and map require an explicit choice. Reset defaults to Cancel.
@@ -172,11 +175,11 @@ export class Campaign {
     const level = levelById(id);
     if (
       this.state !== S.MAP ||
-      this.runs.run?.pendingLevel ||
       !this.isUnlocked(level)
     )
       return false;
     this.level = level;
+    this.lockedLoadout = null;
     this.stageIndex = 0;
     this.heats = [];
     this.resetAttemptData();
@@ -186,7 +189,7 @@ export class Campaign {
   backToMap() {
     if (![S.READY, S.RESULTS, S.RESET, S.NEW_RUN].includes(this.state))
       return false;
-    if (this.state === S.RESULTS && this.runs.run?.pendingLevel) return false;
+    this.lockedLoadout = null;
     this.transition(S.MAP);
     return true;
   }
@@ -244,21 +247,33 @@ export class Campaign {
   }
   retryLevel() {
     if (this.state !== S.RESULTS) return false;
-    if (this.runs.run?.pendingLevel) {
-      this.retryAfterReward = true;
-      this.transition(S.UPGRADES);
-      return true;
-    }
     this.stageIndex = 0;
     this.heats = [];
     this.resetAttemptData();
-    this.transition(S.ACTIVE);
+    this.beginAttempt();
     return true;
   }
   get attemptSpec() {
     return this.level
-      ? this.runs.plan(this.level.id, this.developer, this.stageIndex)
+      ? { ...this.runs.plan(this.level.id, this.developer, this.stageIndex), upgrades: { ...this.equipped } }
       : null;
+  }
+  get equipped() {
+    return this.lockedLoadout || (this.developer ? this.runs.run?.upgrades || {} : this.current ? this.loadout.get(this.current.id) : {});
+  }
+  get slots() { return this.current ? slotCount(this.save, this.current.id) : 0; }
+  get garageLocked() { return this.lockedLoadout !== null; }
+  get canEditLoadout() { return [S.MAP, S.READY].includes(this.state) && !this.garageLocked; }
+  changeLoadout(id, delta) {
+    if (!this.canEditLoadout || this.developer) return false;
+    if (id === "clear") { this.loadout.clear(this.current.id); return true; }
+    return this.loadout.change(this.current.id, id, delta);
+  }
+  beginAttempt() {
+    this.lastLoadout = Object.freeze({ ...this.equipped });
+    if (this.level.stages) this.lockedLoadout = this.lastLoadout;
+    this.runs.startAttempt(this.lastLoadout);
+    this.transition(S.ACTIVE);
   }
   get stage() {
     return this.level?.stages?.[this.stageIndex] || null;
@@ -278,6 +293,7 @@ export class Campaign {
     return this.stage?.introduction || this.level?.john.introduction || "";
   }
   resetAttemptData() {
+    this.slotUnlocked = false;
     this.reachedRamp = false;
     this.lastScore = null;
     this.lastMedal = null;
@@ -305,6 +321,7 @@ export class Campaign {
       );
     const levelFacts = this.level.stages ? combinedFacts(this.heats) : facts;
     const earned = evaluateMedal(this.level, levelFacts);
+    const previousSlots = this.slots;
     this.lastScore = score;
     this.lastMedal = Object.freeze({
       ...earned,
@@ -322,6 +339,7 @@ export class Campaign {
       score,
       world,
     );
+    this.slotUnlocked = this.slots > previousSlots;
     if (this.lastObjective?.passed)
       this.newAchievement = this.runs.achieve(
         this.current.id,
@@ -333,6 +351,7 @@ export class Campaign {
         earned.medal >= 1,
         this.level.upgradeReward,
       );
+    if (this.levelFinished) this.lockedLoadout = null;
     this.transition(S.RESULTS);
   }
   resetAttempt() {

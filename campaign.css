@@ -612,3 +612,37 @@
 @media (prefers-reduced-motion: reduce) {
   .tour-fireworks { animation: none; }
 }
+.garage-dialog {
+  box-sizing: border-box;
+  width: min(900px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  background: #111725;
+  color: #f4eedc;
+  border: 3px solid var(--cue-neutral, #f6c453);
+  padding: 20px;
+  box-shadow: 6px 6px 0 #050811;
+}
+.garage-dialog::backdrop { background: #050811cc; }
+.garage-dialog header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.garage-dialog header h2 { margin: 0; }
+.garage-dialog header .btn { margin-left: auto; }
+.garage-slots { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.garage-slots li { border: 2px dashed #6e7890; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; font-size: 12px; }
+.garage-slots svg { width: 38px; height: 38px; }
+.garage-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.garage-cards .upgrade-card { min-width: 0; padding: 14px; border: 2px solid #43566c; background: #172333; }
+.garage-cards .upgrade-card > .upgrade-icon { width: 42px; height: 42px; margin-bottom: 4px; }
+.garage-cards h3 { margin: 8px 0; }
+.garage-cards p { margin: 8px 0; font-size: 14px; }
+.garage-cards p.tiny { font-size: 11px; }
+.garage-adjust { display: flex; justify-content: center; gap: 12px; margin-top: 10px; }
+.garage-adjust .btn { min-width: 44px; min-height: 44px; }
+.garage-adjust .btn:disabled { opacity: .45; cursor: not-allowed; }
+.garage-dialog footer { margin-top: 16px; }
+@media (max-width: 600px) {
+  .garage-dialog { padding: 12px; }
+  .garage-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .garage-cards .upgrade-card { padding: 10px; }
+  .garage-cards h3 { font-size: 16px; }
+}

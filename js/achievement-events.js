@@ -94,10 +94,7 @@ export function campaignAchievementFacts(campaign) {
     completedLevels: medals.filter((n) => n >= 1).length,
     goldLevels: medals.filter((n) => n === 3).length,
     runComplete: campaign.complete,
-    upgradeCount: Object.values(campaign.runs.run?.upgrades || {}).reduce(
-      (a, b) => a + b,
-      0,
-    ),
+    upgradeCount: campaign.runs.run?.emptyGarageRun === false ? 1 : 0,
   };
 }
 // Party winners are players; the "winning jump" is each winner's best jump.

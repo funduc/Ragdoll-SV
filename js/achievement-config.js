@@ -468,7 +468,7 @@ export const ACHIEVEMENTS = freeze([
   campaign(
     "factory",
     "Factory Settings",
-    "Clear all ten main levels in one run without selecting an upgrade. Skip each reward to keep factory settings.",
+    "Clear all ten main levels in one run with an empty Garage.",
     {
       rules: [
         ["runComplete", "eq", true],

@@ -1,4 +1,5 @@
 import { SettingsUI } from "./settings-ui.js";
+import { GarageUI } from "./garage-ui.js";
 import { installUpgradeDetails } from "./run-ui.js";
 import { Records } from "./records.js";
 import { syncSounds } from "./sound-events.js";
@@ -123,6 +124,11 @@ class Game {
     this.settingsUI = new SettingsUI(this.ui.root, this.presentation.audio.preferences,
       paused => { this.modalPaused = paused; this.setSuspended(document.hidden || !this.input.focused); });
     this.removeUpgradeDetails = installUpgradeDetails(this.ui.root);
+    this.garageUI = new GarageUI(this.ui.root, () => {
+      this.clearControls();
+      this.replaceWorld(this.campaign.current);
+      this.renderState();
+    });
     this.restartButton = document.getElementById("restart-button");
     this.restartClick = () => this.restartAttempt();
     this.restartButton.addEventListener("click", this.restartClick);
@@ -341,7 +347,7 @@ class Game {
     this.renderState();
   }
   exclusiveKey(event) {
-    if (this.settingsUI?.open) return true;
+    if (this.settingsUI?.open || this.garageUI?.open) return true;
     if (["Enter", "Space"].includes(event.code) && event.target?.closest?.("#settings-button, #restart-button")) { event.target.closest("button").click(); return true; }
     if (
       event.code === "KeyR" &&
@@ -419,6 +425,7 @@ class Game {
         // Retain the save owner even if localStorage is unavailable this session.
         this.campaign = new Campaign(this.campaign.save, {
           runs: this.campaign.runs,
+          loadout: this.campaign.loadout,
           developer: this.developerRun,
         });
         this.mode = "vault";
@@ -430,6 +437,9 @@ class Game {
     if (this.mode !== "vault") return;
     const previous = this.campaign.state;
     switch (button.dataset.campaign) {
+      case "garage":
+        this.garageUI.show(this.campaign);
+        return;
       case "select":
         this.campaign.select(button.dataset.value);
         this.presentation.voices?.request(button.dataset.value, "select", false);
@@ -892,6 +902,7 @@ class Game {
     this.presentation.destroy();
     this.audioControls.destroy();
     this.settingsUI.destroy();
+    this.garageUI.destroy();
     this.removeUpgradeDetails();
     this.restartButton.removeEventListener("click", this.restartClick);
     this.removeAchievementHooks?.();

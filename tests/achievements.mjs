@@ -362,7 +362,7 @@ test("Run and campaign reset preserve achievements; achievement reset preserves 
     "v2 reset is not reimported",
   );
 });
-test("Skipping upgrade rewards is explicit, consumes the offer, and enables Factory Settings", () => {
+test("An empty Garage run can earn Factory Settings without reward choices", () => {
   const db = memory(),
     run = new Campaign(new CampaignSave(db), { seedFactory: () => 42 });
   run.select("owen");
@@ -370,9 +370,7 @@ test("Skipping upgrade rewards is explicit, consumes the offer, and enables Fact
   for (const l of LEVELS) {
     run.runs.finishLevel(l.id, true, l.upgradeReward);
     if (l.upgradeReward) {
-      const offers = [...run.runs.run.offers];
-      assert.ok(run.runs.skipOffer());
-      assert.equal(run.runs.choose(offers[0]), false);
+      assert.deepEqual(run.runs.run.offers, []);
       run.runs.finishLevel(l.id, true, l.upgradeReward);
       assert.equal(run.runs.run.pendingLevel, null);
     }

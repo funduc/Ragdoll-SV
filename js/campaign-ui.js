@@ -1,3 +1,4 @@
+import { garageButton, GARAGE_HELP } from "./garage-ui.js";
 import { characterCSS } from "./palette.js";
 import { AFTER_HOURS_LEVELS } from "./after-hours.js";
 import { podiumRider } from "./achievement-art.js";
@@ -23,7 +24,6 @@ import {
   runNotice,
   challengeMarkup,
   conditionBadge,
-  upgradeChoices,
   updateRunStatus,
 } from "./run-ui.js";
 import { CONDITIONS, OBJECTIVES, OBJECTIVE_IDS } from "./run-config.js";
@@ -155,7 +155,7 @@ function profile(ui, c, run) {
   ui.say(john);
   return `<section class="menu-panel intro-card" style="--person:${characterCSS(c)}">
     ${runNotice(run)}<p class="eyebrow">VAULT RUN / CONFIRM YOUR COMPETITOR <span class="intro-countdown">PRESS ENTER WHEN READY.</span></p>
-    <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${run.runs.run?.characterId === c.id ? "Resume your current run and upgrades." : "Starts a new run. Medals and achievements stay; another character’s upgrades clear."}</p></div></div>
+    <div class="handoff">${portrait(c)}<div><h2>${escape(c.fullName)}</h2><p class="tiny">${run.runs.run?.characterId === c.id ? "Resume your run and Garage." : "Starts a run with this character’s saved Garage. Medals and achievements stay."}</p></div></div>
     <p class="intro-bio">${escape(c.biography)}</p>
     ${c.associatedPhrase ? `<p class="tiny intro-phrase">“${escape(c.associatedPhrase)}”</p>` : ""}
     ${c.keepsake?.kind === "censored" ? `<span class="censored-keepsake"><span class="censored-icon" role="img" aria-label="Black-bar-censored novelty item">CENSORED</span><span>${escape(c.keepsake.label)}</span></span>` : c.keepsake ? `<span class="censored-keepsake">${escape(c.keepsake.label)}</span>` : ""}
@@ -213,7 +213,7 @@ export function renderCampaign(ui, run) {
       break;
     case S.MAP: {
       const cleared = progressCount(run.save, c);
-      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime and Santor on Tour are open.</p>' : ""}${runNotice(run)}${notice(run.save)}${upgradeIcons(run)}<ol class="level-grid">${LEVELS.map(
+      html = `<section class="menu-panel campaign-map-panel"><p class="eyebrow">THE SANTOR VAULT / CAMPAIGN MAP</p><div class="map-head"><h2>VAULT RUN</h2><p><b>${escape(c.fullName)}</b> · ${cleared}/${LEVELS.length} cleared</p></div>${cleared === LEVELS.length ? '<p class="subline">RUN COMPLETE · Gauntlet Overtime and Santor on Tour are open.</p>' : ""}${runNotice(run)}${notice(run.save)}${upgradeIcons(run)}${garageButton(run)}<ol class="level-grid">${LEVELS.map(
         (l, index) =>
           levelTile(
             run,
@@ -237,7 +237,7 @@ export function renderCampaign(ui, run) {
       const number = level.bonus
         ? level.chapter === "santor-on-tour" ? "SANTOR ON TOUR" : "BONUS"
         : `LEVEL ${String(LEVELS.indexOf(level) + 1).padStart(2, "0")} / ${LEVELS.length}`;
-      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${upgradeIcons(run)}${upgradeControls(run)}${goalList(level)}<p class="tiny">5 Perfect pushes + Perfect takeoff = Santor Sync.</p><p class="tiny">R restarts anytime at Ready. Earlier heats stay banked; the abandoned attempt does not count.</p>${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${characterCSS(c)}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}${level.upgradeReward ? '<p class="tiny">Bronze earns one upgrade choice per run.</p>' : ""}${runInventory(run)}`)}</section>`;
+      html = `<section class="menu-panel briefing-panel"><p class="eyebrow">${number}${run.stage ? ` · HEAT ${run.stageIndex + 1} OF 3 · ${escape(run.stage.name)}` : ""} · ${escape(c.name.toUpperCase())}</p><h2>${escape(level.name)}</h2><p class="brief-line">${escape(firstSentence(level.description))}</p>${conditionBadge(run, level)}${upgradeIcons(run)}${garageButton(run)}${upgradeControls(run)}${goalList(level)}<p class="tiny">5 Perfect pushes + Perfect takeoff = Santor Sync.</p><p class="tiny">R restarts anytime at Ready. Earlier heats stay banked; the abandoned attempt does not count.</p>${runNotice(run)}<p class="intro-john"><b>JOHN SANTOR:</b> ${escape(run.introduction)} ${escape(level.john.characters[c.id])}</p><div class="actions">${action("Begin jump", "confirm")}${action("Back to map", "map", "", true)}</div>${details(`<div class="handoff" style="--person:${characterCSS(c)}">${portrait(c)}<div><h3>${escape(c.fullName)}</h3><p class="tiny">${escape(c.passive.name)} · ${escape(level.modifier.name)}</p></div></div><p>${escape(level.description)}</p><p><b>OBJECTIVE:</b> ${escape(level.objective)}</p>${seriesMarkup(run, level)}${challengeMarkup(run, level)}<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level)}<p class="tiny">${GARAGE_HELP}</p>${runInventory(run)}`)}</section>`;
       ui.say(run.introduction);
       break;
     }
@@ -253,7 +253,7 @@ export function renderCampaign(ui, run) {
         LEVELS.indexOf(level) < LEVELS.length - 1
           ? ` · ${escape(LEVELS[LEVELS.indexOf(level) + 1].name)} unlocked`
           : "";
-      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${tourEnding(run, ui.cosmetics)}${scoreCard(s)}${tourResultNotes(level, result.facts)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + AFTER HOURS + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : run.runs.run?.pendingLevel ? "Choose an upgrade" : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${run.runs.run?.pendingLevel || level.stages ? `<p class="tiny">Retry${run.runs.run?.pendingLevel ? " after choosing or skipping your upgrade" : ""}${level.stages ? " · restarts at heat 1" : ""}.</p>` : ""}`)}</section>`;
+      html = `<section class="menu-panel results-panel"><p class="eyebrow">${escape(level.name)} / ${escape(c.name.toUpperCase())}</p><div class="campaign-award" id="campaign-award">${result.provisional ? `<span class="campaign-medal">HEAT ${run.stageIndex + 1} BANKED</span>` : medal(result.medal)}<p>${result.provisional ? `COMBINED SCORE ${run.combinedScore} · NEXT HEAT READY` : result.medal ? (level.stages ? "EARNED THIS GAUNTLET" : "EARNED THIS ATTEMPT") : "OBJECTIVE NOT YET MET"}</p><p class="tiny">${result.provisional ? "LEVEL MEDAL AFTER HEAT 3" : `${result.upgraded ? "NEW BEST" : "BEST KEPT"}: ${MEDALS[result.best.medal]}${result.best.santor ? " · SANTOR MEDAL ✓" : ""}${next}`}</p></div>${run.slotUnlocked ? '<p class="subline">NEW UPGRADE SLOT UNLOCKED · Open the Garage to equip it.</p>' : ""}${tourEnding(run, ui.cosmetics)}${scoreCard(s)}${upgradeIcons(run, run.lastLoadout || {})}${tourResultNotes(level, result.facts)}${level.id === "open-mic" ? `<p class="subline">${crowdCue(s) === "boo" ? "BOOO!" : "CHEERS!"} · APPLAUSE ${applause(s.tricks.unique, s.crashed)}% · ${s.tricks.unique} UNIQUE TRICKS</p>` : ""}${level.stages && !result.provisional ? `<p class="subline">GAUNTLET COMBINED SCORE · ${run.combinedScore}</p>` : ""}${result.provisional ? "" : goalList(level, result.facts)}${!result.provisional && result.medal > 0 && level.id === "the-santor-gauntlet" ? '<p class="subline">CAMPAIGN COMPLETE · OVERTIME + AFTER HOURS + SANTOR ON TOUR UNLOCKED</p>' : ""}${runNotice(run)}${notice(run.save)}${flavor}${carnageDetails(s)}<div class="actions">${action(!run.levelFinished ? `Continue to heat ${run.stageIndex + 2}` : "Return to map", "confirm")}${action("RETRY (R)", "retry")}<button type="button" class="btn secondary" data-replay>WATCH REPLAY</button></div>${scoreBreakdown(s, `${level.stages ? heatLedger(run) : ""}${level.arena.cargo ? `<p class="subline">CARGO: ${result.facts.cargoRetained ? "MUG DELIVERED · secured at finish" : "MUG RESIGNED · replacement required"}</p>` : ""}${challengeMarkup(run, level, true)}${result.provisional ? "" : `<p class="tiny">FULL MEDAL REQUIREMENTS</p>${goals(level, result.facts)}`}${runInventory(run)}${level.stages ? '<p class="tiny">Retry restarts at heat 1.</p>' : ""}`)}</section>`;
       ui.say(
         result.provisional
           ? `Heat ${run.stageIndex + 1} banked. ${run.combinedScore} points. ${run.stageIndex ? "THE LEDGER IS GETTING LOUDER." : "Please retain the cart for the next examination."}`
@@ -266,15 +266,11 @@ export function renderCampaign(ui, run) {
       if (s.crashCause) ui.caption(s.crashCause, c, run.round);
       break;
     }
-    case S.UPGRADES:
-      html = upgradeChoices(run, action);
-      ui.say("One upgrade. Choose from the available specifications.");
-      break;
     case S.NEW_RUN:
-      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / FRESH START</p><h2>START A NEW RUN?</h2><p>This clears temporary upgrades, refreshes the first three lessons’ seeded plans, and restores level rewards. Later levels keep their announced conditions. Your medals, unlocks, and objective achievements stay.</p>${runNotice(run)}<div class="actions">${action("Cancel — keep this run", "map")}${action("Start new run", "new-run-confirm", "", true)}</div></section>`;
+      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / FRESH START</p><h2>START A NEW RUN?</h2><p>This resets run progress and refreshes the first three lessons’ seeded plans. Your Garage loadout is kept. Later levels keep their announced conditions. Your medals, unlocks, and objective achievements stay.</p>${runNotice(run)}<div class="actions">${action("Cancel — keep this run", "map")}${action("Start new run", "new-run-confirm", "", true)}</div></section>`;
       break;
     case S.RESET:
-      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / CONFIRM RESET</p><h2>RESET CAMPAIGN PROGRESS?</h2><p>This clears Vault Run medals, temporary upgrades, and unlocks for <b>Jake, Brandon, and Owen</b> on this browser. Achievements, objective badges, Party Tournament, and your sound preference are unchanged.</p><p class="tiny">This cannot be undone.</p><div class="actions">${action("Cancel — keep progress", "map")}${action("Confirm campaign reset", "reset-confirm", "", true)}</div></section>`;
+      html = `<section class="menu-panel"><p class="eyebrow">VAULT RUN / CONFIRM RESET</p><h2>RESET CAMPAIGN PROGRESS?</h2><p>This clears Vault Run medals, upgrade slots, and unlocks for <b>Jake, Brandon, and Owen</b> on this browser. Achievements, objective badges, Party Tournament, and your sound preference are unchanged.</p><p class="tiny">This cannot be undone.</p><div class="actions">${action("Cancel — keep progress", "map")}${action("Confirm campaign reset", "reset-confirm", "", true)}</div></section>`;
       break;
   }
   ui.overlay.innerHTML = html;
@@ -284,8 +280,8 @@ export function renderCampaign(ui, run) {
           `[data-campaign="select"][data-value="${run.save.data.selectedCharacter}"]`,
         )
       : run.state === S.MAP
-        ? ui.overlay.querySelector('.level-tile[data-medal="0"]:not(:disabled)')
-        : null;
+        ? ui.overlay.querySelector('.level-tile[data-medal="0"]:not(:disabled)') || ui.overlay.querySelector('.level-tile:not(:disabled)')
+        : run.state === S.READY ? ui.overlay.querySelector('[data-campaign="confirm"]') : null;
   (preferred || ui.overlay.querySelector("button:not(:disabled)"))?.focus({
     preventScroll: true,
   });

@@ -70,24 +70,16 @@ test("Maxed upgrades are filtered; one, two, or zero remaining choices are handl
   counts[UPGRADE_IDS[1]]--;
   assert.equal(upgradeOffer(counts, 1, LEVELS[0].id).length, 2);
 });
-test("Pending offers survive refresh and exactly one valid choice is consumed", () => {
-  const db = memory(),
-    save = new RunSave(db, () => 42);
-  save.begin("jake");
-  save.finishLevel(LEVELS[0].id, true, true);
-  const offer = [...save.run.offers];
+test("Bronze records progress without creating random upgrade choices", () => {
+  const db = memory(), save = new RunSave(db, () => 42);
+  save.begin("jake"); save.finishLevel(LEVELS[0].id, true, true);
   const restored = new RunSave(db);
-  assert.deepEqual(restored.run.offers, offer);
-  assert.equal(restored.choose("unknown"), false);
-  assert.equal(restored.choose(offer[0]), true);
-  assert.equal(restored.choose(offer[1]), false);
-  assert.equal(restored.run.upgrades[offer[0]], 1);
+  assert.deepEqual(restored.run.offers, []);
   assert.equal(restored.run.pendingLevel, null);
-  restored.finishLevel(LEVELS[0].id, true, true);
-  assert.equal(restored.run.pendingLevel, null, "replays cannot farm rewards");
-  assert.deepEqual(restored.run.claimed, [LEVELS[0].id]);
+  assert.equal(restored.choose("reinforced-wheels"), false);
+  assert.deepEqual(restored.run.cleared, [LEVELS[0].id]);
 });
-test("Starting a new run clears temporary loadout/rewards but keeps the old medal schema and achievements", () => {
+test("Starting a run keeps the old medal schema and achievements", () => {
   const db = memory(),
     medals = new CampaignSave(db),
     save = new RunSave(db, () => 42);
@@ -180,10 +172,10 @@ test("Storage write failures stay visible even when a different companion write 
   const unavailable = new RunSave(null, () => 1);
   unavailable.begin("jake");
   unavailable.finishLevel(LEVELS[0].id, true, true);
-  assert.equal(unavailable.choose(unavailable.run.offers[0]), true);
+  assert.equal(unavailable.choose(unavailable.run.offers[0]), false);
   assert.match(unavailable.notice, /cannot be saved/);
 });
-test("Campaign confirmation resumes pending rewards; New run requires its own confirmation", () => {
+test("Campaign confirmation opens the map; New run requires its own confirmation", () => {
   const db = memory(),
     medals = new CampaignSave(db),
     saves = new RunSave(db, () => 42);
@@ -192,14 +184,7 @@ test("Campaign confirmation resumes pending rewards; New run requires its own co
   const run = new Campaign(medals, { runs: saves });
   run.select("jake");
   run.confirm();
-  assert.equal(run.state, S.UPGRADES);
-  run.confirm();
-  assert.equal(
-    run.state,
-    S.UPGRADES,
-    "generic confirmation cannot choose an upgrade",
-  );
-  run.chooseUpgrade(saves.run.offers[0]);
+  assert.equal(run.state, S.MAP);
   assert.equal(run.state, S.MAP);
   const held = JSON.stringify(saves.run);
   run.requestNewRun();

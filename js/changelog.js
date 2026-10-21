@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    id: "2026-10-21",
+    title: "Your cart, your Garage",
+    items: [
+      "Open the Garage from the map or briefing to equip any of the 13 upgrades.",
+      "Bronze in Orientation Day, Showboating 101 and Ice Cream Weather unlocks one slot each.",
+      "Each stack uses a slot. Swap freely between levels; three-heat loadouts stay locked until the level ends.",
+      "Your character keeps their Garage across new runs. Random upgrade rewards have retired.",
+      "Hunt Factory Settings by clearing all ten main levels with an empty Garage on every attempt.",
+    ],
+  },
+  {
     id: "2026-10-20",
     title: "More control, clearer jumps",
     items: [

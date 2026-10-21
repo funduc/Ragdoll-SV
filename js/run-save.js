@@ -56,6 +56,7 @@ export function normalizeRun(raw) {
     characterId: raw.characterId,
     seed: raw.seed,
     upgrades,
+    emptyGarageRun: raw.emptyGarageRun === true || (raw.emptyGarageRun !== false && Object.values(upgrades).every(n => n === 0)),
     claimed,
     cleared,
     pendingLevel: offers.length ? pendingLevel : null,
@@ -132,6 +133,7 @@ export class RunSave {
       characterId,
       seed: Number.isInteger(seed) ? seed >>> 0 : 1,
       upgrades: normalizeUpgrades(upgrades),
+      emptyGarageRun: true,
       claimed: [],
       cleared: [],
       pendingLevel: null,
@@ -169,11 +171,17 @@ export class RunSave {
     if (!this.run.cleared.includes(levelId)) this.run.cleared.push(levelId);
     if (reward && !this.run.claimed.includes(levelId)) {
       this.run.claimed.push(levelId);
-      this.run.offers = upgradeOffer(this.run.upgrades, this.run.seed, levelId);
-      this.run.pendingLevel = this.run.offers.length ? levelId : null;
     }
+    this.run.offers = [];
+    this.run.pendingLevel = null;
     this.write(RUN_SAVE_KEY, this.run);
     return true;
+  }
+  startAttempt(upgrades) {
+    if (this.run?.emptyGarageRun && Object.values(upgrades).some(n => n > 0)) {
+      this.run.emptyGarageRun = false;
+      this.write(RUN_SAVE_KEY, this.run);
+    }
   }
   choose(id) {
     if (

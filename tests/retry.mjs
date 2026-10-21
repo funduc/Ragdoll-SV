@@ -71,17 +71,7 @@ try {
     key("keydown", "KeyR", true);
     key("keyup", "KeyR");
     assert.equal(JSON.stringify([...entries]), saved, "retry itself never writes saves");
-    if (attempt === 0) {
-      assert.equal(run.state, S.UPGRADES, "pending reward precedes retry");
-      tap("KeyR");
-      assert.equal(run.state, S.UPGRADES, "R cannot bypass reward");
-      // Enter on the focused reward button follows the same menu handler.
-      window.closest = selector => selector.startsWith("button")
-        ? { disabled: false, isConnected: true, dataset: { campaign: "upgrade", value: run.runs.run.offers[0] }, hasAttribute: () => false }
-        : null;
-      tap("Enter");
-      delete window.closest;
-    }
+    assert.equal(run.state, S.ACTIVE, "Bronze never interrupts retry with a reward");
     assert.equal(run.state, S.ACTIVE);
     assert.notEqual(game.world, oldWorld);
     assert.equal(game.world.elapsed, 0);
@@ -93,7 +83,7 @@ try {
   assert.equal(resets, 5);
   assert.equal(syncStarts, 0, "retries never start a pre-jump Sync");
   assert.equal(focuses, 6);
-  console.log("PASS five keyboard-driven Orientation attempts and R retries, reward ordering, fresh worlds, controls and save preservation");
+  console.log("PASS five keyboard-driven Orientation attempts and R retries, no reward interruption, fresh worlds, controls and save preservation");
 
   const series = new Campaign(new CampaignSave(null), { developer: { seed: 42, upgrades: {} } });
   series.select("jake"); series.confirm(); series.startLevel("the-santor-gauntlet");
@@ -119,11 +109,9 @@ try {
   reward.select("jake"); reward.confirm(); reward.startLevel("orientation-day");
   reward.runs.finishLevel("orientation-day", true, true);
   reward.state = S.RESULTS;
-  reward.retryLevel(); assert.equal(reward.state, S.UPGRADES);
+  reward.retryLevel(); assert.equal(reward.state, S.ACTIVE);
   assert.equal(reward.chooseUpgrade("invalid"), false);
-  assert.equal(reward.state, S.UPGRADES);
-  reward.skipUpgrade(); assert.equal(reward.state, S.ACTIVE);
-  console.log("PASS skipping reward resumes retry; invalid reward cannot bypass choice");
+  console.log("PASS reward levels retry directly without upgrade choices");
 } finally {
   input.destroy(); game.world?.dispose();
 }

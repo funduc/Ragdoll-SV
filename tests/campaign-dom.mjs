@@ -11,6 +11,7 @@ import { JSDOM } from "../.qa/node_modules/jsdom/lib/api.js";
 import { CHARACTERS } from "../js/characters.js";
 import { LEVELS, HARD_GAUNTLET } from "../js/campaign-levels.js";
 import { CAMPAIGN_SAVE_KEY as SAVE } from "../js/campaign-save.js";
+import { LOADOUT_KEY } from "../js/loadout.js";
 import { PARTY_SETUP_KEY } from "../js/party-config.js";
 import { RUN_SAVE_KEY, ACHIEVEMENT_SAVE_KEY } from "../js/run-save.js";
 import {
@@ -503,20 +504,11 @@ if (process.env.SYNC_TEST) {
   }
   function returnToMap() {
     game.choose("confirm");
-    if (game.state() === "campaign-upgrades") {
-      const cards = [
-        ...game.document.querySelectorAll('[data-campaign="upgrade"]'),
-      ];
-      assert.equal(cards.length, 3);
-      assert.equal(new Set(cards.map((card) => card.dataset.value)).size, 3);
-      cards[0].click();
-      assert.equal(game.state(), "campaign-map");
-      assert.ok(
-        game
-          .$(".run-inventory")
-          .textContent.includes(UPGRADES[cards[0].dataset.value].name),
-      );
-    }
+    assert.equal(game.state(), "campaign-map");
+    game.choose("garage");
+    const add = game.document.querySelector('.garage-dialog [data-delta="1"]:not(:disabled)');
+    if (add) add.click();
+    game.document.querySelector('[data-garage-close]').click();
     assert.equal(game.state(), "campaign-map");
     assert.match(game.w.Audio.instances[0].src, /\/menu\.mp3$/);
   }
@@ -720,7 +712,7 @@ if (process.env.SYNC_TEST) {
   assert.equal(achievementsEarned.records.factory.unlocked, false);
   const beforeNewRun = game.savedData();
   assert.ok(
-    Object.values(JSON.parse(beforeNewRun[RUN_SAVE_KEY]).upgrades).some(
+    Object.values(JSON.parse(beforeNewRun[LOADOUT_KEY]).owen).some(
       (count) => count > 0,
     ),
   );
@@ -733,11 +725,7 @@ if (process.env.SYNC_TEST) {
   game.choose("new-run-confirm");
   assert.equal(game.state(), "campaign-map");
   const afterNewRun = game.savedData();
-  assert.ok(
-    Object.values(JSON.parse(afterNewRun[RUN_SAVE_KEY]).upgrades).every(
-      (count) => count === 0,
-    ),
-  );
+  assert.equal(afterNewRun[LOADOUT_KEY], beforeNewRun[LOADOUT_KEY]);
   assert.equal(afterNewRun[SAVE], beforeNewRun[SAVE]);
   assert.equal(
     afterNewRun[ACHIEVEMENT_SAVE_KEY],

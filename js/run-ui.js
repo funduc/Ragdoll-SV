@@ -55,14 +55,13 @@ export function installUpgradeDetails(root, env = window) {
 }
 
 const stackPips = (count, limit) => `<span class="upgrade-pips" aria-label="${count} of ${limit} stacks owned">${"●".repeat(count)}${"○".repeat(limit - count)}</span>`;
-export function upgradeIcons(run) {
-  const counts = run.runs.run?.upgrades || {};
+export function upgradeIcons(run, counts = run.equipped || run.runs.run?.upgrades || {}) {
   const entries = Object.entries(UPGRADES).filter(([id]) => counts[id]);
   if (!entries.length) return "";
   return `<div class="owned-upgrades" aria-label="Owned upgrades">${entries.map(([id, item]) => `<details class="owned-upgrade" name="owned-upgrades"><summary title="${escape(item.name)} · ${counts[id]}/${item.limit}" aria-label="${escape(item.name)}: ${counts[id]} of ${item.limit} stacks. Details">${upgradeIcon(id)}${stackPips(counts[id], item.limit)}</summary><div><b>${escape(item.shortName)}</b><p>${escape(item.description)}</p></div></details>`).join("")}</div>`;
 }
 export function upgradeControls(run) {
-  const n = run.runs.run?.upgrades || {}, hints = [];
+  const n = run.equipped || run.runs.run?.upgrades || {}, hints = [];
   if (n["rocket-booster"]) hints.push("In air: Space / Up or BOOST fires once.");
   if (n["air-brake"]) hints.push("Early Down / BRACE tap brakes once; tap again near landing to brace.");
   if (n.focus) hints.push("5 Perfect pushes in a row slows the takeoff approach.");
@@ -70,9 +69,9 @@ export function upgradeControls(run) {
 }
 
 export function runInventory(run) {
-  const counts = run.runs.run?.upgrades || {};
+  const counts = run.equipped || run.runs.run?.upgrades || {};
   const entries = Object.entries(UPGRADES).filter(([id]) => counts[id]);
-  return `<section class="run-inventory" aria-label="Current run upgrades"><h3>CURRENT RUN UPGRADES · ${entries.reduce((sum, [id]) => sum + counts[id], 0)}</h3>${entries.length ? `<ul>${entries.map(([id, upgrade]) => `<li><b>${escape(upgrade.name)} · ${counts[id]}/${upgrade.limit}</b><span>${escape(upgrade.description)}</span></li>`).join("")}</ul>` : '<p class="tiny">No upgrades yet. Earn Bronze in levels marked with an upgrade reward. Each grants one choice per run.</p>'}<p class="tiny">Temporary · kept through replays and refresh · cleared by New run or a different character.</p></section>`;
+  return `<section class="run-inventory" aria-label="Current run upgrades"><h3>EQUIPPED GARAGE · ${entries.reduce((sum, [id]) => sum + counts[id], 0)}</h3>${entries.length ? `<ul>${entries.map(([id, upgrade]) => `<li><b>${escape(upgrade.name)} · ${counts[id]}/${upgrade.limit}</b><span>${escape(upgrade.description)}</span></li>`).join("")}</ul>` : '<p class="tiny">Empty Garage. Earn slots with Bronze in Orientation Day, Showboating 101 and Ice Cream Weather.</p>'}<p class="tiny">Equip up to 3 stacks in the Garage. Your loadout stays with this character across new runs.</p></section>`;
 }
 export function runNotice(run) {
   if (run.developer)
@@ -116,17 +115,6 @@ export function challengeMarkup(run, level, result = false) {
   const earned =
     run.runs.achievements.characters[run.current.id]?.[plan.objective];
   return `<div class="run-challenge"><p><b>CONDITION: ${escape(condition?.name || "Standard")}</b><span>${escape(condition?.description || "No additional forces or traction changes.")}</span></p><p><b>OPTIONAL: ${escape(objective.name)}</b><span>${escape(objective.description)}</span>${result ? `<strong class="objective-outcome" data-objective-result="${run.lastObjective?.passed ? "success" : "failure"}">${run.lastObjective?.passed ? "SUCCESS" : "NOT MET"}</strong><span>${escape(run.lastObjective?.measured || "Attempt not valid")}</span><small>${run.newAchievement ? "NEW ACHIEVEMENT · retained for this character" : earned ? "Previously earned achievement retained" : "Optional objectives do not block medals or unlocks."}</small>` : `<small>${earned ? "Achievement already earned · replay freely" : "Optional achievement · does not block level progression"}</small>`}</p></div>`;
-}
-export function upgradeChoices(run, action) {
-  return `<section class="menu-panel"><p class="eyebrow">VAULT RUN / ONE REWARD</p><h2>CHOOSE AN UPGRADE</h2><p>Pick one. The others expire.</p>${runNotice(run)}<div class="upgrade-choices">${run.runs.run.offers
-    .map((id) => {
-      const item = UPGRADES[id],
-        count = run.runs.run.upgrades[id];
-      return `<article class="upgrade-card">${upgradeIcon(id)}<h3>${escape(item.shortName)}</h3><p class="upgrade-effect">${escape(item.effect)}</p>${stackPips(count, item.limit)}<details class="upgrade-details"><summary>Details</summary><p>${escape(item.description)}</p><p class="tiny">Owned ${count}/${item.limit} · choosing adds one stack.</p></details>${action(`Choose ${item.shortName}`, "upgrade", id)}</article>`;
-    })
-    .join(
-      "",
-    )}</div><div class="actions">${action("Keep factory settings — skip reward", "skip-upgrade")}</div><details class="brief-details"><summary>Details</summary><p class="tiny">Replaying this level cannot grant another reward during this run.</p>${runInventory(run)}</details></section>`;
 }
 export function updateRunStatus(world) {
   const node = document.getElementById("run-status");
